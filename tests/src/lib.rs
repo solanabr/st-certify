@@ -1,3 +1,6 @@
+// litesvm's `TransactionResult` carries a large `FailedTransactionMetadata` in its
+// Err variant; that is its API, not ours, so the large-err lint is noise here.
+#![allow(clippy::result_large_err)]
 //! Test harness for the `certify` program.
 //!
 //! `solana_pubkey::Pubkey` is a re-export of `solana_address::Address`, so the
