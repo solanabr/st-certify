@@ -6,6 +6,21 @@ const ZERO_WIDTH_CHARS = new RegExp("[\\u200B-\\u200F\\uFEFF]", "g");
 const NAME_CHARSET = /^[\p{L}\p{M}\p{N} '\-.]+$/u;
 const BASE58_CHARSET = /^[1-9A-HJ-NP-Za-km-z]+$/;
 
+// Homoglyph mitigation (plan §Security #2 "mixed-script flag"): Cyrillic and
+// Greek are the classic Latin-lookalike sources (e.g. Cyrillic "а" U+0430 vs
+// Latin "a" U+0061) — swapping 1-2 letters from one of these into an
+// otherwise-Latin name is the standard impersonation trick ("Vitalik" with a
+// Cyrillic а). This is a scoped heuristic, not full Unicode UTS #39
+// confusables detection: it only flags Latin mixed with Cyrillic/Greek, so
+// genuine non-Latin names (Cyrillic-only, CJK, Korean, Armenian, ...) are
+// unaffected — only the MIXTURE is suspicious, not any single script.
+const LATIN_LETTER = /\p{Script=Latin}/u;
+const CONFUSABLE_LETTER = /\p{Script=Cyrillic}|\p{Script=Greek}/u;
+
+function hasSuspiciousScriptMix(value: string): boolean {
+  return LATIN_LETTER.test(value) && CONFUSABLE_LETTER.test(value);
+}
+
 function cleanStudentName(value: string): string {
   return value
     .normalize("NFC")
@@ -23,7 +38,11 @@ export const studentNameSchema = z
       .string()
       .min(2, "Nome deve ter pelo menos 2 caracteres.")
       .max(64, "Nome deve ter no máximo 64 caracteres.")
-      .regex(NAME_CHARSET, "Nome contém caracteres não permitidos."),
+      .regex(NAME_CHARSET, "Nome contém caracteres não permitidos.")
+      .refine(
+        (v) => !hasSuspiciousScriptMix(v),
+        "Nome mistura alfabetos incompatíveis (possível caractere confundível).",
+      ),
   );
 
 export const requestCertificateSchema = z.object({
@@ -53,9 +72,18 @@ function utf8ByteLength(value: string): number {
   return new TextEncoder().encode(value).length;
 }
 
-/** UTF-8 byte-aware max length — `encodeUtf8Fixed` truncates silently past this, so validate in bytes, not JS chars. */
-function maxUtf8Bytes(max: number, message: string) {
-  return (value: string) => utf8ByteLength(value) <= max || message;
+/**
+ * UTF-8 byte-aware max length — `encodeUtf8Fixed` truncates silently past
+ * this, so validate in bytes, not JS chars. Returns a plain boolean predicate
+ * for `.refine(predicate, message)`: zod's `.refine()` treats ANY truthy
+ * return as "valid" (verified against 4.4.3 — it does not special-case a
+ * returned string as a failure), so the message must be passed as refine's
+ * separate second argument, never folded into the predicate via `|| message`
+ * (that pattern always "passes" once the value is non-empty, silently
+ * disabling the length check).
+ */
+function maxUtf8Bytes(max: number): (value: string) => boolean {
+  return (value: string) => utf8ByteLength(value) <= max;
 }
 
 export const walletAddressSchema = z
@@ -79,10 +107,8 @@ export const editionMetaSchema = z.object({
     .trim()
     .min(3, "Nome deve ter pelo menos 3 caracteres.")
     .refine(
-      maxUtf8Bytes(
-        EDITION_NAME_MAX_BYTES,
-        `Nome muito longo (máx. ${EDITION_NAME_MAX_BYTES} bytes).`,
-      ),
+      maxUtf8Bytes(EDITION_NAME_MAX_BYTES),
+      `Nome muito longo (máx. ${EDITION_NAME_MAX_BYTES} bytes).`,
     ),
   slug: slugSchema,
   // Blank means "uncapped". Deliberately NOT z.coerce/z.preprocess here —
@@ -111,20 +137,16 @@ export const editionSignerFormSchema = z.object({
     .trim()
     .min(1, "Nome obrigatório.")
     .refine(
-      maxUtf8Bytes(
-        SIGNER_NAME_MAX_BYTES,
-        `Nome muito longo (máx. ${SIGNER_NAME_MAX_BYTES} bytes).`,
-      ),
+      maxUtf8Bytes(SIGNER_NAME_MAX_BYTES),
+      `Nome muito longo (máx. ${SIGNER_NAME_MAX_BYTES} bytes).`,
     ),
   role: z
     .string()
     .trim()
     .min(1, "Cargo obrigatório.")
     .refine(
-      maxUtf8Bytes(
-        SIGNER_ROLE_MAX_BYTES,
-        `Cargo muito longo (máx. ${SIGNER_ROLE_MAX_BYTES} bytes).`,
-      ),
+      maxUtf8Bytes(SIGNER_ROLE_MAX_BYTES),
+      `Cargo muito longo (máx. ${SIGNER_ROLE_MAX_BYTES} bytes).`,
     ),
 });
 
