@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "canvas": {
+    "width": 1600,
+    "height": 1131
+  },
+  "template": {
+    "sha256": "035db66b2d780cf2e91a8244fc0a5b7ad935bd9e844fb622f263c4d6a1de59a3"
+  },
+  "signers": [],
+  "fields": {
+    "student_name": {
+      "x": 0,
+      "y": 0.4067,
+      "w": 1,
+      "h": 0.0973,
+      "size": 0.0601,
+      "color": "#FFFFFF",
+      "align": "center",
+      "font": "inter",
+      "weight": 600
+    },
+    "date": {
+      "x": 0,
+      "y": 0.5234,
+      "w": 1,
+      "h": 0.0389,
+      "size": 0.0212,
+      "color": "#94A3B8",
+      "align": "center",
+      "font": "inter",
+      "weight": 400
+    },
+    "cert_id": {
+      "x": 0,
+      "y": 0.9231,
+      "w": 1,
+      "h": 0.0283,
+      "size": 0.0141,
+      "color": "#94A3B8",
+      "align": "center",
+      "font": "inter",
+      "weight": 400
+    },
+    "qr": {
+      "x": 0.8813,
+      "y": 0.672,
+      "size": 0.1149
+    }
+  },
+  "signatures": []
+}
