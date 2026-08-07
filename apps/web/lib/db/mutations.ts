@@ -11,7 +11,10 @@ export const dbConfigured = Boolean(SUPABASE_URL && SERVICE_ROLE_KEY);
 
 let serviceClient: SupabaseClient | null = null;
 
-function getServiceClient(): SupabaseClient {
+// Exported for apps/web/lib/render/storage.ts — storage uploads need the
+// same service-role client; keeping @supabase/supabase-js imported only
+// here (not duplicated in lib/render) is what the ESLint import fence enforces.
+export function getServiceClient(): SupabaseClient {
   if (!dbConfigured || !SUPABASE_URL || !SERVICE_ROLE_KEY) {
     fail("INTERNAL", "Supabase não configurado.");
   }
