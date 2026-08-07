@@ -1,12 +1,16 @@
 /**
  * Golden-vector tests (skill rule 3, the real-bytes layer). Decodes account
- * buffers dumped from a live LiteSVM/on-chain run and asserts the decoded fields.
- * These auto-activate the moment m1a-program drops dump files into `golden/`;
- * until then the suite skips (see golden/README.md for the file format).
+ * buffers dumped from the program's LiteSVM matrix and asserts the decoded
+ * fields — the layer that catches a self-consistent-but-wrong codec.
+ *
+ * Convention (agreed with the program agent, owned by the M1a #12 matrix):
+ * vectors live at `<repo>/tests/golden/` as `<name>.hex` (hex-encoded raw account
+ * bytes) plus `manifest.json`. This test reads them READ-ONLY and auto-unskips
+ * when they appear. See ../golden/README.md for the manifest schema.
  */
 
 import assert from "node:assert/strict";
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
@@ -19,13 +23,15 @@ import {
 } from "../src/accounts";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const goldenDir = join(here, "..", "golden");
+// packages/certify-client/tests -> <repo>/tests/golden (read-only)
+const goldenDir = join(here, "..", "..", "..", "tests", "golden");
+const manifestPath = join(goldenDir, "manifest.json");
 
 const decoders: Record<string, (b: Uint8Array) => Record<string, unknown>> = {
   config: decodeConfig,
   edition: decodeEdition,
   certificate: decodeCertificate,
-  hashIndex: decodeHashIndex,
+  hashindex: decodeHashIndex,
 };
 
 function hexToBytes(hex: string): Uint8Array {
@@ -37,43 +43,50 @@ function hexToBytes(hex: string): Uint8Array {
   return out;
 }
 
-function loadBytes(g: { dataHex?: string; dataBase64?: string }): Uint8Array {
-  if (g.dataHex) return hexToBytes(g.dataHex);
-  if (g.dataBase64) return new Uint8Array(Buffer.from(g.dataBase64, "base64"));
-  throw new Error("golden entry needs dataHex or dataBase64");
-}
+type ManifestEntry = {
+  account: string;
+  expected?: Record<string, unknown>;
+} & Record<string, unknown>;
 
-const files =
-  existsSync(goldenDir) &&
-  readdirSync(goldenDir).some((f) => f.endsWith(".json"))
-    ? readdirSync(goldenDir).filter((f) => f.endsWith(".json"))
-    : [];
+const hasVectors = existsSync(manifestPath);
+const manifest: Record<string, ManifestEntry> = hasVectors
+  ? JSON.parse(readFileSync(manifestPath, "utf8"))
+  : {};
+const names = Object.keys(manifest);
 
 describe("golden vectors (real LiteSVM/onchain dumps)", () => {
   it(
-    "at least one golden file is present",
+    "manifest is present",
     {
-      skip:
-        files.length === 0
-          ? "no golden/*.json yet — drop LiteSVM dumps to activate"
-          : false,
+      skip: hasVectors
+        ? false
+        : "no tests/golden/manifest.json yet — activates when the program matrix lands vectors",
     },
     () => {
-      assert.ok(files.length > 0);
+      assert.ok(names.length > 0, "manifest.json has no entries");
     },
   );
 
-  for (const file of files) {
-    it(`decodes ${file}`, () => {
-      const g = JSON.parse(readFileSync(join(goldenDir, file), "utf8"));
-      const decode = decoders[g.account];
-      assert.ok(decode, `unknown account type "${g.account}"`);
-      const decoded = decode(loadBytes(g));
-      for (const [k, v] of Object.entries(g.expected ?? {})) {
-        const actual = decoded[k];
-        const expected =
-          typeof actual === "bigint" ? BigInt(v as string | number) : v;
-        assert.deepEqual(actual, expected, `field "${k}"`);
+  for (const name of names) {
+    it(`decodes ${name}`, () => {
+      const entry = manifest[name];
+      const decode = decoders[String(entry.account).toLowerCase()];
+      assert.ok(decode, `unknown account type "${entry.account}" for ${name}`);
+
+      const hexPath = join(goldenDir, `${name}.hex`);
+      assert.ok(existsSync(hexPath), `missing ${name}.hex`);
+      const decoded = decode(hexToBytes(readFileSync(hexPath, "utf8")));
+
+      const expected =
+        entry.expected ??
+        Object.fromEntries(
+          Object.entries(entry).filter(([k]) => k !== "account"),
+        );
+      for (const [field, want] of Object.entries(expected)) {
+        const actual = decoded[field];
+        const wanted =
+          typeof actual === "bigint" ? BigInt(want as string | number) : want;
+        assert.deepEqual(actual, wanted, `${name}.${field}`);
       }
     });
   }

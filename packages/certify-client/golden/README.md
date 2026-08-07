@@ -1,39 +1,40 @@
 # Golden vectors
 
-Real account-data dumps from the LiteSVM / on-chain test matrix. `tests/golden.test.ts`
-uses these to prove the decoders match the bytes the **program** actually writes —
-not just self-roundtrip (the classic native-client failure is a codec that is
-self-consistent but wrong). The suite auto-discovers `*.json` here and unskips.
+Real account-data dumps that prove the decoders match the bytes the **program**
+actually writes (not just self-roundtrip — the classic native-client failure is a
+codec that is self-consistent but wrong).
 
-## File format
+**Location (agreed convention):** the vectors live at `<repo>/tests/golden/`,
+produced and owned by the M1a LiteSVM/Mollusk matrix (task #12). This client's
+`tests/golden.test.ts` reads them **read-only** and auto-unskips when they appear.
+This directory holds only the schema doc.
 
-One JSON file per account state:
+## Files
+
+- `<repo>/tests/golden/<name>.hex` — hex-encoded raw account bytes (whitespace ignored).
+- `<repo>/tests/golden/manifest.json` — maps each `<name>` to its account type and
+  expected decoded fields.
+
+Agreed names: `config.default`, `edition.3signers`, `certificate.requested`,
+`certificate.fullysigned`, `certificate.claimed`, `hashindex`.
+
+## `manifest.json` schema
+
+Keyed by the `.hex` basename. `account` is the decoder type
+(`config` | `edition` | `certificate` | `hashIndex`, case-insensitive). `expected`
+is a subset of the **public** decoder's output — `u64`/`i64` as strings, addresses
+base58, status as its name string, masks as numbers. (`expected` may be omitted and
+its fields placed flat next to `account`.)
 
     {
-      "account": "certificate",        // config | edition | certificate | hashIndex
-      "dataHex": "03fe01...",          // full account data as hex (or "dataBase64")
-      "expected": {                    // subset of decoded fields to assert
-        "status": "FullySigned",
-        "certNumber": "1",             // u64/i64 as a STRING (JSON has no bigint)
-        "student": "5Wx1mNKSgtu1pnwHgLe5duYK9xcFhEhsd1zoeJi9EiUZ"
-      }
+      "config.default":          { "account": "config",      "expected": { "adminCount": 3, "notary": "<base58>", "editionsCreated": "0" } },
+      "edition.3signers":        { "account": "edition",     "expected": { "status": "Open", "signerCount": 3, "id": "0", "name": "<utf8>" } },
+      "certificate.requested":   { "account": "certificate", "expected": { "status": "Requested", "signedMask": 0 } },
+      "certificate.fullysigned": { "account": "certificate", "expected": { "status": "FullySigned", "signedMask": 7 } },
+      "certificate.claimed":     { "account": "certificate", "expected": { "status": "Claimed", "certNumber": "1" } },
+      "hashindex":               { "account": "hashIndex",   "expected": { "certificate": "<base58>" } }
     }
 
-- `dataHex` and `dataBase64` are interchangeable.
-- `expected` is matched against the **public** decoder output (`decodeCertificate`,
-  `decodeEdition`, `decodeConfig`, `decodeHashIndex`). Give bigints as strings and
-  addresses as base58. Omit raw byte fields (assert those in a dedicated test if needed).
-
-## Producing these (owner: m1a-program / M1a test matrix)
-
-In the LiteSVM matrix, after driving an account to a known state, dump
-`account.data` (base64 or hex) and the fields worth asserting. Good candidates that
-cross-check the program's writes against this client:
-
-- `certificate-claimed.json` — a claimed cert (asserts `status`, `certNumber`, `student`, `edition`).
-- `edition-open.json` — an open edition (asserts `status`, `id`, `name`, `signerCount`).
-- `config.json` — the config singleton (asserts `adminCount`, `notary`).
-- `hashindex.json` — a hash index (asserts `certificate`).
-
-Byte parity here + PDA parity (dump the derived addresses and compare to the
-`find*Pda` helpers) is the M1 client gate.
+Byte fields (`nameCommitment`, `artifactHash`, `specHash`) are best asserted in a
+dedicated test rather than the manifest. Adding a `pda` field (the derived address)
+per entry lets us also cross-check the `find*Pda` helpers against on-chain addresses.

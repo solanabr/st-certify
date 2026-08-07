@@ -110,5 +110,6 @@ Query certs by `getProgramAccounts` memcmp: edition @4, student @36, status @2
 - `pnpm --filter @certify/client typecheck` — `tsc --noEmit`.
 - `pnpm --filter @certify/client test` — `node:test` via `tsx` (roundtrip + fixture + PDA + golden).
 
-`golden/` holds real LiteSVM/on-chain account dumps for byte-parity tests; the golden
-suite auto-activates when files land (format in `golden/README.md`).
+Byte-parity golden vectors live at `<repo>/tests/golden/` (`*.hex` + `manifest.json`,
+produced by the M1a matrix); `tests/golden.test.ts` reads them read-only and
+auto-activates when they land. Schema in `golden/README.md`.
