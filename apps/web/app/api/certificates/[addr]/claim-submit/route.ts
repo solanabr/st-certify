@@ -7,20 +7,30 @@ import { fail } from "@/lib/errors";
 import { submitClaim, type SubmitClaimResult } from "@/lib/chain/claim";
 
 interface ClaimSubmitBody {
-  wireBytesBase64: string;
-  lastValidBlockHeight: string;
+  wireBytesBase64?: string;
+  lastValidBlockHeight?: string;
 }
 
+/**
+ * Both fields are optional: the initial submit sends the student-signed wire; a
+ * resume-mint re-POST (cert already Claimed, asset still null) sends an empty
+ * body and lets `submitClaim` pick up at the mint step. When present, they must
+ * be strings.
+ */
 function parseBody(body: unknown): ClaimSubmitBody {
-  const b = body as Partial<ClaimSubmitBody> | null;
+  const b = (body ?? {}) as Partial<ClaimSubmitBody>;
   if (
-    !b ||
-    typeof b.wireBytesBase64 !== "string" ||
-    typeof b.lastValidBlockHeight !== "string"
+    (b.wireBytesBase64 !== undefined &&
+      typeof b.wireBytesBase64 !== "string") ||
+    (b.lastValidBlockHeight !== undefined &&
+      typeof b.lastValidBlockHeight !== "string")
   ) {
     fail("VALIDATION", "Requisição inválida.");
   }
-  return b as ClaimSubmitBody;
+  return {
+    wireBytesBase64: b.wireBytesBase64,
+    lastValidBlockHeight: b.lastValidBlockHeight,
+  };
 }
 
 /**

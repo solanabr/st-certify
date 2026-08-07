@@ -46,6 +46,7 @@ import {
   markCertificateClaimed,
   setCertificateArtifact,
 } from "@/lib/db/claim-verify-mutations";
+import { syncCertificateMirrorFromChain } from "@/lib/db/mutations";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -275,6 +276,10 @@ export async function prepareClaim(
     layout: artifact.layout,
     values: {
       studentName: cert.student_name,
+      // Publishing name+salt in render_spec is intentional (plan): it makes the
+      // cert commitment-verifiable from metadata alone. Salt secrecy protects
+      // nothing here — privacy comes from erasure (deleting the mirror row), and
+      // the on-chain commitment is already public.
       nameSaltHex: cert.name_salt ?? "",
       dateText: artifact.dateText,
       certId: input.certificateAddress,
@@ -345,8 +350,9 @@ export interface SubmitClaimInput {
   certificateAddress: string;
   callerWallets: string[];
   callerDid: string;
-  wireBytesBase64: string;
-  lastValidBlockHeight: string;
+  /** The student-signed claim wire — required only when the cert isn't Claimed yet. A resume-mint re-POST (already Claimed, asset still null) omits it. */
+  wireBytesBase64?: string;
+  lastValidBlockHeight?: string;
 }
 
 export interface SubmitClaimResult {
@@ -396,6 +402,9 @@ export async function submitClaim(
         "Este certificado não está no estado esperado para resgate.",
       );
     }
+    if (!input.wireBytesBase64 || !input.lastValidBlockHeight) {
+      fail("VALIDATION", "Transação de resgate ausente. Reinicie o resgate.");
+    }
     const result = await submitAndSyncTransaction({
       wireBytesBase64: input.wireBytesBase64,
       lastValidBlockHeight: BigInt(input.lastValidBlockHeight),
@@ -431,13 +440,21 @@ export async function submitClaim(
 
   const certNumber = Number(onchainCert.certNumber);
 
-  // Step 2 — if the asset is already recorded on-chain, we're done.
+  // Step 2 — if the asset is already recorded on-chain, we're done. Reconcile
+  // the mirror in case a prior record_asset synced on-chain but its mirror write
+  // didn't — otherwise /me stays stuck at "Emitindo NFT…" despite chain being done.
   if (
     !claimSubmitPlan({
       status: onchainCert.status,
       hasAsset: onchainCert.asset !== null,
     }).needsMintAndRecord
   ) {
+    await syncCertificateMirrorFromChain(input.certificateAddress, {
+      status: onchainCert.status,
+      signedMask: onchainCert.signedMask,
+      certNumber: onchainCert.certNumber,
+      asset: onchainCert.asset,
+    });
     const cert = await getCertificateByAddress(input.certificateAddress);
     return {
       status: "claimed",

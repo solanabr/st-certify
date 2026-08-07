@@ -44,7 +44,9 @@ export function classifyVerifyInput(raw: string): VerifyInput {
 }
 
 export interface VerifyReconcile {
-  /** Show the NFT link only when the on-chain Certificate.asset exists (back-reference doctrine). */
+  /** The live chain status is Revoked — "chain wins", overrides a stale valid mirror. */
+  revoked: boolean;
+  /** Show the NFT link only when the on-chain Certificate.asset exists AND the cert isn't revoked. */
   showNftLink: boolean;
   nftAsset: string | null;
   /** Chain status diverges from the mirror — chain wins; surface a "atualizando" note. */
@@ -53,8 +55,10 @@ export interface VerifyReconcile {
 
 /**
  * Pure reconciliation of the live chain verdict against the mirror-rendered one
- * (unit tested). The NFT link is derived ONLY from the on-chain asset; a
- * Claimed/Revoked divergence from the mirror flags drift.
+ * (unit tested). "Chain wins": a live Revoked status overrides a stale valid
+ * mirror and WITHHOLDS the NFT link — a revoked cert keeps its `Certificate.asset`
+ * field (the burn only affects the mpl-core asset), so the link would otherwise
+ * point at a burned asset under a reassuring green stamp.
  */
 export function reconcileChainVerdict(input: {
   exists: boolean;
@@ -62,12 +66,14 @@ export function reconcileChainVerdict(input: {
   chainAsset: string | null;
   mirrorStatus: string;
 }): VerifyReconcile {
+  const revoked = input.exists && input.chainStatus === "Revoked";
   const drifted =
     input.exists &&
     ((input.chainStatus === "Claimed" && input.mirrorStatus !== "Claimed") ||
       (input.chainStatus === "Revoked" && input.mirrorStatus !== "Revoked"));
   return {
-    showNftLink: input.exists && input.chainAsset !== null,
+    revoked,
+    showNftLink: input.exists && input.chainAsset !== null && !revoked,
     nftAsset: input.chainAsset,
     drifted,
   };

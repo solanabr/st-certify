@@ -5,6 +5,7 @@ import {
   ExternalLink,
   Loader2,
   ShieldCheck,
+  ShieldX,
   TriangleAlert,
 } from "lucide-react";
 import {
@@ -80,6 +81,23 @@ export function VerifyChainStamp({
     chainAsset: verdict.asset,
     mirrorStatus,
   });
+
+  // Chain wins: a live Revoked status overrides any (possibly stale) valid mirror
+  // banner with a destructive state, and never surfaces the NFT link.
+  if (reconcile.revoked) {
+    return (
+      <p
+        className="flex flex-wrap items-center gap-2 text-sm font-medium text-destructive"
+        aria-live="polite"
+      >
+        <ShieldX className="size-4" aria-hidden="true" />
+        Revogado on-chain — este certificado não é mais válido.
+        <span className="tabular-nums font-normal text-muted-foreground">
+          · slot {verdict.slot}
+        </span>
+      </p>
+    );
+  }
 
   return (
     <div className="space-y-3" aria-live="polite">

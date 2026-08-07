@@ -47,7 +47,12 @@ describe("reconcileChainVerdict (back-reference + drift)", () => {
         chainAsset: "AssetXyz",
         mirrorStatus: "Claimed",
       }),
-    ).toEqual({ showNftLink: true, nftAsset: "AssetXyz", drifted: false });
+    ).toEqual({
+      revoked: false,
+      showNftLink: true,
+      nftAsset: "AssetXyz",
+      drifted: false,
+    });
 
     expect(
       reconcileChainVerdict({
@@ -57,6 +62,18 @@ describe("reconcileChainVerdict (back-reference + drift)", () => {
         mirrorStatus: "Claimed",
       }).showNftLink,
     ).toBe(false);
+  });
+
+  it("withholds the NFT link and flags revoked when the chain says Revoked (even with a lingering asset)", () => {
+    const r = reconcileChainVerdict({
+      exists: true,
+      chainStatus: "Revoked",
+      chainAsset: "AssetXyz", // Certificate.asset persists after burn
+      mirrorStatus: "Claimed", // stale valid mirror — chain wins
+    });
+    expect(r.revoked).toBe(true);
+    expect(r.showNftLink).toBe(false);
+    expect(r.drifted).toBe(true);
   });
 
   it("never shows a link when the cert does not exist on-chain", () => {

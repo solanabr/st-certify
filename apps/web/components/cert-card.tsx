@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { StatusTimeline } from "@/components/status-timeline";
 import { ClaimAction } from "@/components/claim/claim-action";
+import { MintingStatus } from "@/components/claim/minting-status";
 import { CopyLinkButton } from "@/components/verify/copy-link-button";
 import type {
   CertificateForOwner,
@@ -75,11 +76,7 @@ function ActionZone({ cert }: { cert: CertificateForOwner }) {
   if (cert.status === "Claimed") {
     return (
       <div className="mt-6 space-y-3">
-        {!cert.asset && (
-          <p className="text-sm text-muted-foreground" aria-live="polite">
-            Emitindo NFT…
-          </p>
-        )}
+        {!cert.asset && <MintingStatus cert={cert} />}
         {cert.imageUrl && (
           // eslint-disable-next-line @next/next/no-img-element -- content-addressed external asset, not a local/Next-optimizable image
           <img
