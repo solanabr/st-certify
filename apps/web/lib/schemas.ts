@@ -84,7 +84,12 @@ export const editionMetaSchema = z.object({
       ),
     ),
   slug: slugSchema,
-  maxSupply: z.coerce
+  // Blank means "uncapped". Deliberately NOT z.coerce/z.preprocess here —
+  // both make zodResolver's inferred input type diverge from EditionWizardInput
+  // (preprocess's input type defaults to `unknown`), breaking useForm<T>'s
+  // generic. The form's onChange instead normalizes "" -> undefined before it
+  // ever reaches RHF state, so this field only ever sees number | undefined.
+  maxSupply: z
     .number()
     .int("Deve ser um número inteiro.")
     .positive("Deve ser maior que zero.")
