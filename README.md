@@ -267,6 +267,18 @@ build's SDD progress log) are folded in here; the full detail for each is in
   without risking reopening the already-fixed same-transaction revival bug
   it's adjacent to. Design direction is written down; hand to
   `solana-architect` or a red-team pass before mainnet.
+- **Anon SELECT on `certificates` returns `owner_did` (PII) to anyone.**
+  `anon_select_certificates` (`supabase/migrations/0001_init.sql`) is
+  `using (true)` with no column allowlist, so any anonymous PostgREST
+  `select("*")` against `certificates` — not just the verify page's own
+  narrower query — can read `owner_did` (the student's Privy DID) alongside
+  `owner_wallet` and `name_salt`. Devnet-acceptable (no real student data on
+  this cluster); a real PII exposure once mainnet holds real students. Fix:
+  restrict the anon policy to a column-limited view (drop
+  `owner_did`/`owner_wallet`/`name_salt` from the anon projection — the
+  verify page only needs the public fields it already renders) before
+  mainnet. Not attempted blind tonight; needs a live Supabase instance to
+  test the RLS/view change against.
 
 **Explicitly deferred in M7 (documented rather than fixed — see the M7
 report for the reasoning behind each):**
@@ -286,14 +298,6 @@ report for the reasoning behind each):**
   (`certificates.signer_txs`), even on the same page where
   `VerifyChainStamp` has already fetched the authoritative on-chain
   `sig_timestamps` for its own verdict. Not wired through to the table yet.
-- **Certificate-image dimming / download-button visibility are still
-  mirror-only** (a smaller instance of the same class of issue the M7 hero-
-  banner fix closed — see `VerifyStatusBanner`'s doc comment for the exact
-  scoping reasoning): a stale-mirror-revoked certificate's image won't show
-  the grayscale+"Revogado" overlay, and its download button won't hide,
-  until the mirror actually catches up. The hero banner and the
-  "verificado onchain" stamp both already correctly flip to revoked
-  immediately; these two smaller UI details don't yet.
 
 **Carried forward from earlier milestones (still true, not M7's to fix):**
 
