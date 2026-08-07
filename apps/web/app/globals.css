@@ -1,26 +1,115 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/* Class-based dark-mode variant (Tailwind v4). We hard-code <html class="dark">
+   in the root layout — there is no light theme and no next-themes — this only
+   exists so any `dark:` utility a component ships with resolves predictably. */
+@custom-variant dark (&:where(.dark, .dark *));
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* Raw (undarkened) brand hues — decorative only, see allowlist below.
+     Do NOT use these for text-bearing fills; use --color-primary /
+     --color-success / etc. for anything with text or icons on top. */
+  --color-solana-purple: #9945ff;
+  --color-solana-green: #14f195;
+
+  --font-sans: var(--font-inter);
+  --font-display: var(--font-great-vibes);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+:root {
+  /* Single hard-coded dark theme (see app/layout.tsx, <html class="dark">).
+     No light variant exists — these are the only values that ever apply. */
+  --background: #0b0f1a;
+  --foreground: #e6eaf2;
+
+  --card: #101626;
+  --card-foreground: #e6eaf2;
+
+  --popover: #101626;
+  --popover-foreground: #e6eaf2;
+
+  /* Primary = Solana purple #9945FF darkened for a safe WCAG AA margin.
+     Raw #9945FF measures 4.52:1 white-on-primary — technically over 4.5:1
+     but with essentially no margin (see M0 report contrast script). Darkened
+     to #7A2FE0 (same hue/~74% saturation, lower lightness) = 6.34:1. */
+  --primary: #7a2fe0;
+  --primary-foreground: #ffffff;
+
+  --secondary: #161d2e;
+  --secondary-foreground: #e6eaf2;
+
+  --muted: #151c2e;
+  --muted-foreground: #94a3b8;
+
+  --accent: #17213a;
+  --accent-foreground: #e6eaf2;
+
+  /* white-on-fill contrast: destructive 4.83:1, success 5.02:1, warning 5.02:1 */
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+
+  --success: #15803d;
+  --success-foreground: #ffffff;
+
+  --warning: #b45309;
+  --warning-foreground: #ffffff;
+
+  --border: rgba(148, 163, 184, 0.12);
+  --input: rgba(148, 163, 184, 0.2);
+  --ring: #7a2fe0;
+
+  --radius: 0.75rem;
+}
+
+html {
+  color-scheme: dark;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+}
+
+@layer utilities {
+  /*
+   * Solana brand gradient (#9945FF -> #14F195), RAW hues — decorative only.
+   * ALLOWLIST — this utility may ONLY be used for:
+   *   - hero accent
+   *   - CTA hover sheen
+   *   - success card edge
+   *   - verified-stamp underline
+   * Never use as a full-surface fill or as a background behind body text.
+   */
+  .gradient-solana-accent {
+    background-image: linear-gradient(135deg, #9945ff 0%, #14f195 100%);
+  }
 }
