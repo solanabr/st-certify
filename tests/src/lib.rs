@@ -517,3 +517,88 @@ fn le_i64(b: &[u8]) -> i64 {
     a.copy_from_slice(&b[..8]);
     i64::from_le_bytes(a)
 }
+
+// ── scenario helpers ────────────────────────────────────────────────────────
+
+/// A booted environment: config initialized with two spendable admin keypairs
+/// (`admin1`, `admin2`) plus the forced BOOTSTRAP_ADMIN, and a `notary`.
+pub struct Env {
+    pub svm: LiteSVM,
+    pub payer: Keypair,
+    pub admin1: Keypair,
+    pub admin2: Keypair,
+    pub notary: Keypair,
+}
+
+/// Build+sign+send in one call.
+pub fn send(
+    svm: &mut LiteSVM,
+    payer: &Keypair,
+    signers: &[&Keypair],
+    ixs: &[Instruction],
+) -> litesvm::types::TransactionResult {
+    let t = Transaction::new_signed_with_payer(
+        ixs,
+        Some(&payer.pubkey()),
+        signers,
+        svm.latest_blockhash(),
+    );
+    svm.send_transaction(t)
+}
+
+/// Initialize config with two admin keypairs we control, returning the env.
+pub fn boot() -> Env {
+    let mut svm = setup();
+    let payer = funded_keypair(&mut svm, 100_000_000_000);
+    let admin1 = funded_keypair(&mut svm, 10_000_000_000);
+    let admin2 = funded_keypair(&mut svm, 10_000_000_000);
+    let notary = Keypair::new();
+    let ix = ix_init_config(
+        &payer.pubkey(),
+        &notary.pubkey(),
+        &[admin1.pubkey(), admin2.pubkey()],
+    );
+    send(&mut svm, &payer, &[&payer], &[ix]).expect("init_config");
+    Env {
+        svm,
+        payer,
+        admin1,
+        admin2,
+        notary,
+    }
+}
+
+/// Create an edition and flip it to Open, returning its id. `signers` are the
+/// edition's certificate signers (pubkey, name, role).
+pub fn create_open_edition(
+    env: &mut Env,
+    signers: &[(Pubkey, &str, &str)],
+    max_supply: u64,
+) -> u64 {
+    let id = decode_config(&account_data(&env.svm, &config_pda().0)).editions_created;
+    let create = ix_create_edition(
+        &env.payer.pubkey(),
+        id,
+        "Test Edition",
+        &[7u8; 32],
+        max_supply,
+        signers,
+        &[env.admin1.pubkey()],
+    );
+    send(
+        &mut env.svm,
+        &env.payer,
+        &[&env.payer, &env.admin1],
+        &[create],
+    )
+    .expect("create_edition");
+    let open = ix_set_edition_status(id, constants::edition_status::OPEN, &[env.admin1.pubkey()]);
+    send(
+        &mut env.svm,
+        &env.payer,
+        &[&env.payer, &env.admin1],
+        &[open],
+    )
+    .expect("open edition");
+    id
+}
