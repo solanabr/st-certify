@@ -97,9 +97,14 @@ export function RevokeCell({
             placeholder="Ex.: emitido por engano; dados incorretos."
             disabled={revoke.isPending}
             aria-invalid={error ? true : undefined}
+            aria-describedby={error ? "revoke-reason-error" : undefined}
           />
           {error && (
-            <p className="text-sm text-destructive" role="alert">
+            <p
+              id="revoke-reason-error"
+              className="text-sm text-destructive"
+              role="alert"
+            >
               {error}
             </p>
           )}

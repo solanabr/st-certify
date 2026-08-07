@@ -151,7 +151,7 @@ export function VerifyTool() {
           const file = e.dataTransfer.files?.[0];
           if (file) void handleFile(file);
         }}
-        className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed p-8 text-center transition-colors ${
+        className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed p-8 text-center transition-colors focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background ${
           dragging ? "border-primary bg-primary/5" : "border-border"
         }`}
       >
