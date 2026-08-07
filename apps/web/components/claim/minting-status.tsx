@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -36,7 +36,11 @@ export function MintingStatus({ cert }: { cert: CertificateForOwner }) {
   // poll already flipped it to done, or the user navigated away).
   const mountedRef = useRef(true);
 
-  async function resume(): Promise<void> {
+  // useCallback (not a plain function) so its identity only changes with
+  // cert.address/queryClient — everything else it closes over (the refs,
+  // setFailed/setRunning) is already reference-stable — which lets the
+  // arm-effect below list it honestly instead of suppressing exhaustive-deps.
+  const resume = useCallback(async (): Promise<void> => {
     if (inFlightRef.current) return;
     inFlightRef.current = true;
     setRunning(true);
@@ -58,7 +62,7 @@ export function MintingStatus({ cert }: { cert: CertificateForOwner }) {
       inFlightRef.current = false;
       if (mountedRef.current) setRunning(false);
     }
-  }
+  }, [cert.address, queryClient]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -67,9 +71,7 @@ export function MintingStatus({ cert }: { cert: CertificateForOwner }) {
       mountedRef.current = false;
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-    // resume is stable for this cert; re-arm only if the address changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cert.address]);
+  }, [resume]);
 
   function manualRetry(): void {
     attemptsRef.current = 0;

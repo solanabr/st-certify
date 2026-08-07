@@ -147,11 +147,11 @@ export function WizardDesignerStep({
     if (asset && !draft) {
       onDraftChange(seedDraft(signers.length));
     }
-    // Seed once, right when a template first becomes ready — deliberately
-    // not re-seeding on every `signers`/`draft` change (that's the separate
-    // auto-sync effect below).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [asset, draft]);
+    // The `!draft` guard above is what makes this "seed once" — adding
+    // signers.length/onDraftChange below satisfies exhaustive-deps without
+    // re-seeding on every `signers` change (that's the separate auto-sync
+    // effect below), since draft is already set by the time either changes.
+  }, [asset, draft, signers.length, onDraftChange]);
 
   // Auto-sync signature box count to the step-2 signer count (deliverable
   // 3): preserves existing box positions for overlapping indices, only
