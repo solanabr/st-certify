@@ -602,3 +602,25 @@ pub fn create_open_edition(
     .expect("open edition");
     id
 }
+
+// ── Mollusk bridge (LiteSVM state → Mollusk account list) ───────────────────
+
+/// A system-owned account with `lamports` and no data (payers/signers, or an
+/// empty to-be-created PDA when `lamports == 0`).
+pub fn sol_account(lamports: u64) -> Account {
+    Account {
+        lamports,
+        owner: SYSTEM_PROGRAM,
+        ..Default::default()
+    }
+}
+
+/// `(key, live account)` pulled from a LiteSVM env for handing to Mollusk.
+pub fn live(svm: &LiteSVM, key: &Pubkey) -> (Pubkey, Account) {
+    (*key, svm.get_account(key).expect("account exists"))
+}
+
+/// The System Program keyed account (required for CreateAccount CPIs in Mollusk).
+pub fn sys_program() -> (Pubkey, Account) {
+    mollusk_svm::program::keyed_account_for_system_program()
+}

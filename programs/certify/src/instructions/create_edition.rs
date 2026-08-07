@@ -5,11 +5,16 @@
 //! §11: exact len; owner-checked config; 1-admin threshold; canonical bump at
 //! init ([C]); system CPI target; checked id math; enum/status validity. Created
 //! Paused; spec-immutable thereafter.
+//!
+//! Authz is inlined (single Config load) rather than via `require_admins`: config
+//! is also written here (editions_created++), so a second load would burn ~1.5k CU.
+//! T_CREATE = 1, so a single admin signer among {payer} ∪ trailing metas suffices
+//! (config/edition/system can never be admin signers).
 
 use {
-    super::{addr_at, arr32_at, require_admins, u64_at},
+    super::{addr_at, arr32_at, u64_at},
     crate::{
-        constants::{edition_status, seeds, MAX_SIGNERS, MIN_SIGNERS, T_CREATE, ZERO_ADDRESS},
+        constants::{edition_status, seeds, MAX_SIGNERS, MIN_SIGNERS, ZERO_ADDRESS},
         error::CertifyError,
         load,
         state::{
@@ -32,10 +37,8 @@ pub fn process(program_id: &Address, accounts: &mut [AccountView], data: &[u8]) 
     if data.len() != DATA_LEN {
         return Err(ProgramError::InvalidInstructionData);
     }
-    // config is at index 1 for this instruction.
-    require_admins(program_id, accounts, 1, T_CREATE)?;
 
-    let [payer, config_acc, edition_acc, system, ..] = accounts else {
+    let [payer, config_acc, edition_acc, system, admins @ ..] = accounts else {
         return Err(ProgramError::NotEnoughAccountKeys);
     };
     load::check_signer(payer)?;
@@ -70,8 +73,18 @@ pub fn process(program_id: &Address, accounts: &mut [AccountView], data: &[u8]) 
         }
     }
 
-    // Assign the next edition id and create the edition PDA.
     let mut cfg = ConfigMut::load_mut(config_acc, program_id)?;
+
+    // Authz: ≥1 admin signer among the payer or the trailing admin metas.
+    let authorized = (payer.is_signer() && cfg.is_admin(payer.address()))
+        || admins
+            .iter()
+            .any(|a| a.is_signer() && cfg.is_admin(a.address()));
+    if !authorized {
+        return Err(CertifyError::NotAnAdmin.into());
+    }
+
+    // Assign the next edition id and create the edition PDA.
     let id = cfg.editions_created();
     cfg.set_editions_created(id.checked_add(1).ok_or(CertifyError::Overflow)?);
 
