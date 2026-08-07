@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   useMutation,
   useQueryClient,
@@ -61,6 +61,8 @@ export function useClaim(): UseMutationResult<
   const { wallets } = useStandardWallets();
   const queryClient = useQueryClient();
   const [stage, setStage] = useState<ClaimStage>("idle");
+  // The cert's student wallet (fee payer) — targets the airdrop CTA on insufficient funds.
+  const studentWalletRef = useRef<string | undefined>(undefined);
 
   const mutation = useMutation({
     mutationFn: async (input: ClaimInput): Promise<SubmitClaimResponse> => {
@@ -70,6 +72,7 @@ export function useClaim(): UseMutationResult<
           `/api/certificates/${input.certificateAddress}/claim`,
           { method: "POST" },
         );
+        studentWalletRef.current = prepared.studentWallet;
 
         const wallet = wallets.find((w) =>
           w.accounts.some((a) => a.address === prepared.studentWallet),
@@ -130,7 +133,7 @@ export function useClaim(): UseMutationResult<
     },
     onError: (err) => {
       setStage("idle");
-      onAppError(err);
+      onAppError(err, undefined, { airdropWallet: studentWalletRef.current });
     },
   });
 
