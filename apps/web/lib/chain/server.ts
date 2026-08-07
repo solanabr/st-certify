@@ -1,6 +1,5 @@
 import "server-only";
 
-import { readFileSync } from "node:fs";
 import {
   address as toAddress,
   airdropFactory,
@@ -36,36 +35,16 @@ import {
 import { fail } from "@/lib/errors";
 import { failFromChainError } from "@/lib/chain/errors";
 import { getRpc, getRpcSubscriptions, programDeployed } from "@/lib/chain";
+// The M5 claim/mint/revoke track's key-path resolver (root .env paths like
+// .keys/notary.json are repo-root-relative, but the app's runtime cwd is
+// apps/web/ — a bare readFileSync would ENOENT). One key loader, shared.
+import { loadKeypairBytes } from "@/lib/chain/server-tx";
 import {
   hasProcessedSignature,
   logEvent,
   syncCertificateMirrorFromChain,
   syncEditionMirrorFromChain,
 } from "@/lib/db/mutations";
-
-/**
- * Reads a keypair from an env value that is either a JSON byte array
- * (`[12,34,...]`, 64 bytes — a solana-keygen secret key) inlined directly,
- * or a path to a file containing that same JSON array.
- */
-function loadKeypairBytes(envVal: string): Uint8Array {
-  const raw = envVal.trim().startsWith("[")
-    ? envVal
-    : readFileSync(envVal, "utf8");
-
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    fail("INTERNAL", "Chave inválida: JSON malformado.");
-  }
-
-  if (!Array.isArray(parsed) || !parsed.every((n) => typeof n === "number")) {
-    fail("INTERNAL", "Chave inválida: formato inesperado.");
-  }
-
-  return new Uint8Array(parsed);
-}
 
 let notarySigner: KeyPairSigner | null = null;
 let operatorSigner: KeyPairSigner | null = null;
