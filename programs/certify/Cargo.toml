@@ -1,0 +1,37 @@
+[package]
+name = "certify"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Superteam Certify — on-chain certificate registry (Pinocchio, zero-unsafe)"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+
+[features]
+# The entrypoint is ON by default. On the SBF target its macros emit the real
+# no_std runtime (no_allocator! + nostd_panic_handler!); on the host target the
+# same macros link std, which is what lets `cargo build`/`clippy`/`test` build the
+# cdylib for the host. Tests that only want the rlib consts can set
+# `default-features = false`.
+default = ["bpf-entrypoint"]
+bpf-entrypoint = []
+# Optional static-string logging (never in hot paths). Off by default.
+debug-logs = []
+
+# `target_os = "solana"` is emitted by pinocchio's entrypoint macros; declare it a
+# known cfg so the host toolchain doesn't flag it under `unexpected_cfgs`.
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_os, values("solana"))'] }
+
+[dependencies]
+pinocchio = { workspace = true }
+pinocchio-system = { workspace = true }
+solana-address = { workspace = true }
+
+# Host-only PDA math: on non-Solana targets (clippy/tests compiling this lib),
+# find/create_program_address need curve25519-dalek + sha2. On the SBF target the
+# syscalls are used instead, so curve25519-dalek never enters the on-chain binary.
+[target.'cfg(not(target_os = "solana"))'.dependencies]
+solana-address = { workspace = true, features = ["curve25519"] }
