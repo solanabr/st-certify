@@ -1,0 +1,194 @@
+"use client";
+
+import { Check, MoreHorizontal, X } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import type { PendingEditionGroup } from "@/hooks/usePendingInbox";
+import type { CertSignState } from "@/hooks/useMassSign";
+import type { RejectTarget } from "./reject-dialog";
+
+const timeFmt = new Intl.DateTimeFormat("pt-BR", {
+  day: "2-digit",
+  month: "short",
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
+function StateBadge({ state }: { state: CertSignState | undefined }) {
+  if (state === "signing") {
+    return (
+      <Badge variant="secondary" aria-live="polite">
+        Assinando…
+      </Badge>
+    );
+  }
+  if (state === "confirmed") {
+    return (
+      <Badge variant="outline" className="gap-1 text-[#14F195]">
+        <Check className="size-3" aria-hidden="true" />
+        Assinado
+      </Badge>
+    );
+  }
+  if (state === "failed") {
+    return (
+      <Badge variant="destructive" className="gap-1">
+        <X className="size-3" aria-hidden="true" />
+        Falhou
+      </Badge>
+    );
+  }
+  return null;
+}
+
+/** One edition's pending certificates. Student name is deliberately the loudest cell. */
+export function EditionGroupTable({
+  group,
+  selected,
+  certState,
+  onToggleCert,
+  onToggleAll,
+  onReject,
+}: {
+  group: PendingEditionGroup;
+  selected: Set<string>;
+  certState: Record<string, CertSignState>;
+  onToggleCert: (certificateAddress: string) => void;
+  onToggleAll: (checked: boolean) => void;
+  onReject: (target: RejectTarget) => void;
+}) {
+  const signerWallet =
+    group.signers.find((s) => s.position === group.callerPosition)?.wallet ??
+    "";
+  const selectedInGroup = group.certificates.filter((c) =>
+    selected.has(c.address),
+  ).length;
+  const allSelected =
+    selectedInGroup === group.certificates.length &&
+    group.certificates.length > 0;
+  const someSelected = selectedInGroup > 0 && !allSelected;
+
+  return (
+    <section className="space-y-3">
+      <div className="flex items-center gap-3">
+        <span className="inline-flex p-1.5">
+          <Checkbox
+            checked={
+              allSelected ? true : someSelected ? "indeterminate" : false
+            }
+            onCheckedChange={(c) => onToggleAll(c === true)}
+            aria-label={`Selecionar todos de ${group.editionName}`}
+          />
+        </span>
+        <h2 className="text-lg font-semibold tracking-tight">
+          {group.editionName}
+        </h2>
+        <Badge variant="secondary" className="tabular-nums">
+          {group.certificates.length} pendente
+          {group.certificates.length === 1 ? "" : "s"}
+        </Badge>
+      </div>
+
+      <div className="overflow-x-auto rounded-xl border border-border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-10" />
+              <TableHead>Aluno</TableHead>
+              <TableHead className="whitespace-nowrap">Solicitado</TableHead>
+              <TableHead className="whitespace-nowrap">Assinaturas</TableHead>
+              <TableHead />
+              <TableHead className="w-10" />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {group.certificates.map((cert) => {
+              const state = certState[cert.address];
+              return (
+                <TableRow
+                  key={cert.address}
+                  data-selected={selected.has(cert.address)}
+                >
+                  <TableCell>
+                    <span className="inline-flex p-1.5">
+                      <Checkbox
+                        checked={selected.has(cert.address)}
+                        onCheckedChange={() => onToggleCert(cert.address)}
+                        aria-label={`Selecionar certificado de ${cert.studentName}`}
+                      />
+                    </span>
+                  </TableCell>
+                  {/* The anti-impersonation surface — deliberately the loudest cell. */}
+                  <TableCell className="text-base font-semibold">
+                    {cert.studentName}
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    <time
+                      dateTime={cert.requestedAt}
+                      title={new Date(cert.requestedAt).toLocaleString("pt-BR")}
+                    >
+                      {timeFmt.format(new Date(cert.requestedAt))}
+                    </time>
+                  </TableCell>
+                  <TableCell className="tabular-nums text-sm">
+                    {cert.signedCount}/{cert.signerCount}
+                  </TableCell>
+                  <TableCell>
+                    <StateBadge state={state} />
+                  </TableCell>
+                  <TableCell>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label={`Ações para ${cert.studentName}`}
+                        >
+                          <MoreHorizontal
+                            className="size-4"
+                            aria-hidden="true"
+                          />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          variant="destructive"
+                          onSelect={() =>
+                            onReject({
+                              certificateAddress: cert.address,
+                              editionAddress: group.editionAddress,
+                              studentName: cert.studentName,
+                              ownerWallet: cert.ownerWallet,
+                              signerWallet,
+                            })
+                          }
+                        >
+                          Rejeitar…
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </div>
+    </section>
+  );
+}
