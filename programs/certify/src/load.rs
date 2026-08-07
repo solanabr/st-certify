@@ -7,7 +7,9 @@
 //! - **[C] robust create**: [`create_pda`] — virgin check, canonical
 //!   `find_program_address` (client bumps NEVER read), rent, and the pre-funded
 //!   Transfer/Allocate/Assign branch.
-//! - **close**: [`close_to`] — tombstone → drain → resize(1) → close.
+//! - **close**: [`close_to`] — tombstone `0xFF` → drain → resize(1), left
+//!   PROGRAM-OWNED (deliberately NO `close()`, which would reassign the owner to
+//!   the all-zero System Program and let a same-tx re-request revive the account).
 //!
 //! Plus the standalone signer/writable/CPI-target checks handlers compose.
 

@@ -3,7 +3,8 @@
 //! the tx signers. Refund is address-targeted to `cert.student` (NO student sig).
 //! Pre-claim only ({Requested, FullySigned}). Frees a supply slot.
 //!
-//! §12 close ordering: tombstone → drain → resize(1) → close (via [`load::close_to`]).
+//! Close ordering (via [`load::close_to`]): tombstone `0xFF` → drain → resize(1),
+//! left PROGRAM-OWNED (no `close()`) so a same-tx re-request cannot revive it.
 
 use {
     crate::{
