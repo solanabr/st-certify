@@ -85,7 +85,12 @@
 
   --border: rgba(148, 163, 184, 0.12);
   --input: rgba(148, 163, 184, 0.2);
-  --ring: #7a2fe0;
+
+  /* Ring is intentionally NOT --primary: a purple ring on a purple button
+     fill has ~1:1 contrast (invisible). Solana green reads clearly against
+     every surface in this palette, including the primary fill itself
+     (4.24:1) and background/card (12.8:1 / 12.1:1). */
+  --ring: #14f195;
 
   --radius: 0.75rem;
 }
@@ -97,6 +102,17 @@ html {
 body {
   background: var(--background);
   color: var(--foreground);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 @layer utilities {
