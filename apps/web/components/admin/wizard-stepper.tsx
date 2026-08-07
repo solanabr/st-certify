@@ -9,8 +9,13 @@ const STEPS = [
   { n: 5, label: "Revisão" },
 ] as const;
 
-/** Step 4 (custom designer) has no reachable path in M3 — the default-template flow goes 3 -> 5 — so it renders dimmed/unreachable, not hidden (the slot exists for M6). */
-export function WizardStepper({ current }: { current: number }) {
+interface Props {
+  current: number;
+  /** Steps not part of the current path render dimmed/unreachable, not hidden — e.g. step 4 (designer) only applies to the custom-template path; the default one-click path goes 3 -> 5 and passes `skip={[4]}`. */
+  skip?: readonly number[];
+}
+
+export function WizardStepper({ current, skip = [] }: Props) {
   return (
     <ol className="flex items-center" aria-label="Etapas da criação de edição">
       {STEPS.map((step, i) => (
@@ -18,7 +23,7 @@ export function WizardStepper({ current }: { current: number }) {
           <div
             className={cn(
               "flex flex-col items-center gap-1.5",
-              step.n === 4 && "opacity-40",
+              skip.includes(step.n) && "opacity-40",
             )}
           >
             <span
