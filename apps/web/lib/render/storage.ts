@@ -1,7 +1,10 @@
 import "server-only";
 
 import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { dbConfigured, getServiceClient } from "../db/mutations";
+import { fail } from "../errors";
 
 export interface StoredArtifact {
   stored: true;
@@ -105,4 +108,75 @@ export async function storeTemplate(
   const url = supabase.storage.from("templates").getPublicUrl(templatePath)
     .data.publicUrl;
   return { stored: true, sha256Hex, url };
+}
+
+const DEFAULT_TEMPLATE_PATH = path.join(
+  process.cwd(),
+  "assets",
+  "templates",
+  "default-superteam-br.png",
+);
+
+let defaultTemplate: { sha256Hex: string; bytes: Buffer } | null = null;
+
+/** Loads + hashes the committed default template once per process. */
+function loadDefaultTemplate(): { sha256Hex: string; bytes: Buffer } {
+  if (!defaultTemplate) {
+    const bytes = readFileSync(DEFAULT_TEMPLATE_PATH);
+    defaultTemplate = {
+      bytes,
+      sha256Hex: createHash("sha256").update(bytes).digest("hex"),
+    };
+  }
+  return defaultTemplate;
+}
+
+/**
+ * Resolves a template's PNG bytes by content-address — the hash embedded in
+ * an edition's `layout.template.sha256`. The committed default template
+ * (the common case) is read locally with zero Supabase dependency; any
+ * other hash is a custom-uploaded template and is fetched from Supabase
+ * Storage (`templates/{sha256}.png`, the same bucket `storeTemplate` writes
+ * to).
+ *
+ * Always verifies the resolved bytes hash to the requested sha256 before
+ * returning — this is the integrity check the old (broken) equality-assert
+ * used to provide for the default-only path, now preserved for both paths.
+ */
+export async function getTemplateBytes(sha256: string): Promise<Buffer> {
+  const def = loadDefaultTemplate();
+  if (sha256 === def.sha256Hex) {
+    return def.bytes;
+  }
+
+  if (!dbConfigured) {
+    fail(
+      "STORAGE_FAILED",
+      "Template personalizado indisponível — Supabase não configurado.",
+      { retryable: true },
+    );
+  }
+
+  const supabase = getServiceClient();
+  const { data, error } = await supabase.storage
+    .from("templates")
+    .download(`${sha256}.png`);
+  if (error || !data) {
+    fail(
+      "STORAGE_FAILED",
+      `Falha ao baixar template personalizado: ${error?.message ?? "arquivo não encontrado"}.`,
+      { retryable: true },
+    );
+  }
+
+  const bytes = Buffer.from(await data.arrayBuffer());
+  const actualSha256 = createHash("sha256").update(bytes).digest("hex");
+  if (actualSha256 !== sha256) {
+    fail(
+      "RENDER_FAILED",
+      "Os bytes do template não correspondem ao hash esperado.",
+    );
+  }
+
+  return bytes;
 }
