@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 import { Providers } from "./providers";
+import { Nav } from "@/components/nav";
 
 const inter = localFont({
   src: [
@@ -50,7 +51,10 @@ export default function RootLayout({
         >
           Pular para o conteúdo principal
         </a>
-        <Providers>{children}</Providers>
+        <Providers>
+          <Nav />
+          <main id="main-content">{children}</main>
+        </Providers>
       </body>
     </html>
   );

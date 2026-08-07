@@ -1,103 +1,99 @@
-import Image from "next/image";
+import Link from "next/link";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import { LandingCta } from "@/components/landing-cta";
+
+const STEPS = [
+  {
+    number: "1",
+    title: "Solicite",
+    description:
+      "Encontre a edição do seu curso ou evento e envie seu nome para certificação.",
+  },
+  {
+    number: "2",
+    title: "Assinaturas on-chain",
+    description:
+      "Cada signatário designado assina sua solicitação diretamente na Solana.",
+  },
+  {
+    number: "3",
+    title: "NFT intransferível",
+    description:
+      "Com todas as assinaturas, resgate seu certificado como um NFT soulbound — seu, para sempre.",
+  },
+] as const;
+
+const PROGRAM_ID = process.env.NEXT_PUBLIC_PROGRAM_ID;
 
 export default function Home() {
   return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+    <div className="flex flex-col">
+      <section className="relative overflow-hidden border-b border-border">
+        <div className="gradient-solana-accent absolute inset-x-0 top-0 h-1" />
+        <div className="mx-auto max-w-6xl px-4 py-20 text-center sm:py-28">
+          <Badge variant="outline" className="mb-6">
+            Devnet
+          </Badge>
+          <h1 className="text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
+            Certificados on-chain da{" "}
+            <span className="text-primary">Superteam Brasil</span>
+          </h1>
+          <p className="mx-auto mt-6 max-w-2xl text-lg text-muted-foreground text-balance">
+            Emitidos por quem assina, verificáveis por qualquer pessoa, para
+            sempre.
+          </p>
+          <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
+            <Button asChild size="lg">
+              <Link href="/verify">Verificar um certificado</Link>
+            </Button>
+            <LandingCta />
+          </div>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+      </section>
+
+      <section className="mx-auto w-full max-w-6xl px-4 py-20">
+        <h2 className="text-center text-2xl font-semibold tracking-tight">
+          Como funciona
+        </h2>
+        <div className="mt-10 grid gap-6 sm:grid-cols-3">
+          {STEPS.map((step) => (
+            <Card key={step.number}>
+              <CardContent className="pt-2">
+                <div className="flex size-9 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground">
+                  {step.number}
+                </div>
+                <h3 className="mt-4 text-lg font-semibold">{step.title}</h3>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {step.description}
+                </p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </section>
+
+      <section className="border-t border-border bg-card/50">
+        <div className="mx-auto flex max-w-6xl flex-col items-center gap-3 px-4 py-10 text-center">
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <Badge variant="outline">Rede: Devnet</Badge>
+            {PROGRAM_ID ? (
+              <Badge variant="outline" className="font-mono">
+                Programa: {PROGRAM_ID.slice(0, 4)}…{PROGRAM_ID.slice(-4)}
+              </Badge>
+            ) : (
+              <Badge variant="outline">Programa: aguardando deploy</Badge>
+            )}
+          </div>
+          <Separator className="my-2 max-w-xs" />
+          <p className="max-w-md text-xs text-muted-foreground">
+            Toda solicitação, assinatura e emissão fica registrada publicamente
+            na blockchain Solana.
+          </p>
+        </div>
+      </section>
     </div>
   );
 }

@@ -13,7 +13,6 @@ import {
   compileTransaction,
   createNoopSigner,
   createTransactionMessage,
-  getBase64Decoder,
   getTransactionEncoder,
   setTransactionMessageFeePayer,
   setTransactionMessageLifetimeUsingBlockhash,
@@ -55,8 +54,8 @@ export async function deriveCertificatePda(
 }
 
 export interface PreparedTransaction {
-  /** Base64-encoded unsigned wire bytes, ready for wallet signing. */
-  wireBytesBase64: string;
+  /** Raw unsigned wire bytes — sign via the wallet-standard feature, then base64-encode (lib/bytes.ts) for /api/tx/submit. */
+  wireBytes: Uint8Array;
   /** Ceiling block height for the blockhash used — pass through to /api/tx/submit. */
   lastValidBlockHeight: bigint;
 }
@@ -81,10 +80,12 @@ async function prepareTransaction(
     ),
   );
 
-  const wireBytes = getTransactionEncoder().encode(compileTransaction(message));
+  const wireBytes = new Uint8Array(
+    getTransactionEncoder().encode(compileTransaction(message)),
+  );
 
   return {
-    wireBytesBase64: getBase64Decoder().decode(wireBytes),
+    wireBytes,
     lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
   };
 }
