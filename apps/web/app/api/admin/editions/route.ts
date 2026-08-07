@@ -1,0 +1,138 @@
+import type { NextResponse } from "next/server";
+import { apiRoute } from "@/lib/api";
+import { requireSysadmin } from "@/lib/auth";
+import { fail } from "@/lib/errors";
+import { editionWizardSchema } from "@/lib/schemas";
+import {
+  editionReadyLayoutSchema,
+  layoutSchema,
+  specHash,
+  specHashBytes,
+  type Layout,
+} from "@/lib/render/layout";
+import {
+  dbConfigured,
+  isSlugAvailable,
+  listEditionsAdmin,
+} from "@/lib/db/queries";
+import { insertEditionMirror, insertEditionSigners } from "@/lib/db/mutations";
+import { createEditionOnChain } from "@/lib/chain/server";
+import type { EditionWithSigners } from "@/lib/db/types";
+import rawDefaultLayout from "@/assets/templates/default-layout.json";
+
+/** Every edition regardless of status, for the admin Edições tab. */
+export async function GET(): Promise<NextResponse> {
+  return apiRoute(async (): Promise<EditionWithSigners[]> => {
+    await requireSysadmin();
+    if (!dbConfigured) {
+      return [];
+    }
+    return listEditionsAdmin();
+  });
+}
+
+/**
+ * No-designer fallback layout for the default-template path: the committed
+ * default-layout.json ships `signatures: []` (positions are normally bound
+ * by the M6 drag designer) — evenly distributes N signature boxes in a
+ * single row so the default one-click path can render without it.
+ */
+function autoSignatureBoxes(count: number): Layout["signatures"] {
+  const marginX = 0.05;
+  const gapX = 0.02;
+  const usableWidth = 1 - marginX * 2;
+  const boxW = (usableWidth - gapX * (count - 1)) / count;
+  return Array.from({ length: count }, (_, i) => ({
+    x: marginX + i * (boxW + gapX),
+    y: 0.75,
+    w: boxW,
+    h: 0.14,
+    align: "center" as const,
+  }));
+}
+
+export interface CreateEditionResponse {
+  address: string;
+  slug: string;
+}
+
+/**
+ * Step 5 of the wizard (QA): meta + signers + the default-template choice ->
+ * canonical layout -> spec_hash -> `create_edition` (OPERATOR-signed) ->
+ * mirror. Returns Paused — the admin still has to click "Abrir edição"
+ * (POST .../status) after reviewing the QA sample render.
+ */
+export async function POST(request: Request): Promise<NextResponse> {
+  return apiRoute(async (): Promise<CreateEditionResponse> => {
+    const session = await requireSysadmin();
+
+    const raw: unknown = await request.json().catch(() => null);
+    const parsed = editionWizardSchema.safeParse(raw);
+    if (!parsed.success) {
+      const issue = parsed.error.issues[0];
+      fail("VALIDATION", issue?.message ?? "Dados inválidos.", {
+        field: issue?.path.join("."),
+      });
+    }
+    const { meta, signers } = parsed.data;
+
+    if (!dbConfigured) {
+      fail("INTERNAL", "Supabase não configurado.");
+    }
+
+    if (!(await isSlugAvailable(meta.slug))) {
+      fail("VALIDATION", "Este slug já está em uso.", { field: "slug" });
+    }
+
+    const baseLayout = layoutSchema.parse(rawDefaultLayout);
+    const candidateLayout: Layout = {
+      ...baseLayout,
+      signers: signers.map((s) => ({
+        wallet: s.wallet,
+        name: s.name,
+        role: s.role,
+      })),
+      signatures: autoSignatureBoxes(signers.length),
+    };
+    const editionLayout = editionReadyLayoutSchema.parse(candidateLayout);
+    const specHashHex = specHash(editionLayout);
+
+    // Optional in the wizard (product intent: blank = effectively uncapped);
+    // 0 is NOT used as an "unlimited" sentinel — the program's supply check
+    // is `requested - closed < max_supply`, so 0 would mean zero capacity.
+    const maxSupply = meta.maxSupply ? BigInt(meta.maxSupply) : 1_000_000n;
+
+    const created = await createEditionOnChain({
+      name: meta.name,
+      specHash: specHashBytes(editionLayout),
+      maxSupply,
+      signers,
+      actor: session.did,
+    });
+
+    await insertEditionMirror({
+      address: created.address,
+      slug: meta.slug,
+      name: meta.name,
+      description: meta.description ?? null,
+      templateSha256: editionLayout.template.sha256,
+      layout: editionLayout,
+      specHash: specHashHex,
+      maxSupply,
+      completionDate: meta.completionDate || null,
+      txSig: created.signature,
+    });
+
+    await insertEditionSigners(
+      signers.map((s, index) => ({
+        editionAddress: created.address,
+        position: index,
+        wallet: s.wallet,
+        name: s.name,
+        role: s.role,
+      })),
+    );
+
+    return { address: created.address, slug: meta.slug };
+  });
+}

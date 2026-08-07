@@ -7,6 +7,7 @@ import { useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { AuthSync } from "@/components/auth-sync";
 import { getRpc, getRpcSubscriptions, rpcConfigured } from "@/lib/chain";
 
 const PRIVY_APP_ID = process.env.NEXT_PUBLIC_PRIVY_APP_ID;
@@ -98,7 +99,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
         },
       }}
     >
-      <AppProviders>{children}</AppProviders>
+      <AppProviders>
+        <AuthSync />
+        {children}
+      </AppProviders>
     </PrivyProvider>
   );
 }
