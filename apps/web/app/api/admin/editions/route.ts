@@ -36,17 +36,24 @@ export async function GET(): Promise<NextResponse> {
  * default-layout.json ships `signatures: []` (positions are normally bound
  * by the M6 drag designer) — evenly distributes N signature boxes in a
  * single row so the default one-click path can render without it.
+ *
+ * Bounds per the renderer track (m2-renderer): the default template's QR
+ * code sits at x 0.8813-0.9626, y 0.672-0.7869, so the safe signature band
+ * is x in [0.06, 0.85], y: 0.725, h: 0.1415 — NOT a full-width [0.05, 0.95]
+ * distribution, which would put the rightmost box's right edge at 0.95 and
+ * overlap the QR for any signer count.
  */
 function autoSignatureBoxes(count: number): Layout["signatures"] {
-  const marginX = 0.05;
+  const marginX = 0.06;
+  const rightBound = 0.85;
   const gapX = 0.02;
-  const usableWidth = 1 - marginX * 2;
+  const usableWidth = rightBound - marginX;
   const boxW = (usableWidth - gapX * (count - 1)) / count;
   return Array.from({ length: count }, (_, i) => ({
     x: marginX + i * (boxW + gapX),
-    y: 0.75,
+    y: 0.725,
     w: boxW,
-    h: 0.14,
+    h: 0.1415,
     align: "center" as const,
   }));
 }
