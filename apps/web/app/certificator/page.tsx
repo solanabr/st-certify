@@ -172,6 +172,14 @@ export default function CertificatorPage() {
             <p className="mt-1 text-sm text-muted-foreground">
               Novas solicitações aparecem aqui automaticamente.
             </p>
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-4"
+              onClick={() => void refetch()}
+            >
+              Atualizar
+            </Button>
           </div>
         ) : (
           <div className="space-y-10">
