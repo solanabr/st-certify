@@ -2,7 +2,7 @@ import type { NextResponse } from "next/server";
 import { apiRoute } from "@/lib/api";
 import { requireSysadmin } from "@/lib/auth";
 import { fail } from "@/lib/errors";
-import { editionWizardSchema } from "@/lib/schemas";
+import { editionWizardSchema, type EditionWizardInput } from "@/lib/schemas";
 import {
   editionReadyLayoutSchema,
   layoutSchema,
@@ -64,10 +64,60 @@ export interface CreateEditionResponse {
 }
 
 /**
- * Step 5 of the wizard (QA): meta + signers + the default-template choice ->
- * canonical layout -> spec_hash -> `create_edition` (OPERATOR-signed) ->
- * mirror. Returns Paused — the admin still has to click "Abrir edição"
- * (POST .../status) after reviewing the QA sample render.
+ * Builds the final Layout for either template path. Both branches end by
+ * overwriting `.signers` from the wizard's own validated `signers` array
+ * (never trusting a nested copy) — the default path already did this; the
+ * custom path (M6) mirrors it so there is exactly one source of truth for
+ * signer bindings regardless of where the rest of the layout came from.
+ */
+function buildEditionLayout(
+  templatePath: "default" | "custom",
+  customLayout: Layout | undefined,
+  signers: EditionWizardInput["signers"],
+): Layout {
+  const boundSigners = signers.map((s) => ({
+    wallet: s.wallet,
+    name: s.name,
+    role: s.role,
+  }));
+
+  if (templatePath === "custom") {
+    // Schema-validated by the client already (editionWizardSchema requires
+    // `customLayout` when templatePath is "custom"); re-validate here too —
+    // never trust client input, per webapp-architecture's trust-boundary rule.
+    const parsedCustom = layoutSchema.safeParse(customLayout);
+    if (!parsedCustom.success) {
+      fail("VALIDATION", "Layout do template personalizado inválido.", {
+        field: "customLayout",
+      });
+    }
+    if (parsedCustom.data.signatures.length !== signers.length) {
+      fail(
+        "VALIDATION",
+        "O número de caixas de assinatura não corresponde ao número de signatários.",
+        { field: "customLayout" },
+      );
+    }
+    return editionReadyLayoutSchema.parse({
+      ...parsedCustom.data,
+      signers: boundSigners,
+    });
+  }
+
+  const baseLayout = layoutSchema.parse(rawDefaultLayout);
+  return editionReadyLayoutSchema.parse({
+    ...baseLayout,
+    signers: boundSigners,
+    signatures: autoSignatureBoxes(signers.length),
+  });
+}
+
+/**
+ * Step 5 of the wizard (QA): meta + signers + the chosen template (default
+ * one-click, or the M6 designer's custom layout) -> canonical layout ->
+ * spec_hash -> `create_edition` (OPERATOR-signed) -> mirror. Returns Paused
+ * — the admin still has to click "Abrir edição" (POST .../status) after
+ * reviewing the QA sample render.
  */
 export async function POST(request: Request): Promise<NextResponse> {
   return apiRoute(async (): Promise<CreateEditionResponse> => {
@@ -81,7 +131,7 @@ export async function POST(request: Request): Promise<NextResponse> {
         field: issue?.path.join("."),
       });
     }
-    const { meta, signers } = parsed.data;
+    const { meta, signers, templatePath, customLayout } = parsed.data;
 
     if (!dbConfigured) {
       fail("INTERNAL", "Supabase não configurado.");
@@ -91,17 +141,11 @@ export async function POST(request: Request): Promise<NextResponse> {
       fail("VALIDATION", "Este slug já está em uso.", { field: "slug" });
     }
 
-    const baseLayout = layoutSchema.parse(rawDefaultLayout);
-    const candidateLayout: Layout = {
-      ...baseLayout,
-      signers: signers.map((s) => ({
-        wallet: s.wallet,
-        name: s.name,
-        role: s.role,
-      })),
-      signatures: autoSignatureBoxes(signers.length),
-    };
-    const editionLayout = editionReadyLayoutSchema.parse(candidateLayout);
+    const editionLayout = buildEditionLayout(
+      templatePath,
+      customLayout,
+      signers,
+    );
     const specHashHex = specHash(editionLayout);
 
     // Optional in the wizard (product intent: blank = effectively uncapped);

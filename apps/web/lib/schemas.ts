@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { layoutSchema } from "@/lib/render/layout";
 
 const BIDI_CONTROL_CHARS = new RegExp("[\\u202A-\\u202E\\u2066-\\u2069]", "g");
 const ZERO_WIDTH_CHARS = new RegExp("[\\u200B-\\u200F\\uFEFF]", "g");
@@ -146,15 +147,30 @@ export const editionSignersSchema = z
   });
 
 /**
- * The full wizard payload (steps 1+2+3+5 — step 4's custom designer is M6).
- * `templatePath: "default"` is the only path M3 ships; a `custom` variant
- * slots in later without changing this shape's discriminant.
+ * The full wizard payload (steps 1+2+3+4+5). `templatePath: "custom"`
+ * requires `customLayout` — the M6 designer's output, which must already
+ * validate against M2's `layoutSchema` (`lib/render/layout.ts`) before it
+ * ever reaches here. Deliberately a flat object with an optional field
+ * rather than a `z.discriminatedUnion`: RHF's `useForm<EditionWizardInput>`
+ * needs one stable shape across the whole wizard (the discriminant flips
+ * mid-form, on step 3/4), and a discriminated union would fight that.
  */
-export const editionWizardSchema = z.object({
-  meta: editionMetaSchema,
-  signers: editionSignersSchema,
-  templatePath: z.literal("default"),
-});
+export const editionWizardSchema = z
+  .object({
+    meta: editionMetaSchema,
+    signers: editionSignersSchema,
+    templatePath: z.enum(["default", "custom"]),
+    customLayout: layoutSchema.optional(),
+  })
+  .superRefine((val, ctx) => {
+    if (val.templatePath === "custom" && !val.customLayout) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Layout do template personalizado ausente.",
+        path: ["customLayout"],
+      });
+    }
+  });
 
 export type EditionMetaInput = z.infer<typeof editionMetaSchema>;
 export type EditionSignerFormInput = z.infer<typeof editionSignerFormSchema>;
