@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import {
   checkCertificateOnChain,
+  reconcileChainVerdict,
   type OnChainVerdict,
 } from "@/lib/chain/verify";
 import type { CertificateStatusValue } from "@/lib/db/types";
@@ -73,10 +74,12 @@ export function VerifyChainStamp({
   }
 
   const { verdict } = state;
-  // Chain-status vs mirror-status divergence — the chain is authoritative.
-  const drifted =
-    (verdict.status === "Claimed" && mirrorStatus !== "Claimed") ||
-    (verdict.status === "Revoked" && mirrorStatus !== "Revoked");
+  const reconcile = reconcileChainVerdict({
+    exists: verdict.exists,
+    chainStatus: verdict.status,
+    chainAsset: verdict.asset,
+    mirrorStatus,
+  });
 
   return (
     <div className="space-y-3" aria-live="polite">
@@ -99,9 +102,9 @@ export function VerifyChainStamp({
         </span>
       </p>
 
-      {verdict.asset && (
+      {reconcile.showNftLink && reconcile.nftAsset && (
         <a
-          href={`https://explorer.solana.com/address/${verdict.asset}?cluster=devnet`}
+          href={`https://explorer.solana.com/address/${reconcile.nftAsset}?cluster=devnet`}
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
@@ -111,7 +114,7 @@ export function VerifyChainStamp({
         </a>
       )}
 
-      {drifted && (
+      {reconcile.drifted && (
         <p className="flex items-center gap-2 text-sm text-warning">
           <TriangleAlert className="size-4" aria-hidden="true" />A rede tem uma
           atualização mais recente — exibindo o estado on-chain.

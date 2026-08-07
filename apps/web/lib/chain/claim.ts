@@ -28,7 +28,10 @@ import { getRpc, programDeployed, rpcConfigured } from "@/lib/chain";
 import { submitAndSyncTransaction } from "@/lib/chain/server";
 import { getServerSigner, signServerTx } from "@/lib/chain/server-tx";
 import { mintCertificateAsset } from "@/lib/chain/mint";
-import { computeNameCommitment } from "@/lib/commitment";
+import {
+  claimSubmitPlan,
+  nameCommitmentMatches,
+} from "@/lib/chain/claim-logic";
 import { renderCertificate } from "@/lib/render/render";
 import { buildMetadataJson, type MetadataSigner } from "@/lib/render/metadata";
 import { storeArtifact, storeTemplate } from "@/lib/render/storage";
@@ -54,12 +57,6 @@ const TEMPLATE_PATH = path.join(
 );
 
 const toHex = (b: Uint8Array): string => Buffer.from(b).toString("hex");
-
-function bytesEqual(a: Uint8Array, b: Uint8Array): boolean {
-  if (a.length !== b.length) return false;
-  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
-  return true;
-}
 
 /** Supabase public object URL, computed without importing @supabase (kept behind the lib/db fence). */
 function publicStorageUrl(bucket: string, objectPath: string): string {
@@ -133,12 +130,14 @@ function buildClaimArtifact(input: {
     });
   }
 
-  // Notary gate: sha256(salt ‖ NFC(name)) must equal the on-chain commitment.
-  const commitment = computeNameCommitment(
-    Buffer.from(cert.name_salt, "hex"),
-    cert.student_name,
-  );
-  if (!bytesEqual(new Uint8Array(commitment), onchainCert.nameCommitment)) {
+  // Notary gate: refuse if the stored name+salt don't reproduce the commitment.
+  if (
+    !nameCommitmentMatches(
+      cert.name_salt,
+      cert.student_name,
+      onchainCert.nameCommitment,
+    )
+  ) {
     fail(
       "CERT_STATE_CONFLICT",
       "Não foi possível verificar o nome deste certificado. Contate o administrador.",
@@ -385,7 +384,12 @@ export async function submitClaim(
   let claimSignature: string | undefined;
 
   // Step 1 — confirm the claim tx (skip if already Claimed).
-  if (onchainCert.status !== "Claimed") {
+  if (
+    claimSubmitPlan({
+      status: onchainCert.status,
+      hasAsset: onchainCert.asset !== null,
+    }).needsConfirm
+  ) {
     if (onchainCert.status !== "FullySigned") {
       fail(
         "CERT_STATE_CONFLICT",
@@ -428,7 +432,12 @@ export async function submitClaim(
   const certNumber = Number(onchainCert.certNumber);
 
   // Step 2 — if the asset is already recorded on-chain, we're done.
-  if (onchainCert.asset) {
+  if (
+    !claimSubmitPlan({
+      status: onchainCert.status,
+      hasAsset: onchainCert.asset !== null,
+    }).needsMintAndRecord
+  ) {
     const cert = await getCertificateByAddress(input.certificateAddress);
     return {
       status: "claimed",

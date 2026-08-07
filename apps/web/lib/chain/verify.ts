@@ -43,6 +43,36 @@ export function classifyVerifyInput(raw: string): VerifyInput {
   return { kind: "unknown", value: trimmed };
 }
 
+export interface VerifyReconcile {
+  /** Show the NFT link only when the on-chain Certificate.asset exists (back-reference doctrine). */
+  showNftLink: boolean;
+  nftAsset: string | null;
+  /** Chain status diverges from the mirror — chain wins; surface a "atualizando" note. */
+  drifted: boolean;
+}
+
+/**
+ * Pure reconciliation of the live chain verdict against the mirror-rendered one
+ * (unit tested). The NFT link is derived ONLY from the on-chain asset; a
+ * Claimed/Revoked divergence from the mirror flags drift.
+ */
+export function reconcileChainVerdict(input: {
+  exists: boolean;
+  chainStatus: string;
+  chainAsset: string | null;
+  mirrorStatus: string;
+}): VerifyReconcile {
+  const drifted =
+    input.exists &&
+    ((input.chainStatus === "Claimed" && input.mirrorStatus !== "Claimed") ||
+      (input.chainStatus === "Revoked" && input.mirrorStatus !== "Revoked"));
+  return {
+    showNftLink: input.exists && input.chainAsset !== null,
+    nftAsset: input.chainAsset,
+    drifted,
+  };
+}
+
 /** WebCrypto sha256 of raw bytes → lowercase hex (uploaded-file hashing path). */
 export async function sha256HexOf(bytes: Uint8Array): Promise<string> {
   const view = new Uint8Array(bytes);
