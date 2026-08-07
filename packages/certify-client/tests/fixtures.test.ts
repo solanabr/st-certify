@@ -41,6 +41,19 @@ function putUtf8(buf: Uint8Array, off: number, s: string): void {
 describe("Certificate fixture (hand-laid at §2 offsets)", () => {
   const o = OFFSETS.certificate;
 
+  // Synthetic distinct nonzero values covering bytes [172,228) — the
+  // sig_timestamps[1..5] + claimed_at region an offset/order bug could otherwise
+  // hide in (a zero-filled region passes both a self-roundtrip and a zeroed fixture).
+  const SIG_TS = [
+    1_700_000_000n,
+    1_700_000_001n,
+    1_700_000_002n,
+    -5n,
+    1_700_000_004n,
+    1_700_000_005n,
+  ];
+  const CLAIMED_AT = -987_654_321n;
+
   function build(status: number, mask: number, withAsset: boolean): Uint8Array {
     const buf = new Uint8Array(ACCOUNT_SIZES.certificate);
     buf[o.disc] = AccountDisc.Certificate;
@@ -53,8 +66,8 @@ describe("Certificate fixture (hand-laid at §2 offsets)", () => {
     buf.fill(0xcd, o.artifactHash, o.artifactHash + 32);
     if (withAsset) putAddr(buf, o.asset, addr(22)); // else left zero (unset)
     putU64(buf, o.certNumber, 7n);
-    putU64(buf, o.sigTimestamps, 1_700_000_000n); // slot 0 only
-    putU64(buf, o.claimedAt, 0n);
+    for (let i = 0; i < 6; i++) putU64(buf, o.sigTimestamps + i * 8, SIG_TS[i]);
+    putU64(buf, o.claimedAt, CLAIMED_AT);
     return buf;
   }
 
@@ -69,9 +82,8 @@ describe("Certificate fixture (hand-laid at §2 offsets)", () => {
     assert.deepEqual(cert.artifactHash, new Uint8Array(32).fill(0xcd));
     assert.equal(cert.asset, null);
     assert.equal(cert.certNumber, 7n);
-    assert.equal(cert.sigTimestamps[0], 1_700_000_000n);
-    assert.equal(cert.sigTimestamps[1], 0n);
-    assert.equal(cert.claimedAt, 0n);
+    assert.deepEqual(cert.sigTimestamps, SIG_TS);
+    assert.equal(cert.claimedAt, CLAIMED_AT);
   });
 
   it("FullySigned cert is not partially-signed and exposes asset", () => {

@@ -28,8 +28,10 @@ import {
   encodeSetMaxSupplyData,
   encodeSetNotaryData,
   encodeSignCertificateData,
+  encodeUtf8Fixed,
   hashIndexCodec,
   signerSlotCodec,
+  trimZeroUtf8,
 } from "../src/internal/codecs";
 
 const addrDecoder = getAddressDecoder();
@@ -254,5 +256,26 @@ describe("instruction-data encoders: exact length + leading discriminator", () =
       ],
     });
     assert.equal(data[105], 3);
+  });
+});
+
+describe("encodeUtf8Fixed: multibyte boundary backoff (pt-BR names)", () => {
+  it("drops a multibyte char split by the byte cap — no partial UTF-8", () => {
+    // 31 ASCII + 'ç' (2 bytes) = 33 bytes; cap 32 splits 'ç', so it is dropped whole.
+    const out = encodeUtf8Fixed("a".repeat(31) + "ç", 32);
+    assert.equal(out.length, 32);
+    assert.equal(trimZeroUtf8(out), "a".repeat(31));
+    assert.ok(!trimZeroUtf8(out).includes("�")); // no replacement char
+  });
+
+  it("keeps a multibyte char that fits exactly at the cap", () => {
+    // 30 ASCII + 'ç' (2 bytes) = 32 bytes exactly.
+    const out = encodeUtf8Fixed("a".repeat(30) + "ç", 32);
+    assert.equal(trimZeroUtf8(out), "a".repeat(30) + "ç");
+  });
+
+  it("round-trips a realistic accented name under the cap", () => {
+    const name = "Conceição Assunção";
+    assert.equal(trimZeroUtf8(encodeUtf8Fixed(name, 32)), name);
   });
 });
