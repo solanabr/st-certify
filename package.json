@@ -11,11 +11,12 @@
     "lint": "pnpm --filter web lint",
     "typecheck": "pnpm --filter web typecheck",
     "gen": "echo 'TODO(M1): generate @certify/client from program IDL via Codama'",
-    "seed": "echo 'TODO(M7): seed database with sample editions/certificates'",
+    "seed": "tsx scripts/seed-demo.ts",
     "setup:supabase": "tsx scripts/setup-supabase.ts",
     "deploy": "bash scripts/deploy.sh",
     "seed:onchain": "tsx scripts/seed.ts",
-    "e2e": "tsx scripts/e2e-devnet.ts"
+    "e2e": "tsx scripts/e2e-devnet.ts",
+    "rls-probe": "tsx scripts/rls-probe.ts"
   },
   "devDependencies": {
     "@types/pg": "^8.20.4",
