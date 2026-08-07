@@ -80,7 +80,7 @@ export default function Home() {
           <div className="flex flex-wrap items-center justify-center gap-3">
             <Badge variant="outline">Rede: Devnet</Badge>
             {PROGRAM_ID ? (
-              <Badge variant="outline" className="font-mono">
+              <Badge variant="outline" className="font-mono" title={PROGRAM_ID}>
                 Programa: {PROGRAM_ID.slice(0, 4)}…{PROGRAM_ID.slice(-4)}
               </Badge>
             ) : (

@@ -38,6 +38,9 @@ importers:
       '@metaplex-foundation/umi-bundle-defaults':
         specifier: ^1.5.1
         version: 1.5.1(@metaplex-foundation/umi@1.5.1)(@solana/web3.js@1.98.4(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6))
+      '@next/env':
+        specifier: 15.5.23
+        version: 15.5.23
       '@privy-io/node':
         specifier: ^0.28.0
         version: 0.28.0(@solana/kit@6.10.0(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6))(viem@2.55.10(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6)(zod@4.4.3))

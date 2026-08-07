@@ -92,7 +92,12 @@ function AccountMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-2"
+          title={me?.email ?? wallet}
+        >
           <span
             className="inline-block size-2 shrink-0 rounded-full bg-success"
             aria-hidden="true"

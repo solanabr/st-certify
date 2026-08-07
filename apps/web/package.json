@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@certify/client": "workspace:*",
+    "@next/env": "15.5.23",
     "@hookform/resolvers": "5.7.1",
     "@metaplex-foundation/mpl-core": "1.10.0",
     "@metaplex-foundation/umi": "^1.5.1",
