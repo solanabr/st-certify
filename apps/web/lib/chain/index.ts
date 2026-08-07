@@ -53,6 +53,17 @@ export async function deriveCertificatePda(
   return pda;
 }
 
+/** Wallet SOL balance in lamports — for /me's low-balance airdrop prompt. */
+export async function fetchWalletBalanceLamports(
+  address: string,
+): Promise<bigint> {
+  if (!rpcConfigured) {
+    fail("CHAIN_RPC_UNAVAILABLE", "RPC não configurado.");
+  }
+  const { value } = await getRpc().getBalance(toAddress(address)).send();
+  return value;
+}
+
 export interface PreparedTransaction {
   /** Raw unsigned wire bytes — sign via the wallet-standard feature, then base64-encode (lib/bytes.ts) for /api/tx/submit. */
   wireBytes: Uint8Array;

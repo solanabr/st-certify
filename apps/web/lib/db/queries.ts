@@ -246,7 +246,7 @@ export async function listCertificatesForOwner(input: {
 
   const { data: editionRows, error: editionsError } = await supabase
     .from("editions")
-    .select("address, name")
+    .select("address, name, slug")
     .in("address", editionAddresses);
 
   if (editionsError) {
@@ -256,17 +256,22 @@ export async function listCertificatesForOwner(input: {
     });
   }
 
-  const editionNames = new Map<string, string>(
-    ((editionRows ?? []) as Array<{ address: string; name: string }>).map(
-      (e) => [e.address, e.name],
-    ),
+  const editionInfo = new Map<string, { name: string; slug: string }>(
+    (
+      (editionRows ?? []) as Array<{
+        address: string;
+        name: string;
+        slug: string;
+      }>
+    ).map((e) => [e.address, { name: e.name, slug: e.slug }]),
   );
   const signersByEdition = await fetchSignersFor(supabase, editionAddresses);
 
   return certs.map((c) => ({
     address: c.address,
     editionAddress: c.edition_address,
-    editionName: editionNames.get(c.edition_address) ?? "Edição",
+    editionName: editionInfo.get(c.edition_address)?.name ?? "Edição",
+    editionSlug: editionInfo.get(c.edition_address)?.slug ?? "",
     editionSigners: signersByEdition.get(c.edition_address) ?? [],
     status: c.status,
     signerBitmap: c.signer_bitmap,
@@ -276,6 +281,7 @@ export async function listCertificatesForOwner(input: {
     asset: c.asset,
     certNumber: c.cert_number,
     rejectReason: c.reject_reason,
+    revokeReason: c.revoke_reason,
     createdAt: c.created_at,
     completedAt: c.completed_at,
   }));

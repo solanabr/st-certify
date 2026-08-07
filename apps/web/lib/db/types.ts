@@ -130,6 +130,7 @@ export interface CertificateForOwner {
   address: string;
   editionAddress: string;
   editionName: string;
+  editionSlug: string;
   editionSigners: EditionSignerSummary[];
   status: CertificateStatusValue;
   signerBitmap: number;
@@ -139,6 +140,7 @@ export interface CertificateForOwner {
   asset: string | null;
   certNumber: number | null;
   rejectReason: string | null;
+  revokeReason: string | null;
   createdAt: string;
   completedAt: string | null;
 }
