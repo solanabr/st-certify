@@ -159,3 +159,18 @@ export const editionWizardSchema = z.object({
 export type EditionMetaInput = z.infer<typeof editionMetaSchema>;
 export type EditionSignerFormInput = z.infer<typeof editionSignerFormSchema>;
 export type EditionWizardInput = z.infer<typeof editionWizardSchema>;
+
+// ---------------------------------------------------------------------------
+// M5 — revoke (admin, destructive). Reason is required + shown to the student
+// on /me and on the public /verify REVOKED banner, so it must be meaningful.
+// ---------------------------------------------------------------------------
+
+export const revokeSchema = z.object({
+  reason: z
+    .string()
+    .trim()
+    .min(3, "Informe um motivo (mín. 3 caracteres).")
+    .max(500, "Motivo muito longo (máx. 500 caracteres)."),
+});
+
+export type RevokeInput = z.infer<typeof revokeSchema>;
