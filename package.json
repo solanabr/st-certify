@@ -1,0 +1,22 @@
+{
+  "name": "st-certify",
+  "private": true,
+  "engines": {
+    "node": ">=23.9.0"
+  },
+  "packageManager": "pnpm@9.15.0",
+  "scripts": {
+    "dev": "pnpm --filter web dev",
+    "build": "pnpm --filter web build",
+    "lint": "pnpm --filter web lint",
+    "typecheck": "pnpm --filter web typecheck",
+    "gen": "echo 'TODO(M1): generate @certify/client from program IDL via Codama'",
+    "seed": "echo 'TODO(M7): seed database with sample editions/certificates'",
+    "setup:supabase": "tsx scripts/setup-supabase.ts"
+  },
+  "devDependencies": {
+    "pg": "^8.13.1",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
+}
