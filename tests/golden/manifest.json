@@ -1,0 +1,61 @@
+{
+  "certificate.claimed": {
+    "account": "certificate",
+    "expected": {
+      "certNumber": "1",
+      "signedMask": 7,
+      "status": "Claimed",
+      "student": "8c2RyK1ynfazrzeNjYdYY4EJPJd25fwXN34txoaimT5u"
+    },
+    "pda": "HMEBR4cPZ5aZojaxk3P7gwQUE2cGJ7RfALfZZPF8cmgD"
+  },
+  "certificate.fullysigned": {
+    "account": "certificate",
+    "expected": {
+      "signedMask": 7,
+      "status": "FullySigned",
+      "student": "HakVJFyrJa7pRykLJkXMYtkwBAdoycXi3ynDXR88RtzX"
+    },
+    "pda": "7JvhAZZJdph6zjNLCMMaXvfyJjZawnbqDihUXpPGECjT"
+  },
+  "certificate.requested": {
+    "account": "certificate",
+    "expected": {
+      "edition": "95CXPivA3eLoET316REry2FnwrQZEFnfY8Aof2eUBrJe",
+      "signedMask": 0,
+      "status": "Requested",
+      "student": "4vrsdRfaZ7Vk2Andgbji8tL8eDbSVPaBSREXVCQrML2m"
+    },
+    "pda": "6mrcmdh3QdnL3U8o88qDaBMz1xBaiesptiRERF6krbgb"
+  },
+  "config.default": {
+    "account": "config",
+    "expected": {
+      "adminCount": 3,
+      "editionsCreated": "0",
+      "notary": "AmyfreHZJ5kShpiMrygpSGvDkdXDtPpobdynmHe7gaSV"
+    },
+    "pda": "9CSuxJvqPh3j6WYbyAxryCoBfEVCs6YgYnHqzm98gNeZ"
+  },
+  "edition.3signers": {
+    "account": "edition",
+    "expected": {
+      "certsClaimed": "0",
+      "certsClosed": "0",
+      "certsRequested": "0",
+      "id": "0",
+      "maxSupply": "0",
+      "name": "Test Edition",
+      "signerCount": 3,
+      "status": "Open"
+    },
+    "pda": "95CXPivA3eLoET316REry2FnwrQZEFnfY8Aof2eUBrJe"
+  },
+  "hashindex": {
+    "account": "hashIndex",
+    "expected": {
+      "certificate": "HMEBR4cPZ5aZojaxk3P7gwQUE2cGJ7RfALfZZPF8cmgD"
+    },
+    "pda": "8KH9iNUhbSgFwNNYLZwZou4LjZHYfcRAamnvdU4CL4Fb"
+  }
+}

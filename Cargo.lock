@@ -644,6 +644,7 @@ dependencies = [
  "certify",
  "litesvm",
  "mollusk-svm",
+ "serde_json",
  "solana-account",
  "solana-clock",
  "solana-instruction",
