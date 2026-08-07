@@ -119,12 +119,76 @@ function compileSignChunk(
   };
 }
 
+export interface SignChunkTarget {
+  editionAddress: string;
+  certificateAddresses: string[];
+}
+
+/**
+ * Pure 20-per-edition chunk plan (the byte-size guard is applied later, at
+ * compile time). Exported for unit testing the chunking math.
+ */
+export function chunkCertificates(
+  groups: SignBatchGroup[],
+  max: number = MAX_SIGNS_PER_TX,
+): SignChunkTarget[] {
+  const out: SignChunkTarget[] = [];
+  for (const group of groups) {
+    for (const certs of chunk(group.certificateAddresses, max)) {
+      if (certs.length > 0) {
+        out.push({
+          editionAddress: group.editionAddress,
+          certificateAddresses: certs,
+        });
+      }
+    }
+  }
+  return out;
+}
+
+function compileWithGuard(
+  feePayer: Address,
+  edition: Address,
+  editionAddress: string,
+  certs: string[],
+  blockhash: Blockhash,
+): SignChunkPlan[] {
+  const plan = compileSignChunk(
+    feePayer,
+    edition,
+    editionAddress,
+    certs,
+    blockhash,
+  );
+  if (plan.wireBytes.length <= MAX_TX_BYTES) return [plan];
+  if (certs.length <= 1) {
+    fail("VALIDATION", "Transação de assinatura excede 1232 bytes.");
+  }
+  const mid = Math.ceil(certs.length / 2);
+  return [
+    ...compileWithGuard(
+      feePayer,
+      edition,
+      editionAddress,
+      certs.slice(0, mid),
+      blockhash,
+    ),
+    ...compileWithGuard(
+      feePayer,
+      edition,
+      editionAddress,
+      certs.slice(mid),
+      blockhash,
+    ),
+  ];
+}
+
 /**
  * Builds the unsigned sign-batch transactions: one `sign_certificate` ix per
  * cert, chunked 20/tx per edition (edition read-only → no write contention),
  * each with a `setComputeUnitLimit` from CU_BUDGETS, all off ONE blockhash so a
- * single wallet-standard round trip signs them. Asserts each tx < 1232 bytes and
- * splits down if a chunk somehow exceeds it (never at 20 in practice).
+ * single wallet-standard round trip signs them. Each tx is asserted < 1232 bytes
+ * (recursively split if a chunk somehow exceeds it — never at 20 in practice).
  */
 export async function buildSignBatchTxs(input: {
   signer: string;
@@ -135,49 +199,16 @@ export async function buildSignBatchTxs(input: {
   const feePayer = toAddress(input.signer);
 
   const plans: SignChunkPlan[] = [];
-  for (const group of input.groups) {
-    if (group.certificateAddresses.length === 0) continue;
-    const edition = toAddress(group.editionAddress);
-    for (const twenty of chunk(group.certificateAddresses, MAX_SIGNS_PER_TX)) {
-      let certs = twenty;
-      let plan = compileSignChunk(
+  for (const target of chunkCertificates(input.groups)) {
+    plans.push(
+      ...compileWithGuard(
         feePayer,
-        edition,
-        group.editionAddress,
-        certs,
+        toAddress(target.editionAddress),
+        target.editionAddress,
+        target.certificateAddresses,
         blockhash,
-      );
-      // Size guard: shrink until the serialized tx fits (defensive; ~1028 B at 20).
-      while (plan.wireBytes.length > MAX_TX_BYTES && certs.length > 1) {
-        certs = certs.slice(0, Math.max(1, Math.floor(certs.length * 0.75)));
-        plan = compileSignChunk(
-          feePayer,
-          edition,
-          group.editionAddress,
-          certs,
-          blockhash,
-        );
-      }
-      if (plan.wireBytes.length > MAX_TX_BYTES) {
-        fail("VALIDATION", "Transação de assinatura excede 1232 bytes.");
-      }
-      plans.push(plan);
-      // Advance past what actually fit (in case the guard shrank the chunk).
-      const remaining = twenty.slice(certs.length);
-      if (remaining.length > 0) {
-        for (const rest of chunk(remaining, certs.length)) {
-          plans.push(
-            compileSignChunk(
-              feePayer,
-              edition,
-              group.editionAddress,
-              rest,
-              blockhash,
-            ),
-          );
-        }
-      }
-    }
+      ),
+    );
   }
   return plans;
 }

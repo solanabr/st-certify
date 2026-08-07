@@ -143,18 +143,38 @@ export async function getPendingForSigner(
     ]),
   );
 
-  const groups = new Map<string, PendingEditionGroup>();
-  for (const c of (certRows ?? []) as CertificateRow[]) {
-    const position = callerPosition.get(c.edition_address);
-    if (position === undefined) continue;
-    if ((c.signer_bitmap & (1 << position)) !== 0) continue; // caller already signed this cert
+  return assemblePendingGroups({
+    callerPosition,
+    signersByEdition,
+    editionName,
+    certRows: (certRows ?? []) as CertificateRow[],
+  });
+}
 
-    const signers = signersByEdition.get(c.edition_address) ?? [];
+/**
+ * Pure grouping + bit-unset filter (exported for unit testing): keep only certs
+ * whose caller-position bit is unset — already-signed certs are dropped, which is
+ * exactly what makes a batch retry safe (a re-query excludes what confirmed) —
+ * group by edition, and drop editions with nothing left pending.
+ */
+export function assemblePendingGroups(input: {
+  callerPosition: Map<string, number>;
+  signersByEdition: Map<string, EditionSignerRow[]>;
+  editionName: Map<string, string>;
+  certRows: CertificateRow[];
+}): PendingEditionGroup[] {
+  const groups = new Map<string, PendingEditionGroup>();
+  for (const c of input.certRows) {
+    const position = input.callerPosition.get(c.edition_address);
+    if (position === undefined) continue;
+    if ((c.signer_bitmap & (1 << position)) !== 0) continue; // caller already signed
+
+    const signers = input.signersByEdition.get(c.edition_address) ?? [];
     let group = groups.get(c.edition_address);
     if (!group) {
       group = {
         editionAddress: c.edition_address,
-        editionName: editionName.get(c.edition_address) ?? "Edição",
+        editionName: input.editionName.get(c.edition_address) ?? "Edição",
         signerCount: signers.length,
         callerPosition: position,
         signers: signers.map((s) => ({
@@ -177,7 +197,6 @@ export async function getPendingForSigner(
       signerCount: signers.length,
     });
   }
-
   return [...groups.values()]
     .filter((g) => g.certificates.length > 0)
     .sort((a, b) => a.editionName.localeCompare(b.editionName));
