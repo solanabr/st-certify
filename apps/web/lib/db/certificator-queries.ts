@@ -65,6 +65,37 @@ export function callerSignerWallet(group: PendingEditionGroup): string {
   );
 }
 
+/**
+ * True if any of `wallets` is a registered signer of THIS SPECIFIC edition —
+ * the real per-action authorization gate for reject/submit. `requireCertifier`
+ * only proves "a registered signer of *some* edition"; mutating a given
+ * certificate must additionally prove the caller signs THAT certificate's own
+ * edition, so a certifier legitimately entitled to one edition can't act on a
+ * certificate that belongs to a different one.
+ */
+export async function isWalletSignerOfEdition(
+  editionAddress: string,
+  wallets: string[],
+): Promise<boolean> {
+  if (!dbConfigured || wallets.length === 0) {
+    return false;
+  }
+  const supabase = db();
+  const { count, error } = await supabase
+    .from("edition_signers")
+    .select("wallet", { count: "exact", head: true })
+    .eq("edition_address", editionAddress)
+    .in("wallet", wallets);
+
+  if (error) {
+    fail("INTERNAL", "Falha ao verificar autorização do signatário.", {
+      detail: error.message,
+      retryable: true,
+    });
+  }
+  return (count ?? 0) > 0;
+}
+
 function popcount(n: number): number {
   let count = 0;
   for (let bits = n; bits > 0; bits >>= 1) count += bits & 1;

@@ -178,6 +178,21 @@ export async function submitAndSyncTransaction(
   return { signature, alreadyProcessed: false };
 }
 
+/**
+ * True if the Certificate PDA still has an account on-chain. Used by
+ * `/api/certificator/reject` to confirm a `reject_request` (which CLOSES the
+ * PDA) actually landed for a specific certificate before that route flips its
+ * DB-only mirror status to Rejected — a plain string boundary so route
+ * handlers never need their own `@solana/kit`/`@certify/client` import
+ * (restricted to `lib/chain/**`).
+ */
+export async function certificateExistsOnChain(
+  address: string,
+): Promise<boolean> {
+  const decoded = await fetchCertificate(getRpc(), toAddress(address));
+  return decoded !== null;
+}
+
 // ---------------------------------------------------------------------------
 // Server-authored admin transactions (OPERATOR fee-payer + sole admin signer
 // — T_CREATE = 1 admin class per the plan's threshold policy)
