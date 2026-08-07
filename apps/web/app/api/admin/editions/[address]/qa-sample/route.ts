@@ -1,21 +1,33 @@
 export const runtime = "nodejs";
 
-import { readFileSync } from "node:fs";
-import path from "node:path";
 import { NextResponse } from "next/server";
+import { Resvg } from "@resvg/resvg-js";
 import { apiError } from "@/lib/api";
 import { requireSysadmin } from "@/lib/auth";
-import { fail } from "@/lib/errors";
+import { fail, toAppError } from "@/lib/errors";
 import { dbConfigured, getEditionByAddress } from "@/lib/db/queries";
 import { renderCertificate } from "@/lib/render/render";
-import { layoutSchema } from "@/lib/render/layout";
+import { getTemplateBytes } from "@/lib/render/storage";
+import { layoutSchema, type Layout } from "@/lib/render/layout";
 
-const TEMPLATE_PATH = path.join(
-  process.cwd(),
-  "assets",
-  "templates",
-  "default-superteam-br.png",
-);
+const UNAVAILABLE_MESSAGE =
+  "Pré-visualização indisponível: template personalizado sem Supabase configurado.";
+
+/**
+ * A dark placeholder frame with a centered message, sized to the edition's
+ * own canvas — degradation for a custom template whose bytes can't be
+ * resolved (Supabase not configured). Returned as a real PNG (not JSON)
+ * because the wizard embeds this route directly as an `<img src>` with no
+ * response-body handling of its own.
+ */
+function renderUnavailablePlaceholder(canvas: Layout["canvas"]): Buffer {
+  const fontSize = Math.round(canvas.height * 0.032);
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${canvas.width}" height="${canvas.height}">
+<rect width="100%" height="100%" fill="#11131A"/>
+<text x="50%" y="50%" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-size="${fontSize}" fill="#B7C0D8">${UNAVAILABLE_MESSAGE}</text>
+</svg>`;
+  return Buffer.from(new Resvg(svg).render().asPng());
+}
 
 /**
  * Wizard step 5 (QA): renders the edition's actual stored layout with dummy
@@ -41,7 +53,25 @@ export async function GET(
     }
 
     const layout = layoutSchema.parse(edition.layout);
-    const templatePng = readFileSync(TEMPLATE_PATH);
+
+    let templatePng: Buffer;
+    try {
+      templatePng = await getTemplateBytes(layout.template.sha256);
+    } catch (err) {
+      if (toAppError(err).code === "STORAGE_FAILED") {
+        return new NextResponse(
+          new Uint8Array(renderUnavailablePlaceholder(layout.canvas)),
+          {
+            status: 200,
+            headers: {
+              "Content-Type": "image/png",
+              "Cache-Control": "no-store",
+            },
+          },
+        );
+      }
+      throw err;
+    }
 
     const dateText = new Intl.DateTimeFormat("pt-BR", {
       day: "2-digit",
