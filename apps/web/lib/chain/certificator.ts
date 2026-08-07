@@ -54,6 +54,9 @@ function setComputeUnitLimitIx(units: number): Instruction {
 
 export interface SignChunkPlan {
   editionAddress: string;
+  /** The wallet this chunk must be signed by (an edition's caller-signer slot
+   *  — a certifier can be registered under different wallets across editions). */
+  signerWallet: string;
   /** Certs in THIS tx, in ix order — used to sync + render per-chunk progress. */
   certificateAddresses: string[];
   /** Unsigned wire bytes — sign via wallet-standard, then base64 for /api/certificator/submit. */
@@ -63,6 +66,9 @@ export interface SignChunkPlan {
 
 export interface SignBatchGroup {
   editionAddress: string;
+  /** The caller's registered signer wallet for THIS edition — never reuse one
+   *  wallet across groups (see buildSignBatchTxs). */
+  signerWallet: string;
   certificateAddresses: string[];
 }
 
@@ -82,6 +88,7 @@ interface Blockhash {
 
 function compileSignChunk(
   feePayer: Address,
+  signerWallet: string,
   edition: Address,
   editionAddress: string,
   certs: string[],
@@ -113,6 +120,7 @@ function compileSignChunk(
   );
   return {
     editionAddress,
+    signerWallet,
     certificateAddresses: certs,
     wireBytes,
     lastValidBlockHeight: blockhash.lastValidBlockHeight,
@@ -121,6 +129,7 @@ function compileSignChunk(
 
 export interface SignChunkTarget {
   editionAddress: string;
+  signerWallet: string;
   certificateAddresses: string[];
 }
 
@@ -138,6 +147,7 @@ export function chunkCertificates(
       if (certs.length > 0) {
         out.push({
           editionAddress: group.editionAddress,
+          signerWallet: group.signerWallet,
           certificateAddresses: certs,
         });
       }
@@ -148,19 +158,22 @@ export function chunkCertificates(
 
 function compileWithGuard(
   feePayer: Address,
+  signerWallet: string,
   edition: Address,
   editionAddress: string,
   certs: string[],
   blockhash: Blockhash,
+  maxBytes: number,
 ): SignChunkPlan[] {
   const plan = compileSignChunk(
     feePayer,
+    signerWallet,
     edition,
     editionAddress,
     certs,
     blockhash,
   );
-  if (plan.wireBytes.length <= MAX_TX_BYTES) return [plan];
+  if (plan.wireBytes.length <= maxBytes) return [plan];
   if (certs.length <= 1) {
     fail("VALIDATION", "Transação de assinatura excede 1232 bytes.");
   }
@@ -168,17 +181,21 @@ function compileWithGuard(
   return [
     ...compileWithGuard(
       feePayer,
+      signerWallet,
       edition,
       editionAddress,
       certs.slice(0, mid),
       blockhash,
+      maxBytes,
     ),
     ...compileWithGuard(
       feePayer,
+      signerWallet,
       edition,
       editionAddress,
       certs.slice(mid),
       blockhash,
+      maxBytes,
     ),
   ];
 }
@@ -189,24 +206,30 @@ function compileWithGuard(
  * each with a `setComputeUnitLimit` from CU_BUDGETS, all off ONE blockhash so a
  * single wallet-standard round trip signs them. Each tx is asserted < 1232 bytes
  * (recursively split if a chunk somehow exceeds it — never at 20 in practice).
+ * Each group carries ITS OWN signer wallet (a certifier can be registered
+ * under different wallets across editions — see useMassSign, which signs each
+ * distinct wallet's chunks in a separate variadic call).
  */
 export async function buildSignBatchTxs(input: {
-  signer: string;
   groups: SignBatchGroup[];
+  /** Test-only override for the 1232 B wire-size ceiling. */
+  maxTxBytes?: number;
 }): Promise<SignChunkPlan[]> {
   assertChainReady();
   const { value: blockhash } = await getRpc().getLatestBlockhash().send();
-  const feePayer = toAddress(input.signer);
+  const maxBytes = input.maxTxBytes ?? MAX_TX_BYTES;
 
   const plans: SignChunkPlan[] = [];
   for (const target of chunkCertificates(input.groups)) {
     plans.push(
       ...compileWithGuard(
-        feePayer,
+        toAddress(target.signerWallet),
+        target.signerWallet,
         toAddress(target.editionAddress),
         target.editionAddress,
         target.certificateAddresses,
         blockhash,
+        maxBytes,
       ),
     );
   }

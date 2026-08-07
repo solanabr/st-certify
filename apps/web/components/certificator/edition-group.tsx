@@ -18,6 +18,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { callerSignerWallet } from "@/lib/db/certificator-queries";
 import type { PendingEditionGroup } from "@/hooks/usePendingInbox";
 import type { CertSignState } from "@/hooks/useMassSign";
 import type { RejectTarget } from "./reject-dialog";
@@ -72,9 +73,7 @@ export function EditionGroupTable({
   onToggleAll: (checked: boolean) => void;
   onReject: (target: RejectTarget) => void;
 }) {
-  const signerWallet =
-    group.signers.find((s) => s.position === group.callerPosition)?.wallet ??
-    "";
+  const signerWallet = callerSignerWallet(group);
   const selectedInGroup = group.certificates.filter((c) =>
     selected.has(c.address),
   ).length;
@@ -86,15 +85,12 @@ export function EditionGroupTable({
   return (
     <section className="space-y-3">
       <div className="flex items-center gap-3">
-        <span className="inline-flex p-1.5">
-          <Checkbox
-            checked={
-              allSelected ? true : someSelected ? "indeterminate" : false
-            }
-            onCheckedChange={(c) => onToggleAll(c === true)}
-            aria-label={`Selecionar todos de ${group.editionName}`}
-          />
-        </span>
+        <Checkbox
+          className="size-6"
+          checked={allSelected ? true : someSelected ? "indeterminate" : false}
+          onCheckedChange={(c) => onToggleAll(c === true)}
+          aria-label={`Selecionar todos de ${group.editionName}`}
+        />
         <h2 className="text-lg font-semibold tracking-tight">
           {group.editionName}
         </h2>
@@ -125,13 +121,12 @@ export function EditionGroupTable({
                   data-selected={selected.has(cert.address)}
                 >
                   <TableCell>
-                    <span className="inline-flex p-1.5">
-                      <Checkbox
-                        checked={selected.has(cert.address)}
-                        onCheckedChange={() => onToggleCert(cert.address)}
-                        aria-label={`Selecionar certificado de ${cert.studentName}`}
-                      />
-                    </span>
+                    <Checkbox
+                      className="size-6"
+                      checked={selected.has(cert.address)}
+                      onCheckedChange={() => onToggleCert(cert.address)}
+                      aria-label={`Selecionar certificado de ${cert.studentName}`}
+                    />
                   </TableCell>
                   {/* The anti-impersonation surface — deliberately the loudest cell. */}
                   <TableCell className="text-base font-semibold">

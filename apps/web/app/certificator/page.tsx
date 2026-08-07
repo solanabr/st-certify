@@ -22,6 +22,7 @@ import {
   type RejectTarget,
 } from "@/components/certificator/reject-dialog";
 import { onAppError } from "@/lib/on-app-error";
+import { callerSignerWallet } from "@/lib/db/certificator-queries";
 import { useMassSign } from "@/hooks/useMassSign";
 import { usePendingInbox } from "@/hooks/usePendingInbox";
 import { useReject } from "@/hooks/useReject";
@@ -85,19 +86,22 @@ export default function CertificatorPage() {
     x.certs.map((c) => c.studentName),
   );
 
-  const firstSelected = selectedByEdition[0]?.group;
-  const signerWallet = firstSelected
-    ? (firstSelected.signers.find(
-        (s) => s.position === firstSelected.callerPosition,
-      )?.wallet ?? "")
-    : "";
+  // Each edition can register the caller under a different wallet — resolve
+  // per group (mirrors the reject path's per-row resolution), never reuse a
+  // single wallet across the whole selection.
+  const hasUnresolvedSigner = selectedByEdition.some(
+    (x) => callerSignerWallet(x.group) === "",
+  );
+  const distinctSignerCount = new Set(
+    selectedByEdition.map((x) => callerSignerWallet(x.group)),
+  ).size;
 
   async function runSign() {
     setConfirmOpen(false);
     await massSign.run({
-      signerWallet,
       groups: selectedByEdition.map((x) => ({
         editionAddress: x.group.editionAddress,
+        signerWallet: callerSignerWallet(x.group),
         certificateAddresses: x.certs.map((c) => c.address),
       })),
     });
@@ -222,7 +226,7 @@ export default function CertificatorPage() {
               </Button>
               <Button
                 onClick={() => setConfirmOpen(true)}
-                disabled={massSign.progress.running || signerWallet === ""}
+                disabled={massSign.progress.running || hasUnresolvedSigner}
               >
                 {massSign.progress.running
                   ? "Assinando…"
@@ -244,8 +248,11 @@ export default function CertificatorPage() {
               <div>
                 Sua assinatura vale para {selectedCount} aluno
                 {selectedCount === 1 ? "" : "s"} em {txCount} transaç
-                {txCount === 1 ? "ão" : "ões"} — uma única aprovação na
-                carteira. Confira os nomes:
+                {txCount === 1 ? "ão" : "ões"} —{" "}
+                {distinctSignerCount === 1
+                  ? "uma única aprovação na carteira"
+                  : `${distinctSignerCount} aprovações na carteira (uma por carteira usada)`}
+                . Confira os nomes:
                 <ul className="mt-3 list-disc space-y-1 pl-5 text-foreground">
                   {selectedNames.slice(0, 5).map((name, i) => (
                     <li key={i} className="font-medium">

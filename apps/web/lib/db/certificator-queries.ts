@@ -50,6 +50,21 @@ export interface PendingEditionGroup {
   certificates: PendingCertificate[];
 }
 
+/**
+ * The caller's registered wallet for signing/rejecting within THIS edition —
+ * the single source of truth for wallet resolution. A certifier can be
+ * registered under different wallets across editions, so every batch/row
+ * action must key off this per-edition lookup rather than reusing one wallet
+ * picked from elsewhere in the inbox (fix round 1: mass-sign used to do the
+ * latter, which produced on-chain NotASigner for every edition after the
+ * first selected one).
+ */
+export function callerSignerWallet(group: PendingEditionGroup): string {
+  return (
+    group.signers.find((s) => s.position === group.callerPosition)?.wallet ?? ""
+  );
+}
+
 function popcount(n: number): number {
   let count = 0;
   for (let bits = n; bits > 0; bits >>= 1) count += bits & 1;
