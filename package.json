@@ -15,6 +15,7 @@
     "setup:supabase": "tsx scripts/setup-supabase.ts"
   },
   "devDependencies": {
+    "@types/pg": "^8.20.4",
     "pg": "^8.13.1",
     "tsx": "^4.19.2",
     "typescript": "^5.7.3"
