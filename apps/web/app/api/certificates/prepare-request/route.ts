@@ -1,4 +1,3 @@
-import { createHash, randomBytes } from "node:crypto";
 import type { NextResponse } from "next/server";
 import { apiRoute } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
@@ -7,6 +6,7 @@ import { requestCertificateSchema, walletAddressSchema } from "@/lib/schemas";
 import { dbConfigured, getEditionByAddress } from "@/lib/db/queries";
 import { insertPendingCertificate } from "@/lib/db/mutations";
 import { deriveCertificatePda } from "@/lib/chain";
+import { computeNameCommitment, generateNameSalt } from "@/lib/commitment";
 
 export interface PrepareRequestResponse {
   certificateAddress: string;
@@ -64,11 +64,8 @@ export async function POST(request: Request): Promise<NextResponse> {
       studentWallet,
     );
 
-    const salt = randomBytes(32);
-    const commitment = createHash("sha256")
-      .update(salt)
-      .update(Buffer.from(parsed.data.name, "utf8"))
-      .digest();
+    const salt = generateNameSalt();
+    const commitment = computeNameCommitment(salt, parsed.data.name);
 
     await insertPendingCertificate({
       address: certificateAddress,

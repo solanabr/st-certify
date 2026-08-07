@@ -29,12 +29,37 @@ export interface SessionUser {
   isCertifier: boolean;
 }
 
-function parseAllowlist(envVal: string | undefined): Set<string> {
+/** Exported for unit testing (lib/__tests__/auth.test.ts) — pure, no I/O. Does not case-fold: callers decide. */
+export function parseAllowlist(envVal: string | undefined): Set<string> {
   return new Set(
     (envVal ?? "")
       .split(",")
-      .map((s) => s.trim().toLowerCase())
+      .map((s) => s.trim())
       .filter(Boolean),
+  );
+}
+
+/**
+ * The role-resolution decision itself, isolated from the Privy/cookie I/O
+ * around it so it's directly unit-testable: sysadmin iff the identity's
+ * email or any wallet is in the env allowlists. Emails compare
+ * case-insensitively (conventional); wallets compare exact-case — base58
+ * Solana addresses are case-sensitive, so folding case before comparing
+ * would both miss real matches and risk conflating distinct addresses.
+ */
+export function isAdminIdentity(
+  email: string | null,
+  wallets: readonly string[],
+  adminEmailsEnv: string | undefined,
+  adminWalletsEnv: string | undefined,
+): boolean {
+  const adminEmails = new Set(
+    Array.from(parseAllowlist(adminEmailsEnv), (e) => e.toLowerCase()),
+  );
+  const adminWallets = parseAllowlist(adminWalletsEnv);
+  return (
+    (email !== null && adminEmails.has(email.toLowerCase())) ||
+    wallets.some((w) => adminWallets.has(w))
   );
 }
 
@@ -86,12 +111,12 @@ export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
 
   const email = primaryEmail(user);
   const wallets = solanaWallets(user);
-  const adminEmails = parseAllowlist(process.env.ADMIN_EMAILS);
-  const adminWallets = parseAllowlist(process.env.ADMIN_WALLETS);
-
-  const isSysadmin =
-    (email !== null && adminEmails.has(email.toLowerCase())) ||
-    wallets.some((w) => adminWallets.has(w.toLowerCase()));
+  const isSysadmin = isAdminIdentity(
+    email,
+    wallets,
+    process.env.ADMIN_EMAILS,
+    process.env.ADMIN_WALLETS,
+  );
 
   const isCertifier = await isEditionSignerWallet(wallets);
 
