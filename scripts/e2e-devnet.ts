@@ -126,8 +126,10 @@ async function send(
       })
       .send();
   } catch (e) {
+    const bigintSafe = (_k: string, v: unknown) =>
+      typeof v === "bigint" ? v.toString() : v;
     throw new Error(
-      `${label} send failed: ${JSON.stringify((e as { context?: unknown }).context ?? String(e))}`,
+      `${label} send failed: ${JSON.stringify((e as { context?: unknown }).context ?? String(e), bigintSafe)} :: ${String(e)}`,
     );
   }
   for (let i = 0; i < 45; i++) {
@@ -342,7 +344,12 @@ async function main(): Promise<void> {
   );
 
   // 4) claim_certificate (student + notary) --------------------------------
-  const artifact = Buffer.from("certify-e2e-demo-artifact-png-bytes");
+  // Unique artifact per run: a fixed fixed-hash would collide with the HashIndex
+  // created by a previous run (the program's squat/duplicate-artifact guard).
+  const artifact = Buffer.concat([
+    Buffer.from("certify-e2e-demo-artifact-png-bytes"),
+    randomBytes(16),
+  ]);
   const artifactHash = sha256(artifact);
   const [hashIndex] = await findHashIndexPda(artifactHash);
   console.log(
