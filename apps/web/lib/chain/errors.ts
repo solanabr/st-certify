@@ -18,6 +18,24 @@ const CERTIFY_ERROR_TO_APP: Partial<
   InvalidCertStatus: "CERT_STATE_CONFLICT",
 };
 
+/**
+ * Detects a wallet-declined-the-request error across Privy embedded wallets and
+ * wallet-standard adapters (Phantom/Solflare) — their rejection error messages
+ * aren't standardized, so this is a substring heuristic like the rest of this
+ * file. Shared by every hook that catches a user-facing sign/send rejection
+ * (useRequestCertificate, useClaim, useMassSign, useReject) so the wording only
+ * needs to be right in one place.
+ */
+export function isUserRejection(err: unknown): boolean {
+  const message = err instanceof Error ? err.message.toLowerCase() : "";
+  return (
+    message.includes("reject") ||
+    message.includes("declin") ||
+    message.includes("cancel") ||
+    message.includes("closed")
+  );
+}
+
 function extractCustomProgramErrorCode(message: string): number | null {
   const match = message.match(/custom program error:\s*0x([0-9a-f]+)/i);
   if (!match) {

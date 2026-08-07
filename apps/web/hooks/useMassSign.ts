@@ -5,6 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useStandardWallets } from "@privy-io/react-auth/solana";
 import { toast } from "sonner";
 import { api } from "@/lib/api-client";
+import { isUserRejection } from "@/lib/chain/errors";
 import { onAppError } from "@/lib/on-app-error";
 import { bytesToBase64 } from "@/lib/bytes";
 import {
@@ -35,16 +36,6 @@ const IDLE: MassSignProgress = {
   confirmedChunks: 0,
   certState: {},
 };
-
-function isUserRejection(err: unknown): boolean {
-  const m = err instanceof Error ? err.message.toLowerCase() : "";
-  return (
-    m.includes("reject") ||
-    m.includes("declin") ||
-    m.includes("cancel") ||
-    m.includes("closed")
-  );
-}
 
 function withState(
   prev: Record<string, CertSignState>,

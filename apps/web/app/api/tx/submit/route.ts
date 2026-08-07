@@ -62,8 +62,12 @@ export async function POST(request: Request): Promise<NextResponse> {
       fail("FORBIDDEN", "Esta solicitação não pertence à sua conta.");
     }
 
+    // Both addresses come from `pending` (the row the ownership check above
+    // just verified), never straight from the request body — even though
+    // `body.certificateAddress` was the lookup key, the value that actually
+    // reaches submitAndSyncTransaction is the DB row's own column.
     const syncTargets: SyncTarget[] = [
-      { kind: "certificate", address: body.certificateAddress },
+      { kind: "certificate", address: pending.address },
       { kind: "edition", address: pending.edition_address },
     ];
 

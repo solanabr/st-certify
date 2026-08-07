@@ -8,6 +8,7 @@ import {
 import { useStandardWallets } from "@privy-io/react-auth/solana";
 import { api } from "@/lib/api-client";
 import { fail } from "@/lib/errors";
+import { isUserRejection } from "@/lib/chain/errors";
 import { buildRejectTx } from "@/lib/chain/certificator";
 import { bytesToBase64 } from "@/lib/bytes";
 
@@ -24,16 +25,6 @@ export interface RejectInput {
 interface SubmitResponse {
   signature: string;
   alreadyProcessed: boolean;
-}
-
-function isUserRejection(err: unknown): boolean {
-  const m = err instanceof Error ? err.message.toLowerCase() : "";
-  return (
-    m.includes("reject") ||
-    m.includes("declin") ||
-    m.includes("cancel") ||
-    m.includes("closed")
-  );
 }
 
 /**

@@ -6,6 +6,7 @@ import jsQR from "jsqr";
 import { Loader2, Search, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useT } from "@/lib/i18n";
 import {
@@ -120,18 +121,21 @@ export function VerifyTool() {
           e.preventDefault();
           void submitQuery();
         }}
-        className="flex flex-col gap-2 sm:flex-row"
+        className="flex flex-col gap-2 sm:flex-row sm:items-end"
       >
-        <Input
-          value={query}
-          onChange={(e) => {
-            setQuery(e.target.value);
-            if (status === "notfound") setStatus("idle");
-          }}
-          placeholder={t("verify.inputPlaceholder")}
-          aria-label={t("verify.inputPlaceholder")}
-          disabled={busy}
-        />
+        <div className="flex-1 space-y-1.5">
+          <Label htmlFor="verify-query">{t("verify.inputPlaceholder")}</Label>
+          <Input
+            id="verify-query"
+            value={query}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              if (status === "notfound") setStatus("idle");
+            }}
+            placeholder={t("verify.inputPlaceholder")}
+            disabled={busy}
+          />
+        </div>
         <Button type="submit" disabled={busy || query.trim().length === 0}>
           {busy ? <Loader2 className="animate-spin" /> : <Search />}
           {t("verify.check")}

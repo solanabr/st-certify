@@ -1,9 +1,9 @@
-import { BadgeCheck, Download, ShieldX, TriangleAlert } from "lucide-react";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
+import { Download } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { SignerTable } from "@/components/verify/signer-table";
 import { VerifyChainStamp } from "@/components/verify/verify-chain-stamp";
+import { VerifyStatusBanner } from "@/components/verify/verify-status-banner";
 import { CopyLinkButton } from "@/components/verify/copy-link-button";
 import type { VerifyCertView } from "@/lib/db/claim-verify-queries";
 
@@ -99,68 +99,21 @@ export function VerifyResult({
   view: VerifyCertView;
   reencode?: boolean;
 }) {
+  // Mirror-derived; used only for the image dim treatment and the download-
+  // button gate below. The hero banner (VerifyStatusBanner) computes its own
+  // chain-aware revoked flag independently — see that component's doc comment
+  // for why these two can briefly disagree and why that's fine.
   const isRevoked = view.status === "Revoked";
-  const isClaimed = view.status === "Claimed";
   const isRejected = view.status === "Rejected";
-  const isPending =
-    view.status === "Requested" || view.status === "FullySigned";
 
   return (
     <div className="space-y-6">
-      {isRevoked && (
-        <Alert variant="destructive">
-          <ShieldX />
-          <AlertTitle>Certificado revogado</AlertTitle>
-          <AlertDescription>
-            {view.revokeReason ||
-              "Este certificado foi revogado e não é mais válido."}
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {isClaimed && (
-        <Alert className="border-success text-success [&>svg]:text-success">
-          <BadgeCheck />
-          <AlertTitle>Certificado válido</AlertTitle>
-          <AlertDescription className="text-foreground">
-            Este certificado foi emitido pela Superteam Brasil e registrado
-            on-chain.
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {isClaimed && reencode && (
-        <Alert className="border-warning text-warning [&>svg]:text-warning">
-          <TriangleAlert />
-          <AlertTitle>Arquivo é uma recodificação</AlertTitle>
-          <AlertDescription className="text-foreground">
-            Válido — mas este arquivo é uma recodificação (ex.: captura de
-            tela). O original verificável está abaixo.
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {isPending && (
-        <Alert className="border-warning text-warning [&>svg]:text-warning">
-          <TriangleAlert />
-          <AlertTitle>Certificado em andamento</AlertTitle>
-          <AlertDescription className="text-foreground">
-            As assinaturas ainda estão sendo coletadas — este certificado ainda
-            não foi resgatado.
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {isRejected && (
-        <Alert>
-          <TriangleAlert />
-          <AlertTitle>Certificado não válido</AlertTitle>
-          <AlertDescription>
-            Esta solicitação foi encerrada e não corresponde a um certificado
-            emitido.
-          </AlertDescription>
-        </Alert>
-      )}
+      <VerifyStatusBanner
+        certAddress={view.address}
+        mirrorStatus={view.status}
+        revokeReason={view.revokeReason}
+        reencode={reencode}
+      />
 
       <Card>
         <CardContent className="space-y-6">

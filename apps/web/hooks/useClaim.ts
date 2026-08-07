@@ -10,6 +10,7 @@ import { useStandardWallets } from "@privy-io/react-auth/solana";
 import { toast } from "sonner";
 import { api } from "@/lib/api-client";
 import { fail, toAppError } from "@/lib/errors";
+import { isUserRejection } from "@/lib/chain/errors";
 import { onAppError } from "@/lib/on-app-error";
 import { base64ToBytes, bytesToBase64 } from "@/lib/bytes";
 
@@ -33,16 +34,6 @@ interface SubmitClaimResponse {
 
 export interface ClaimInput {
   certificateAddress: string;
-}
-
-function isUserRejection(err: unknown): boolean {
-  const m = err instanceof Error ? err.message.toLowerCase() : "";
-  return (
-    m.includes("reject") ||
-    m.includes("declin") ||
-    m.includes("cancel") ||
-    m.includes("closed")
-  );
 }
 
 /**

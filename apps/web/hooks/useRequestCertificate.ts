@@ -9,6 +9,7 @@ import {
 import { useStandardWallets } from "@privy-io/react-auth/solana";
 import { api } from "@/lib/api-client";
 import { fail } from "@/lib/errors";
+import { isUserRejection } from "@/lib/chain/errors";
 import { prepareRequestCertificateTransaction } from "@/lib/chain";
 import { bytesToBase64, hexToBytes } from "@/lib/bytes";
 
@@ -37,17 +38,6 @@ interface PrepareResponse {
 export interface SubmitResponse {
   signature: string;
   alreadyProcessed: boolean;
-}
-
-/** Maps the common "user closed the wallet popup" shapes to a quiet, expected outcome rather than a scary error. */
-function isUserRejection(err: unknown): boolean {
-  const message = err instanceof Error ? err.message.toLowerCase() : "";
-  return (
-    message.includes("reject") ||
-    message.includes("declin") ||
-    message.includes("cancel") ||
-    message.includes("closed")
-  );
 }
 
 /**

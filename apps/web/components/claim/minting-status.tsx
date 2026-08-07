@@ -31,6 +31,10 @@ export function MintingStatus({ cert }: { cert: CertificateForOwner }) {
   const attemptsRef = useRef(0);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inFlightRef = useRef(false);
+  // Guards every setState below: the auto-resume chain (initial delay + up to
+  // 2 retries) can still be in flight when /me unmounts this card (e.g. the
+  // poll already flipped it to done, or the user navigated away).
+  const mountedRef = useRef(true);
 
   async function resume(): Promise<void> {
     if (inFlightRef.current) return;
@@ -38,9 +42,11 @@ export function MintingStatus({ cert }: { cert: CertificateForOwner }) {
     setRunning(true);
     try {
       await api(`/api/certificates/${cert.address}/claim-submit`, { json: {} });
+      if (!mountedRef.current) return;
       setFailed(false);
       void queryClient.invalidateQueries({ queryKey: ["me", "certificates"] });
     } catch {
+      if (!mountedRef.current) return;
       attemptsRef.current += 1;
       if (attemptsRef.current < MAX_AUTO_ATTEMPTS) {
         const delay = RETRY_BACKOFF_MS[attemptsRef.current - 1] ?? 16_000;
@@ -50,13 +56,15 @@ export function MintingStatus({ cert }: { cert: CertificateForOwner }) {
       }
     } finally {
       inFlightRef.current = false;
-      setRunning(false);
+      if (mountedRef.current) setRunning(false);
     }
   }
 
   useEffect(() => {
+    mountedRef.current = true;
     timerRef.current = setTimeout(() => void resume(), INITIAL_DELAY_MS);
     return () => {
+      mountedRef.current = false;
       if (timerRef.current) clearTimeout(timerRef.current);
     };
     // resume is stable for this cert; re-arm only if the address changes.
