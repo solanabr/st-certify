@@ -1,9 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { RevokeCell } from "@/components/admin/revoke-dialog";
 import {
   Select,
   SelectContent,
@@ -158,16 +160,28 @@ export function CertificatesTable() {
                   {cert.certNumber ?? "—"}
                 </TableCell>
                 <TableCell className="text-right">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    disabled
-                    aria-disabled="true"
-                    title="Revogação chega no M5"
-                    className="text-destructive"
-                  >
-                    Revogar
-                  </Button>
+                  <div className="flex items-center justify-end gap-1">
+                    <Button asChild size="sm" variant="ghost">
+                      <Link
+                        href={`/verify/${cert.address}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        Verificar
+                      </Link>
+                    </Button>
+                    {cert.status === "Claimed" && (
+                      <RevokeCell
+                        certificateAddress={cert.address}
+                        studentName={cert.studentName}
+                      />
+                    )}
+                    {cert.status === "Revoked" && (
+                      <span className="px-2 text-xs text-muted-foreground">
+                        Revogado
+                      </span>
+                    )}
+                  </div>
                 </TableCell>
               </TableRow>
             ))}

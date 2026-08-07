@@ -5,6 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { StatusTimeline } from "@/components/status-timeline";
+import { ClaimAction } from "@/components/claim/claim-action";
+import { CopyLinkButton } from "@/components/verify/copy-link-button";
 import type {
   CertificateForOwner,
   CertificateStatusValue,
@@ -67,13 +69,7 @@ function RevokedContent({ cert }: { cert: CertificateForOwner }) {
 
 function ActionZone({ cert }: { cert: CertificateForOwner }) {
   if (cert.status === "FullySigned") {
-    return (
-      <div className="mt-6">
-        <Button disabled aria-disabled="true" className="w-full">
-          Resgatar certificado (disponível em breve)
-        </Button>
-      </div>
-    );
+    return <ClaimAction cert={cert} />;
   }
 
   if (cert.status === "Claimed") {
@@ -89,7 +85,7 @@ function ActionZone({ cert }: { cert: CertificateForOwner }) {
           <img
             src={cert.imageUrl}
             alt={`Certificado de ${cert.studentName}`}
-            className="w-full rounded-lg border border-border"
+            className="w-full rounded-lg border border-border motion-safe:animate-in motion-safe:fade-in motion-safe:zoom-in-95 motion-safe:duration-200"
           />
         )}
         <div className="flex flex-wrap gap-2">
@@ -105,6 +101,10 @@ function ActionZone({ cert }: { cert: CertificateForOwner }) {
               </a>
             </Button>
           )}
+          <CopyLinkButton
+            path={`/verify/${cert.address}`}
+            label="Copiar link de verificação"
+          />
           {cert.asset && (
             <Button asChild variant="outline" size="sm">
               <a
