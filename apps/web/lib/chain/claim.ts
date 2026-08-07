@@ -1,7 +1,6 @@
 import "server-only";
 
 import { readFileSync } from "node:fs";
-import { createHash } from "node:crypto";
 import path from "node:path";
 import {
   address as toAddress,
@@ -34,7 +33,11 @@ import {
 } from "@/lib/chain/claim-logic";
 import { renderCertificate } from "@/lib/render/render";
 import { buildMetadataJson, type MetadataSigner } from "@/lib/render/metadata";
-import { storeArtifact, storeTemplate } from "@/lib/render/storage";
+import {
+  getTemplateBytes,
+  storeArtifact,
+  storeTemplate,
+} from "@/lib/render/storage";
 import { layoutSchema, type Layout } from "@/lib/render/layout";
 import {
   dbConfigured,
@@ -117,7 +120,7 @@ interface ClaimArtifact {
  * reproduce the on-chain `name_commitment` — the human trust boundary the notary
  * co-signature attests to.
  */
-function buildClaimArtifact(input: {
+async function buildClaimArtifact(input: {
   certificateAddress: string;
   onchainCert: DecodedCertificate;
   edition: EditionWithSigners;
@@ -150,14 +153,10 @@ function buildClaimArtifact(input: {
   }
   const layout = layoutSchema.parse(edition.layout);
 
-  const templatePng = readFileSync(TEMPLATE_PATH);
-  const templateSha = createHash("sha256").update(templatePng).digest("hex");
-  if (templateSha !== layout.template.sha256) {
-    fail(
-      "RENDER_FAILED",
-      "O template padrão não corresponde ao layout desta edição.",
-    );
-  }
+  // Resolves by content-address: the committed default locally, any custom
+  // upload from Supabase Storage — and asserts the bytes hash to
+  // `layout.template.sha256` either way (see getTemplateBytes).
+  const templatePng = await getTemplateBytes(layout.template.sha256);
 
   const orderedSigners = [...edition.signers].sort(
     (a, b) => a.position - b.position,
@@ -180,7 +179,7 @@ function buildClaimArtifact(input: {
     txSig: txByWallet.get(s.wallet)?.tx ?? null,
   }));
 
-  return renderCertificate({
+  const rendered = await renderCertificate({
     templatePng,
     layout,
     values: {
@@ -190,14 +189,16 @@ function buildClaimArtifact(input: {
       verifyUrl,
     },
     signers: orderedSigners.map((s) => ({ name: s.name, role: s.role ?? "" })),
-  }).then((rendered) => ({
+  });
+
+  return {
     png: rendered.png,
     sha256hex: rendered.sha256hex,
     layout,
     dateText,
     verifyUrl,
     metadataSigners,
-  }));
+  };
 }
 
 export interface PrepareClaimInput {
