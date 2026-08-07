@@ -158,6 +158,7 @@ impl<'a> ConfigMut<'a> {
             }
         }
         let idx = found.ok_or(CertifyError::AdminNotFound)?;
+        // `found` is Some ⇒ the loop ran ⇒ count >= 1, so `count - 1` cannot underflow.
         let last = count - 1;
         if idx != last {
             let moved = read_array32(&self.0, admin_slot(last));

@@ -302,6 +302,16 @@ pub fn ix_sign(signer: &Pubkey, id: u64, student: &Pubkey) -> Instruction {
     )
 }
 pub fn ix_reject(id: u64, student: &Pubkey, authority: &Pubkey) -> Instruction {
+    ix_reject_refund(id, student, student, authority)
+}
+
+/// reject with an explicit refund account (for the wrong-refund negative test).
+pub fn ix_reject_refund(
+    id: u64,
+    student: &Pubkey,
+    refund: &Pubkey,
+    authority: &Pubkey,
+) -> Instruction {
     let (config, _) = config_pda();
     let (edition, _) = edition_pda(id);
     let (cert, _) = cert_pda(&edition, student);
@@ -310,7 +320,7 @@ pub fn ix_reject(id: u64, student: &Pubkey, authority: &Pubkey) -> Instruction {
             AccountMeta::new_readonly(config, false),
             AccountMeta::new(edition, false),
             AccountMeta::new(cert, false),
-            AccountMeta::new(*student, false), // student_refund (address-targeted, no sig)
+            AccountMeta::new(*refund, false), // student_refund (address-targeted, no sig)
             AccountMeta::new_readonly(*authority, true),
         ],
         enc_reject(),

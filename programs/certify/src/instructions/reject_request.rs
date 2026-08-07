@@ -35,10 +35,12 @@ pub fn process(program_id: &Address, accounts: &mut [AccountView], data: &[u8]) 
         if cert.edition() != *edition_acc.address() {
             return Err(CertifyError::WrongEdition.into());
         }
-        // Address-targeted refund: no student signature required.
+        // Address-targeted refund: no student signature required, but it IS the
+        // lamport destination — must be writable (§11 point 7).
         if *refund_acc.address() != cert.student() {
             return Err(CertifyError::WrongStudent.into());
         }
+        load::check_writable(refund_acc)?;
         let status = cert.status();
         if status != cert_status::REQUESTED && status != cert_status::FULLY_SIGNED {
             return Err(CertifyError::InvalidCertStatus.into());

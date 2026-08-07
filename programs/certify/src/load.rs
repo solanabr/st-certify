@@ -164,11 +164,16 @@ fn create_inner(
     }
 }
 
-/// Close ordering (reject path): tombstone `0xFF` → drain lamports to `refund`
-/// (checked) → resize to 1 byte → close. Blocks same-tx revival: post-close the
-/// owner is zeroed, so [`create_pda`]'s virgin check rejects reuse.
+/// Reject-path close: tombstone `0xFF` → drain lamports to `refund` (checked) →
+/// resize to 1 byte. It deliberately does NOT call `AccountView::close()`:
+/// `close()` zeroes the account header including the owner, and the all-zero
+/// address IS the System Program — which would let [`create_pda`]'s virgin check
+/// (`system-owned && empty`) pass a re-request in the SAME transaction (revival).
+/// Leaving the account program-owned with 0 lamports blocks same-tx revival; the
+/// runtime garbage-collects the 0-lamport account at tx end, so cross-tx
+/// re-request still works.
 pub fn close_to(acc: &mut AccountView, refund: &mut AccountView) -> Result<(), ProgramError> {
-    // Tombstone first (scoped borrow released before resize/close).
+    // Tombstone (scoped borrow released before resize).
     {
         let mut data = acc.try_borrow_mut()?;
         data[crate::state::DISC] = crate::constants::disc::TOMBSTONE;
@@ -183,7 +188,6 @@ pub fn close_to(acc: &mut AccountView, refund: &mut AccountView) -> Result<(), P
     refund.set_lamports(new_refund);
     acc.set_lamports(0);
 
-    // Shrink then close.
-    acc.resize(1)?;
-    acc.close()
+    // Shrink to the tombstone byte; leave the account PROGRAM-OWNED (no close()).
+    acc.resize(1)
 }
