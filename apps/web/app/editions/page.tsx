@@ -3,6 +3,10 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { EditionCard } from "@/components/edition-card";
 import { dbConfigured, listOpenEditions } from "@/lib/db/queries";
 
+// The open-editions grid is live data — rendering at request time (like
+// /verify/[id]) also keeps `next build` from depending on a reachable DB.
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "Edições | Superteam Certify",
 };
