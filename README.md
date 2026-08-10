@@ -1,0 +1,343 @@
+# Superteam Certify
+
+An on-chain certificate system for Superteam Brasil — "DocuSign on Solana."
+Sysadmins create certificate **editions** (a course, cohort, or event) with a
+branded template and 2–6 designated signers. Students request a certificate,
+and once every signer has signed on-chain, claim a **soulbound NFT** into
+their wallet forever. Signers get a mass-sign dashboard (one wallet popup for
+many certificates). Anyone can verify a certificate publicly — by link, by
+its SHA-256 hash, or by uploading the image itself.
+
+Built devnet-first, autonomously, over one night. See `WAKEUP.md` for what a
+human needs to do before this is fully live, and `CHANGELOG.md` for the
+milestone-by-milestone history.
+
+## Architecture
+
+Three pieces, one rule: **the chain is authoritative.**
+
+```
+programs/certify/   Pinocchio program (Solana). Owns: signatures, statuses,
+                     certificate/edition state, the artifact hash, the
+                     multisig-style admin/signer thresholds. Nothing about
+                     "is this certificate valid" is ever decided anywhere
+                     but here.
+
+packages/certify-client/
+                     Hand-written @solana/kit codec client (no Anchor IDL —
+                     there's no Anchor). Instruction builders, PDA
+                     derivation, account decoders, an error-code map.
+                     Golden-vector tested against real on-chain account
+                     dumps, not just against the Rust source.
+
+apps/web/            Next.js 15 app. Supabase Postgres is a READ CACHE / UX
+                     layer, never a source of truth — every public and
+                     student-facing page does a live on-chain re-check
+                     (see "Chain-authoritative model" below) before trusting
+                     a status the mirror shows. Auth is Privy (email ->
+                     embedded Solana wallet, or a native wallet); Supabase
+                     has no auth role at all.
+```
+
+### Chain-authoritative model, concretely
+
+The DB mirror exists so pages paint instantly and so you can query
+"all pending certificates for signer X" without an RPC round trip per row —
+none of that would be reasonably fast against the chain directly. But the
+mirror can lag (a revoke that landed on-chain 2 seconds ago might not be
+synced yet), so every surface where trusting a stale "valid" would be a
+real problem does a browser-side chain re-check on top of the server-painted
+page:
+
+- `/verify/[id]`: the server-rendered page paints instantly from the DB
+  mirror (also gives you the OG tags); a client island
+  (`VerifyChainStamp` + `VerifyStatusBanner`) then re-fetches the
+  `Certificate` account directly and, if chain disagrees with the mirror
+  toward Revoked, **overrides the banner** — a stale-mirror-revoked
+  certificate never shows a misleadingly-green "válido" verdict, even for
+  the few hundred milliseconds before the chain-check resolves.
+- The NFT link on the verify page is never taken from the mirror — it's the
+  live on-chain `Certificate.asset` field, checked against the actual
+  minted asset (the "back-reference doctrine": an NFT is legitimate iff
+  `Certificate.asset` points back at it — this is the only rogue-mint
+  defense, since all certificates share one global Metaplex Core
+  collection).
+- The mass-sign dashboard resumes from a chain re-query on every page load,
+  never from client-held batch state — a partially-completed batch just
+  shows a smaller inbox next time, nothing to reconcile.
+
+### Two server-held keys, deliberately narrow scope
+
+- **NOTARY** — co-signs `claim_certificate` only, attesting that the
+  artifact hash matches what the server itself rendered. A leaked notary
+  key can, at absolute worst, collude with a student to poison that
+  student's own certificate hash — it cannot forge a signer's approval, a
+  name, or a revocation.
+- **OPERATOR** — single-signs the "creation class" of admin ops
+  (`create_edition`, `set_edition_status`, `set_max_supply`,
+  `record_asset`) after the API has already verified the caller is an
+  allowlisted sysadmin. The **destructive class**
+  (`revoke_certificate`, `set_notary`, `add_admin`, `remove_admin`) requires
+  **2 pairwise-distinct admin signatures** — see `WAKEUP.md` "Custody" for
+  why that matters and what to do about it.
+
+## Tech stack
+
+| Layer | Choice |
+|---|---|
+| Program | Pinocchio 0.11 (`#![no_std]`, zero `unsafe`, zero heap allocation) |
+| Program tests | LiteSVM (real-transaction integration tests) + Mollusk (per-instruction CU regression gates) |
+| Client codec | Hand-written `@solana/kit` ^6.10 codecs (no Anchor IDL) |
+| NFT | Metaplex Core 1.10, server-side mint via Umi (soulbound: permanent-freeze + permanent-burn-delegate plugins) |
+| Web app | Next.js 15.5 (App Router, React 19, TS strict), Tailwind 4 + shadcn/ui |
+| Auth | Privy v3 (`@privy-io/react-auth`) — embedded Solana wallets + external wallet-standard adapters |
+| Database | Supabase Postgres (RLS everywhere) + Storage (public, content-addressed buckets) |
+| Rendering | satori + `@resvg/resvg-js`, pinned exact versions for byte-determinism |
+| Data fetching | TanStack Query for authed dashboards; RSC reads for public pages |
+| Forms | react-hook-form + zod 4 |
+
+## Repo layout
+
+```
+programs/certify/     the Pinocchio program
+tests/                LiteSVM + Mollusk test suite (separate crate — cargo
+                       build-sbf must NOT include this; see below)
+packages/certify-client/  the hand-written TS client, golden-vector tested
+apps/web/              the Next.js app
+scripts/                deploy/seed/E2E/RLS-probe scripts (isolated
+                       node_modules — see "Why scripts/ has its own
+                       package.json" below)
+supabase/migrations/    0001_init.sql — schema + RLS policies
+.superpowers/sdd/       every milestone's brief + report + review, the full
+                       build history, in more detail than this file has room for
+```
+
+## Getting started
+
+```bash
+pnpm install         # apps/ + packages/ (workspace-managed)
+pnpm dev              # http://localhost:3000
+```
+
+First time, or waking this project up after a break: read `WAKEUP.md`. It's
+short, ordered, and is the actual list of things only a human can do
+(paste the Supabase URL, flip two Privy dashboard toggles, log in once with
+a real OTP).
+
+### Why `apps/web/.env.local` is a symlink
+
+Next.js/Turbopack only inlines `NEXT_PUBLIC_*` vars from `.env*` files inside
+the app's own directory (`apps/web/`), not the repo root, even though this is
+a pnpm workspace. `apps/web/.env.local -> ../../.env` makes the root `.env`
+the one canonical file without duplicating it. If you ever see a
+`NEXT_PUBLIC_*` var behaving as if it's empty despite being set in `.env`,
+check this symlink still exists first.
+
+### Why `scripts/` has its own `package.json`
+
+Adding a dependency to the workspace root or `apps/web` mid-build triggers
+pnpm's "remove all modules and reinstall from scratch" prompt — a full
+`node_modules` purge, disruptive if anything else is mid-build. `scripts/`
+gets its own isolated `pnpm install --ignore-workspace` (own
+`node_modules` + lockfile) so its dependencies (kit, Umi, mpl-core,
+`@supabase/supabase-js`, the workspace-local `@certify/client` via a `file:`
+dependency) never touch the root install. `tsx` still runs these scripts
+from the repo root (`pnpm deploy`, `pnpm seed`, etc.) — module resolution is
+based on each script file's own location, not the invoking shell's cwd, so
+this works transparently.
+
+## Development commands
+
+```bash
+# App
+pnpm --filter web dev / build / lint / typecheck / test
+
+# Program (from repo root)
+cargo fmt --all -- --check
+cargo clippy --workspace --all-targets -- -D warnings
+cargo test --workspace
+cargo build-sbf --manifest-path programs/certify/Cargo.toml   # NOT a bare
+    # workspace-root `cargo build-sbf` — that also tries to SBF-compile the
+    # tests/ crate, whose LiteSVM/Mollusk deps pull in `getrandom`, which
+    # doesn't support the SBF target and fails the build.
+
+# Devnet operational scripts (see scripts/ — all idempotent / skip-if-exists)
+pnpm deploy           # cargo build-sbf + program deploy/upgrade
+pnpm seed:onchain      # init_config + the one global Core collection
+pnpm e2e               # full request->sign->claim->mint->record_asset E2E
+pnpm setup:supabase    # apply migrations + create storage buckets
+pnpm rls-probe         # security gate — proves the anon key can't write
+                       # anywhere and can't read profiles/events
+pnpm seed              # demo data: 1 edition, 5 certificates covering
+                       # every dashboard/verify status
+```
+
+## Manual test pass
+
+See `WAKEUP.md` step 4 — the 5-minute walkthrough (login through revoke)
+that can't be automated in this build environment (Privy email OTP needs a
+real inbox; there's no Chrome binary in the sandbox for a headless
+keyboard-only Playwright run either). Everything upstream of "click login"
+is covered by the automated gates below.
+
+## Automated verification (current state)
+
+- **Program**: `cargo fmt` clean, `cargo clippy --all-targets -- -D
+  warnings` clean, `cargo test --workspace` — 44/44 passing across
+  `tests/*.rs` (batch, bug-class, claim/reject backfill matrices, CU gates,
+  edition/supply boundaries, golden-vector decode equality, full lifecycle,
+  smoke, threshold/aliasing).
+- **App**: `pnpm --filter web test` (vitest) — 131/131 passing. `tsc
+  --noEmit` clean. `eslint` clean. `next build` — 28/28 routes compile.
+- **RLS**: `pnpm rls-probe` — not runnable tonight (Supabase URL pending);
+  see `WAKEUP.md` step 1.5. The migration's policies were read closely (only
+  `editions`/`edition_signers`/`certificates` have an anon SELECT policy;
+  `profiles`/`events` have zero policies, meaning RLS-enabled-with-no-policy
+  denies everything to non-service-role) but the probe script itself is the
+  actual gate, not this sentence — run it.
+
+A transient CU-gate test failure was observed exactly once, during a
+workspace-wide `cargo test` run under heavy concurrent load (this sandbox
+had other agents building at the same time) — not reproducible in isolation
+or on immediate retry, and the CU numbers involved (LiteSVM-simulated
+compute-unit counts) have no legitimate source of run-to-run variance. Noted
+here for transparency, not treated as a real finding.
+
+## Security posture (what's actually implemented, tonight)
+
+Full detail lives in the plan (`.claude`-adjacent
+`you-are-going-to-foamy-stallman.md`) and the milestone reviews; this is the
+condensed, "what actually shipped" version.
+
+- **Name impersonation** (the top human risk — a signer rubber-stamping a
+  fake name): the sign UI shows the student's name as the loudest element on
+  every row; `lib/schemas.ts`'s name sanitizer strips bidi-override and
+  zero-width characters, NFC-normalizes, enforces a letters/marks/numbers/
+  space/'/-/. charset (blocks emoji and most symbols), caps length at 64,
+  and — added in M7 — rejects names mixing Latin with Cyrillic or Greek
+  letters (the classic homoglyph substitution, e.g. a Cyrillic "а" standing
+  in for Latin "a"). This runs identically on the client (live preview) and
+  the server (`prepare-request`, same schema, same code) — see
+  `lib/__tests__/schemas.test.ts` for the fixture set.
+- **Onchain admin gating**: every privileged instruction checks the
+  program's own `Config.admins` registry — client/API checks are UX only,
+  never the actual authorization boundary.
+- **RLS**: enabled on every table; only `editions`/`edition_signers`/
+  `certificates` have an anon SELECT policy; all writes are service-role
+  only, from server route handlers, after the caller's ownership/authority
+  has already been checked. `pnpm rls-probe` is the negative-test gate for
+  this (see above).
+- **HashIndex anti-squat**: created only inside the notary-cosigned claim
+  instruction (`init`, never `init_if_needed`) — a program's own PDAs
+  cannot be created from outside the program, so pre-squatting an artifact
+  hash is structurally impossible, not just discouraged.
+- **LGPD**: the plaintext student name and its salt live only in
+  off-chain, deletable layers (the `certificates` mirror row, the rendered
+  PNG, the metadata JSON) — the on-chain `Certificate` account stores only
+  `sha256(salt ‖ NFC(name))`. Erasure = null the two DB columns + delete the
+  storage objects + (if already minted) revoke and burn. Not yet automated
+  into a one-click admin action — see "Known limitations."
+- **Destructive-op threshold**: 2 pairwise-distinct admin signatures for
+  `revoke_certificate` / `set_notary` / `add_admin` / `remove_admin`.
+  Tonight that's deployer+operator (acknowledged bootstrap theater — see
+  `WAKEUP.md` "Custody"); becomes operator+a-real-human's-wallet the moment
+  an allowlisted admin logs in once.
+
+## Known limitations / tomorrow
+
+Ledger-triage dispositions (every `deferred minor` / `parked` line from the
+build's SDD progress log) are folded in here; the full detail for each is in
+`.superpowers/sdd/you-are-going-to-foamy-stallman/task-m7-hardening-report.md`.
+
+**Before mainnet — read this one first:**
+
+- **Persistent-tombstone reject-grief (program, parked, not fixed
+  tonight).** An edition signer or admin can, in a single transaction,
+  bundle `reject_request` with a small `System.transfer` to the just-freed
+  certificate PDA — funding the "tombstone" account above zero defeats the
+  transaction-end garbage collection, so the PDA survives program-owned
+  across transactions. Result: a permanent, irreversible block on that
+  (edition, student) pair ever requesting again, for about 0.0009 SOL of
+  griefer cost. Ruled acceptable to ship devnet-with tonight because (a) the
+  only actor who can do it is an already-trusted certifier or admin, who has
+  strictly worse griefing options available anyway (deny every request
+  outright, commit fraud), and (b) the correct fix — a new admin-only
+  reclaim-tombstone instruction, deliberately **not** composable in the same
+  transaction as `reject` — needed more time than was safe to spend at 3am
+  without risking reopening the already-fixed same-transaction revival bug
+  it's adjacent to. Design direction is written down; hand to
+  `solana-architect` or a red-team pass before mainnet.
+- **Anon SELECT on `certificates` returns `owner_did` (PII) to anyone.**
+  `anon_select_certificates` (`supabase/migrations/0001_init.sql`) is
+  `using (true)` with no column allowlist, so any anonymous PostgREST
+  `select("*")` against `certificates` — not just the verify page's own
+  narrower query — can read `owner_did` (the student's Privy DID) alongside
+  `owner_wallet` and `name_salt`. Devnet-acceptable (no real student data on
+  this cluster); a real PII exposure once mainnet holds real students. Fix:
+  restrict the anon policy to a column-limited view (drop
+  `owner_did`/`owner_wallet`/`name_salt` from the anon projection — the
+  verify page only needs the public fields it already renders) before
+  mainnet. Not attempted blind tonight; needs a live Supabase instance to
+  test the RLS/view change against.
+
+**Explicitly deferred in M7 (documented rather than fixed — see the M7
+report for the reasoning behind each):**
+
+- **Verify page i18n**: `/verify`'s hero banner, signer-table headers, and a
+  few detail labels are still hardcoded pt-BR strings rather than routed
+  through `lib/i18n.ts`, even though the plan scopes `/verify` as an
+  EN-supported public page. Converting `VerifyResult`/`SignerTable` (partly
+  server components) to be locale-aware is a real architecture change, not
+  a strings fill-in — scoped out of M7's "small and safe" inline-fix bucket.
+- **Revoked-certificate OG image**: `generateMetadata` currently omits
+  `openGraph.images` entirely for a revoked certificate rather than pointing
+  at a static "revoked" card — a share of a revoked cert's link today shows
+  no image preview instead of a clearly-labeled revoked one.
+- **Signer-table timestamps prefer the mirror over the chain**: the verify
+  page's signer table shows `signedAt` from the DB mirror
+  (`certificates.signer_txs`), even on the same page where
+  `VerifyChainStamp` has already fetched the authoritative on-chain
+  `sig_timestamps` for its own verdict. Not wired through to the table yet.
+
+**Carried forward from earlier milestones (still true, not M7's to fix):**
+
+- **Cross-platform render determinism unverified.** The satori/resvg
+  double-render byte-identity proof has only ever run on this one dev
+  machine. Trust model note: the renderer never re-runs to verify an
+  existing certificate (the on-chain hash is the permanent source of
+  truth), so this only matters if a render host migration or a retried
+  claim ever re-renders on a *different* platform. Pin the render host, or
+  do a Linux smoke test, before any host migration.
+- **Live Privy -> role resolution** and **silent embedded-wallet batch
+  signing** were both verified only by source-reading + a partial spike
+  (headless OTP can't complete; embedded batch-sign was inferred from the
+  SDK's documented behavior, not observed live). Covered by `WAKEUP.md`
+  step 4's manual pass.
+- CU-simulation uses a static fallback rather than an actual
+  `simulateTransaction` round trip before setting the compute budget
+  (brief-permitted shortcut, M4).
+- The app hardcodes the devnet cluster in a few places rather than reading
+  it everywhere from `NEXT_PUBLIC_CLUSTER` (M4).
+
+**Deliberately out of scope tonight (per the plan's stretch/later list, not
+regressions):**
+
+- CSV pre-approval for names (the structural fix for impersonation, beyond
+  tonight's sanitizer mitigation).
+- Signature drawing pad (a rendered cursive font stands in tonight).
+- Rust CPI mint via `mpl-core`'s `CpiBuilder` (server-side Umi mint stands;
+  this would close the "back-reference is the only rogue-mint defense"
+  caveat by binding mint authority into the program itself).
+- Admin add/remove UI (env-configured allowlist + day-1 auto-registration
+  stands in).
+- PDF export (PNG only).
+- Automated LGPD-erasure tooling (the manual runbook — null 2 columns,
+  delete 2-3 storage objects, optionally revoke+burn — works today; no
+  one-click admin action for it yet).
+- Unrevoke policy — undecided, no instruction for it either way.
+- Squads v4 as mainnet upgrade authority + moving the deployer key off the
+  server-readable path — see `WAKEUP.md` "Custody" and "Before mainnet."
+
+## License
+
+MIT — see `LICENSE`.

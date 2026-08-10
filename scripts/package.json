@@ -1,0 +1,14 @@
+{
+  "name": "certify-scripts",
+  "private": true,
+  "type": "module",
+  "description": "M1b deploy/seed/e2e scripts. Isolated install (pnpm --ignore-workspace) so it never triggers a workspace-wide node_modules purge. tsx runs from the repo root; these deps resolve from scripts/node_modules.",
+  "dependencies": {
+    "@certify/client": "file:../packages/certify-client",
+    "@metaplex-foundation/mpl-core": "1.10.0",
+    "@metaplex-foundation/umi": "1.5.1",
+    "@metaplex-foundation/umi-bundle-defaults": "1.5.1",
+    "@solana/kit": "^6.10.0",
+    "@supabase/supabase-js": "^2"
+  }
+}

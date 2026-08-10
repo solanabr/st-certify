@@ -1,0 +1,153 @@
+# Changelog
+
+Milestone history for Superteam Certify's initial build. Each milestone was
+gate-verified (build/test/review) before the next started; full briefs,
+reports, and reviews are in
+`.superpowers/sdd/you-are-going-to-foamy-stallman/`.
+
+## M7 — Hardening, seed data, docs, wake-up runbook
+
+- Name-sanitization hardening: `studentNameSchema` now rejects Latin/
+  Cyrillic and Latin/Greek script mixing (homoglyph impersonation
+  mitigation), with a full fixture suite covering RTL-override, zero-width,
+  emoji, and over-length cases at both the client schema and the server
+  `prepare-request` boundary.
+- Fixed a real validation bug found while writing those fixtures:
+  `editionMetaSchema`/`editionSignerFormSchema`'s UTF-8-byte-length checks
+  never actually rejected anything (zod 4's `.refine()` treats any truthy
+  return, including a fallback error-message string, as "valid") — an
+  overlong edition/signer name or role silently truncated on-chain with no
+  warning. Fixed and covered by regression tests.
+- `scripts/rls-probe.ts`: negative-probe security gate proving the anon
+  Supabase key can't write anywhere and can't read `profiles`/`events`.
+- `scripts/seed-demo.ts`: idempotent demo-data seed — one edition, five
+  certificates spanning every dashboard/verify status, wired into `pnpm
+  seed`.
+- Fixed `@supabase/supabase-js` never actually being installed for the
+  `scripts/` package despite `setup-supabase.ts` importing it — would have
+  crashed with `MODULE_NOT_FOUND` the moment someone ran it with a real
+  Supabase URL.
+- `isUserRejection()` de-duplicated from 4 separate hook-local copies into
+  `lib/chain/errors.ts`.
+- `/verify`'s hero status banner now respects a live on-chain Revoked
+  verdict even when the DB mirror is stale, instead of showing a
+  contradictory green "válido" banner above `VerifyChainStamp`'s red
+  on-chain line.
+- `/api/tx/submit` derives its post-confirmation sync targets from the
+  ownership-checked DB row rather than the request body.
+- The verify page's search input has a persistent visible label (was
+  placeholder + `aria-label` only).
+- `MintingStatus`'s auto-resume retry chain no longer calls `setState` after
+  the card has unmounted.
+- `README.md`, `WAKEUP.md`, `CHANGELOG.md`, updated `.env.example`.
+
+## M6 — Custom template designer
+
+- Upload flow: PNG validation, client-side downscale to ≤2400px, WebCrypto
+  hash, content-addressed upload.
+- Hand-rolled drag/resize canvas (Pointer Events, no third-party library)
+  for positioning `student_name`/`date`/`cert_id`/`qr`/signature fields.
+- Required WCAG 2.5.7 keyboard alternative: numeric X/Y/W/H inputs with
+  arrow-key nudge, sharing the exact same geometry math as the drag
+  interaction (one source of truth, not two implementations that could
+  drift).
+- Live browser preview using the same fonts/CSS variables the server
+  renderer uses.
+- Wired into the existing wizard as step 4 (custom path) alongside the
+  unchanged M3 default-template one-click path.
+
+## M5 — Claim, mint, verify, revoke
+
+- Idempotent claim-submit pipeline: render -> notary co-sign -> student
+  sign -> confirm -> mint (Metaplex Core, soulbound: permanent-freeze +
+  permanent-burn-delegate plugins) -> `record_asset` -> mirror sync. Safely
+  re-POSTable at any step.
+- Public verify page: smart input (address / SHA-256 hash / uploaded PNG,
+  with jsQR fallback for re-encoded screenshots), OG tags, browser-side
+  chain re-check layered over the server-painted verdict.
+- Admin revoke flow (2-distinct-admin, plus a best-effort NFT burn that
+  never blocks the REVOKED verdict on failure).
+- Fix round 1: the verify chain-stamp previously could show a green banner
+  on a revoked-but-stale-mirror certificate (the root of the bug M7's
+  `VerifyStatusBanner` closed more completely); a stuck "Emitindo NFT…"
+  terminal state now retries automatically.
+
+## M4 — Mass sign
+
+- `/certificator` inbox, grouped by edition, with select-all and per-row
+  selection.
+- Batched `sign_certificate` instructions, chunked to fit one transaction
+  (≤20 certs, size-guarded against the 1232-byte transaction limit),
+  submitted as one wallet interaction per distinct signer wallet — one
+  Phantom popup for a whole batch in the common single-wallet case.
+- Chain-truthful progress (refetch-driven, never a client-side counter);
+  resuming after a partial failure just re-queries a smaller inbox.
+- Fix round 1: checkbox hit target raised to the WCAG 2.5.8 24px minimum;
+  a batch spanning editions with different signer wallets now signs each
+  wallet's chunks correctly instead of using the first edition's wallet for
+  everything.
+
+## M3 — App core
+
+- Privy auth wired end-to-end (`/api/auth/sync`, `/api/me` role resolution).
+- Editions browse/detail (public, RSC).
+- Admin creation wizard, default-template one-click path.
+- Request-certificate flow with the shared name-sanitization schema.
+- `/me` student dashboard with a per-signer status timeline.
+- Fix round 1: server-side key-path resolution (`.keys/*.json` is
+  repo-root-relative; the app's runtime cwd is `apps/web/`) and an
+  auth-cookie naming mismatch between the middleware and the identity-token
+  verification.
+
+## M2 — Renderer
+
+- `lib/render.ts`: satori -> resvg pipeline, deterministic (pinned engine
+  versions, committed fonts, no clock reads, canonicalized layout JSON).
+  Verified via a double-render byte-identity test.
+- Committed default Superteam BR template (1600×1131, generated once,
+  hash pinned) with a pre-positioned default layout.
+- Canonical layout JSON schema + `spec_hash` computation (the single
+  on-chain pin for template + layout + signer identity).
+
+## M1 — Program, client, deploy
+
+- `programs/certify`: the full Pinocchio program — `Config`/`Edition`/
+  `Certificate`/`HashIndex` accounts, 13 instructions, the merged
+  reject-with-refund flow, notary-cosigned claim, 2-distinct-admin
+  destructive-op threshold, per-instruction CU budgets asserted as
+  regression gates in tests. Zero `unsafe`, zero heap allocation,
+  `#![no_std]`.
+- `packages/certify-client`: hand-written `@solana/kit` codec client (no
+  Anchor IDL exists under Pinocchio) — instruction builders, PDA helpers,
+  account decoders, golden-vector tested against real on-chain account
+  dumps.
+- Deployed to devnet: program `5Wx1mNKSgtu1pnwHgLe5duYK9xcFhEhsd1zoeJi9EiUZ`,
+  Config PDA `9CSuxJvqPh3j6WYbyAxryCoBfEVCs6YgYnHqzm98gNeZ`, global Metaplex
+  Core collection `H19Fbhh3ubVvisRauUrcsU2ZnAe6S8U46PQYFRsbmc5z`.
+- Fix round 1 (opus review): blocked a same-transaction `[reject,
+  re-request]` revival exploit (closing an account by zeroing its owner to
+  the System Program let it be reinitialized within the same transaction;
+  fixed by leaving the tombstone program-owned instead of closing it — the
+  root cause the M7-documented "persistent-tombstone reject-grief" finding
+  is a deliberate, adjudicated-acceptable side effect of).
+- End-to-end devnet proof: request -> sign×2 -> claim (notary co-sign) ->
+  mint -> `record_asset`, full round trip, real transactions.
+
+## M0 — Foundation + de-risking spikes
+
+- Pinocchio program workspace, pnpm monorepo, Next 15.5 + Tailwind 4 +
+  shadcn scaffold, ESLint import fences enforcing the `lib/chain`/`lib/db`
+  layering rules, dark-theme semantic tokens with contrast verified against
+  the plan's two hard rules.
+- Three de-risking spikes, all accepted: (A) Metaplex Core soulbound mint —
+  freeze + burn-while-frozen delegate proven on devnet; (B) Privy embedded +
+  external wallet batch-signing (partial — headless OTP can't complete, by
+  design; the rest proven); (C) satori/resvg deterministic double-render.
+- Two durable Claude Code skills authored for the rest of the build:
+  `webapp-architecture` and `webapp-polish`.
+
+---
+
+Devnet only throughout. Mainnet deploy requires a separate session and
+explicit user confirmation, per this repo's `CLAUDE.md` — not done, not
+attempted.

@@ -1,0 +1,42 @@
+[workspace]
+resolver = "2"
+members = ["programs/certify", "tests"]
+
+[workspace.package]
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/superteam-br/certify"
+
+[workspace.dependencies]
+# On-chain program deps.
+# - pinocchio: no default features (drop `alloc`/`sha2`; we use `no_allocator!`).
+#   `copy` gives Address/AccountView Copy; `cpi` gives cpi::{Seed,Signer,invoke_signed};
+#   `account-resize` gives the Resize trait used by the tombstone→drain→resize→close path.
+# - solana-address: pinned to 2.6.1 (NOT 2.7.0) so it unifies with litesvm 0.15.2's
+#   `~2.6.1` in the shared workspace; 2.6.1 has every API we use (from_str_const,
+#   find/create_program_address, decode). `curve25519` is added ONLY for non-Solana
+#   targets (see programs/certify/Cargo.toml) so the SBF build uses syscalls and
+#   never pulls curve25519-dalek into the on-chain binary.
+pinocchio = { version = "=0.11.2", default-features = false, features = ["copy", "cpi", "account-resize"] }
+pinocchio-system = "=0.6.1"
+solana-address = { version = "2.6.1", default-features = false, features = ["decode"] }
+
+# Test-only harnesses and SDK crates. Loose caret pins let cargo unify with
+# litesvm 0.15.2's own SDK line rather than fighting exact versions.
+litesvm = "=0.15.2"
+mollusk-svm = "=0.14.0"
+solana-keypair = "3"
+solana-signer = "3"
+solana-transaction = "4"
+solana-instruction = "3"
+solana-account = "4"
+solana-clock = "3"
+solana-pubkey = "3"
+solana-sdk-ids = "3"
+
+[profile.release]
+overflow-checks = true
+lto = "fat"
+codegen-units = 1
+opt-level = "z"
+strip = true
