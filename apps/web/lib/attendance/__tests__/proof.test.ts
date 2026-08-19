@@ -120,6 +120,17 @@ describe("resolveProvedWallet", () => {
         DEPS(),
       ),
     ).rejects.toMatchObject({ code: "SIWS_INVALID_SIGNATURE" });
+    await expect(
+      resolveProvedWallet(
+        {
+          wallet: s.wallet,
+          message: claimMsg,
+          signatureBase64: "!!!not-base64!!!",
+        },
+        "attendance-claim",
+        DEPS(),
+      ),
+    ).rejects.toMatchObject({ code: "SIWS_INVALID_SIGNATURE" });
   });
 
   it("falls back to the Privy session when no signature is sent", async () => {

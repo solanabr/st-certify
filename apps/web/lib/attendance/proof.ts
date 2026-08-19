@@ -49,10 +49,16 @@ export async function resolveProvedWallet(
         },
       );
     }
+    let signatureBytes: Uint8Array;
+    try {
+      signatureBytes = base64ToBytes(input.signatureBase64);
+    } catch {
+      fail("SIWS_INVALID_SIGNATURE", "Assinatura inválida para esta carteira.");
+    }
     const ok = verifyWalletSignature(
       input.wallet,
       new TextEncoder().encode(input.message),
-      base64ToBytes(input.signatureBase64),
+      signatureBytes,
     );
     if (!ok) {
       fail("SIWS_INVALID_SIGNATURE", "Assinatura inválida para esta carteira.");
