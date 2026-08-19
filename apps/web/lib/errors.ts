@@ -17,6 +17,13 @@ export type AppErrorCode =
   | "CERT_STATE_CONFLICT"
   | "RENDER_FAILED"
   | "STORAGE_FAILED"
+  | "ATTENDANCE_LINK_INVALID"
+  | "ATTENDANCE_CLOSED"
+  | "ATTENDANCE_SUPPLY_EXHAUSTED"
+  | "ATTENDANCE_ALREADY_CLAIMED"
+  | "ATTENDANCE_NOT_CREATOR"
+  | "SIWS_NONCE_EXPIRED"
+  | "SIWS_INVALID_SIGNATURE"
   | "INTERNAL";
 
 export type AppErrorAction = "airdrop" | "retry" | "login" | "goto-me";
