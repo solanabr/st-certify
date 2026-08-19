@@ -224,6 +224,9 @@ export function EventList() {
                       size="sm"
                       variant="outline"
                       disabled={rowPending}
+                      aria-busy={
+                        pendingAction === "pause" || pendingAction === "resume"
+                      }
                       onClick={() =>
                         eventAction.mutate({
                           id: event.id,
@@ -264,7 +267,9 @@ export function EventList() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {t("attendance.events.rotateConfirmTitle")}
+              {t("attendance.events.rotateConfirmTitle", {
+                name: rotateTarget?.name ?? "",
+              })}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {t("attendance.events.rotateConfirmBody")}
@@ -276,6 +281,7 @@ export function EventList() {
             </AlertDialogCancel>
             <Button
               disabled={rotatePending}
+              aria-busy={rotatePending}
               onClick={() => {
                 if (!rotateTarget) return;
                 eventAction.mutate(

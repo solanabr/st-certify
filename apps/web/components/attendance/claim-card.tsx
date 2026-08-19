@@ -209,7 +209,10 @@ export function ClaimCard({ token }: { token: string }) {
             </Button>
           ) : (
             <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">
+              <p
+                className="text-sm text-muted-foreground"
+                title={proof.selected.account.address}
+              >
                 {t("attendance.picker.connected", {
                   address: truncateAddress(proof.selected.account.address),
                 })}

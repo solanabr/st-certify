@@ -6,7 +6,6 @@ import type { Locale } from "../locales";
  * rest of the claim-page and dashboard copy.
  */
 const pt = {
-  "attendance.nav": "Eventos",
   "attendance.walletNoAccount": "A carteira não retornou nenhuma conta.",
   "attendance.walletNotConnected": "Conecte uma carteira para continuar.",
   "attendance.signatureCancelled": "Assinatura cancelada.",
@@ -14,7 +13,6 @@ const pt = {
   "attendance.picker.empty": "Nenhuma carteira detectada neste navegador.",
   "attendance.picker.fallback": "Sem carteira? Continue com e-mail",
   "attendance.picker.connected": "Conectado como {address}",
-  "attendance.picker.change": "Trocar carteira",
   "attendance.claim.title": "NFT de presença",
   "attendance.claim.claimed": "{count} reivindicados",
   "attendance.claim.claimedOf": "{count} de {max} reivindicados",
@@ -49,7 +47,7 @@ const pt = {
   "attendance.events.pause": "Pausar",
   "attendance.events.resume": "Retomar",
   "attendance.events.rotate": "Gerar novo link",
-  "attendance.events.rotateConfirmTitle": "Gerar novo link?",
+  "attendance.events.rotateConfirmTitle": "Gerar novo link para {name}?",
   "attendance.events.rotateConfirmBody":
     "O link atual deixará de funcionar imediatamente.",
   "attendance.events.paused": "Pausado",
@@ -76,7 +74,6 @@ export type attendanceKey = keyof typeof pt;
 export const attendanceDict: Record<Locale, Record<attendanceKey, string>> = {
   "pt-BR": pt,
   en: {
-    "attendance.nav": "Events",
     "attendance.walletNoAccount": "The wallet returned no accounts.",
     "attendance.walletNotConnected": "Connect a wallet to continue.",
     "attendance.signatureCancelled": "Signature cancelled.",
@@ -84,7 +81,6 @@ export const attendanceDict: Record<Locale, Record<attendanceKey, string>> = {
     "attendance.picker.empty": "No wallets detected in this browser.",
     "attendance.picker.fallback": "No wallet? Continue with email",
     "attendance.picker.connected": "Connected as {address}",
-    "attendance.picker.change": "Change wallet",
     "attendance.claim.title": "Attendance NFT",
     "attendance.claim.claimed": "{count} claimed",
     "attendance.claim.claimedOf": "{count} of {max} claimed",
@@ -118,7 +114,7 @@ export const attendanceDict: Record<Locale, Record<attendanceKey, string>> = {
     "attendance.events.pause": "Pause",
     "attendance.events.resume": "Resume",
     "attendance.events.rotate": "Rotate link",
-    "attendance.events.rotateConfirmTitle": "Rotate link?",
+    "attendance.events.rotateConfirmTitle": "Rotate link for {name}?",
     "attendance.events.rotateConfirmBody":
       "The current link stops working immediately.",
     "attendance.events.paused": "Paused",
@@ -139,7 +135,6 @@ export const attendanceDict: Record<Locale, Record<attendanceKey, string>> = {
     "attendance.form.created": "Event created! Share the secret link.",
   },
   es: {
-    "attendance.nav": "Eventos",
     "attendance.walletNoAccount": "La billetera no devolvió ninguna cuenta.",
     "attendance.walletNotConnected": "Conecta una billetera para continuar.",
     "attendance.signatureCancelled": "Firma cancelada.",
@@ -147,7 +142,6 @@ export const attendanceDict: Record<Locale, Record<attendanceKey, string>> = {
     "attendance.picker.empty": "No se detectaron billeteras en este navegador.",
     "attendance.picker.fallback": "¿Sin billetera? Continúa con e-mail",
     "attendance.picker.connected": "Conectado como {address}",
-    "attendance.picker.change": "Cambiar billetera",
     "attendance.claim.title": "NFT de asistencia",
     "attendance.claim.claimed": "{count} reclamados",
     "attendance.claim.claimedOf": "{count} de {max} reclamados",
@@ -183,7 +177,8 @@ export const attendanceDict: Record<Locale, Record<attendanceKey, string>> = {
     "attendance.events.pause": "Pausar",
     "attendance.events.resume": "Reanudar",
     "attendance.events.rotate": "Generar nuevo enlace",
-    "attendance.events.rotateConfirmTitle": "¿Generar nuevo enlace?",
+    "attendance.events.rotateConfirmTitle":
+      "¿Generar nuevo enlace para {name}?",
     "attendance.events.rotateConfirmBody":
       "El enlace actual dejará de funcionar de inmediato.",
     "attendance.events.paused": "Pausado",
