@@ -84,10 +84,13 @@ function MintedNotice({
 /**
  * Public claim page (`/attend/[token]`). Info loads via `useClaimInfo`
  * (chain-truthful: driven entirely by the GET endpoint, refetched whenever
- * the connected wallet changes so `callerClaim` reflects that wallet). Once
- * a mutation succeeds in this session, `mint.data` takes priority over the
- * background-refetched `callerClaim` so the celebratory copy sticks instead
- * of flipping to the terser "already claimed" line mid-session.
+ * the connected wallet changes so `callerClaim` reflects that wallet).
+ * `useMintAttendance`'s POST is idempotent — a retried claim resolves with
+ * `status: "already"` instead of "minted" — so the mutation result is
+ * branched on that discriminant rather than treated as an unconditional
+ * fresh-mint success. A same-session `justMinted` still takes priority over
+ * the background-refetched `callerClaim` so the celebratory copy doesn't
+ * flip to the terser "already claimed" line mid-session.
  */
 export function ClaimCard({ token }: { token: string }) {
   const { t, locale } = useT();
@@ -140,7 +143,9 @@ export function ClaimCard({ token }: { token: string }) {
   // `isLoading`/`isError` are both false, but the type stays optional.
   if (!data) return null;
 
-  const alreadyMinted = data.callerClaim?.status === "minted";
+  const justMinted = mint.data?.status === "minted";
+  const alreadyMinted =
+    mint.data?.status === "already" || data.callerClaim?.status === "minted";
 
   return (
     <Card>
@@ -177,17 +182,17 @@ export function ClaimCard({ token }: { token: string }) {
         </p>
 
         <div className="pt-2">
-          {mint.data ? (
+          {justMinted ? (
             <MintedNotice
               title={t("attendance.claim.success")}
               body={t("attendance.claim.successBody")}
-              txSig={mint.data.txSig}
+              txSig={mint.data?.txSig ?? null}
               viewTxLabel={t("attendance.claim.viewTx")}
             />
           ) : alreadyMinted ? (
             <MintedNotice
               title={t("attendance.claim.already")}
-              txSig={data.callerClaim?.txSig ?? null}
+              txSig={mint.data?.txSig || data.callerClaim?.txSig || null}
               viewTxLabel={t("attendance.claim.viewTx")}
             />
           ) : data.state !== "open" ? (
