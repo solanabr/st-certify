@@ -1,13 +1,16 @@
+"use client";
+
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useT, type TranslationKey } from "@/lib/i18n";
 
-const STEPS = [
-  { n: 1, label: "Detalhes" },
-  { n: 2, label: "Signatários" },
-  { n: 3, label: "Template" },
-  { n: 4, label: "Designer" },
-  { n: 5, label: "Revisão" },
-] as const;
+const STEPS: ReadonlyArray<{ n: number; labelKey: TranslationKey }> = [
+  { n: 1, labelKey: "admin.step.details" },
+  { n: 2, labelKey: "admin.step.signers" },
+  { n: 3, labelKey: "admin.step.template" },
+  { n: 4, labelKey: "admin.step.designer" },
+  { n: 5, labelKey: "admin.step.review" },
+];
 
 interface Props {
   current: number;
@@ -16,8 +19,10 @@ interface Props {
 }
 
 export function WizardStepper({ current, skip = [] }: Props) {
+  const { t } = useT();
+
   return (
-    <ol className="flex items-center" aria-label="Etapas da criação de edição">
+    <ol className="flex items-center" aria-label={t("admin.stepper.ariaLabel")}>
       {STEPS.map((step, i) => (
         <li key={step.n} className="flex flex-1 items-center last:flex-none">
           <div
@@ -39,7 +44,7 @@ export function WizardStepper({ current, skip = [] }: Props) {
               {step.n < current ? <Check className="size-3.5" /> : step.n}
             </span>
             <span className="hidden text-[11px] text-muted-foreground sm:block">
-              {step.label}
+              {t(step.labelKey)}
             </span>
           </div>
           {i < STEPS.length - 1 && (

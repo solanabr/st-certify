@@ -5,6 +5,7 @@ import { AlertTriangle, ImageUp, Loader2 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useT } from "@/lib/i18n";
 import type { TemplateUploadStatus } from "./use-template-upload";
 
 export interface TemplateUploadCardProps {
@@ -23,6 +24,7 @@ export function TemplateUploadCard({
   error,
   onFile,
 }: TemplateUploadCardProps): React.JSX.Element {
+  const { t } = useT();
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
   const busy = status === "processing";
@@ -40,7 +42,7 @@ export function TemplateUploadCard({
         role="button"
         tabIndex={0}
         aria-disabled={busy}
-        aria-label="Enviar template PNG — clique ou arraste o arquivo aqui"
+        aria-label={t("designer.upload.dropzoneAria")}
         className={cn(
           "flex min-h-48 flex-col items-center justify-center gap-3 rounded-lg border border-dashed p-8 text-center transition-colors",
           "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none",
@@ -78,13 +80,10 @@ export function TemplateUploadCard({
         )}
         <div>
           <p className="font-medium" aria-live="polite">
-            {busy
-              ? "Processando imagem…"
-              : "Solte o PNG aqui, ou clique para enviar"}
+            {busy ? t("designer.upload.processing") : t("verify.dropPrompt")}
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
-            PNG, até 8MB. Redimensionamos automaticamente para no máximo 2400px
-            no lado maior.
+            {t("designer.upload.hint")}
           </p>
         </div>
         <Button
@@ -94,7 +93,7 @@ export function TemplateUploadCard({
           disabled={busy}
           tabIndex={-1}
         >
-          Escolher arquivo
+          {t("designer.upload.chooseFile")}
         </Button>
         <input
           ref={inputRef}
@@ -112,7 +111,7 @@ export function TemplateUploadCard({
       {status === "error" && error && (
         <Alert variant="destructive">
           <AlertTriangle />
-          <AlertTitle>Não foi possível usar esta imagem</AlertTitle>
+          <AlertTitle>{t("designer.upload.errorTitle")}</AlertTitle>
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}

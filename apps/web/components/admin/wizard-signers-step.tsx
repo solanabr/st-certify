@@ -10,6 +10,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { useT } from "@/lib/i18n";
 import type { EditionWizardInput } from "@/lib/schemas";
 
 interface Props {
@@ -19,6 +20,7 @@ interface Props {
 }
 
 export function WizardSignersStep({ form, onNext, onBack }: Props) {
+  const { t } = useT();
   const { fields, append, remove } = useFieldArray({
     control: form.control,
     name: "signers",
@@ -42,7 +44,7 @@ export function WizardSignersStep({ form, onNext, onBack }: Props) {
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Adicione de 2 a 6 signatários. Cada um assina o certificado on-chain.
+        {t("admin.signers.intro")}
       </p>
 
       {fields.map((field, index) => (
@@ -56,7 +58,10 @@ export function WizardSignersStep({ form, onNext, onBack }: Props) {
             render={({ field: f }) => (
               <FormItem>
                 <FormControl>
-                  <Input placeholder="Carteira (base58)" {...f} />
+                  <Input
+                    placeholder={t("admin.signers.walletPlaceholder")}
+                    {...f}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -68,7 +73,10 @@ export function WizardSignersStep({ form, onNext, onBack }: Props) {
             render={({ field: f }) => (
               <FormItem>
                 <FormControl>
-                  <Input placeholder="Nome" {...f} />
+                  <Input
+                    placeholder={t("admin.signers.namePlaceholder")}
+                    {...f}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -80,7 +88,10 @@ export function WizardSignersStep({ form, onNext, onBack }: Props) {
             render={({ field: f }) => (
               <FormItem>
                 <FormControl>
-                  <Input placeholder="Cargo" {...f} />
+                  <Input
+                    placeholder={t("admin.signers.rolePlaceholder")}
+                    {...f}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -92,7 +103,7 @@ export function WizardSignersStep({ form, onNext, onBack }: Props) {
             size="icon"
             disabled={fields.length <= 2}
             onClick={() => remove(index)}
-            aria-label={`Remover signatário ${index + 1}`}
+            aria-label={t("admin.signers.removeAria", { index: index + 1 })}
           >
             <Trash2 />
           </Button>
@@ -106,15 +117,15 @@ export function WizardSignersStep({ form, onNext, onBack }: Props) {
         disabled={fields.length >= 6}
         onClick={() => append({ wallet: "", name: "", role: "" })}
       >
-        <Plus /> Adicionar signatário
+        <Plus /> {t("admin.signers.add")}
       </Button>
 
       <div className="flex justify-between pt-4">
         <Button type="button" variant="outline" onClick={onBack}>
-          Voltar
+          {t("admin.back")}
         </Button>
         <Button type="button" onClick={() => void handleNext()}>
-          Continuar
+          {t("admin.continue")}
         </Button>
       </div>
     </div>

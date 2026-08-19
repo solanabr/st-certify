@@ -6,6 +6,7 @@ import type { UseFormReturn } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { useT, type TranslationKey } from "@/lib/i18n";
 import type { EditionWizardInput } from "@/lib/schemas";
 
 type TemplateChoice = "default" | "custom";
@@ -19,22 +20,22 @@ interface Props {
 interface CardDef {
   value: TemplateChoice;
   icon: string;
-  title: string;
-  description: string;
+  titleKey: TranslationKey;
+  descriptionKey: TranslationKey;
 }
 
 const CARDS: CardDef[] = [
   {
     value: "default",
     icon: "S",
-    title: "Padrão Superteam BR",
-    description: "Template pronto, um clique.",
+    titleKey: "admin.template.defaultTitle",
+    descriptionKey: "admin.template.defaultDesc",
   },
   {
     value: "custom",
     icon: "+",
-    title: "Enviar PNG",
-    description: "Envie sua imagem e posicione os campos.",
+    titleKey: "admin.template.customTitle",
+    descriptionKey: "admin.template.customDesc",
   },
 ];
 
@@ -46,6 +47,7 @@ const CARDS: CardDef[] = [
  * this returns via `onNext`.
  */
 export function WizardTemplateStep({ form, onNext, onBack }: Props) {
+  const { t } = useT();
   const [choice, setChoice] = useState<TemplateChoice>(
     form.getValues("templatePath") || "default",
   );
@@ -59,7 +61,7 @@ export function WizardTemplateStep({ form, onNext, onBack }: Props) {
     <div className="space-y-6">
       <div
         role="radiogroup"
-        aria-label="Escolha do template"
+        aria-label={t("admin.template.groupAria")}
         className="grid gap-4 sm:grid-cols-2"
       >
         {CARDS.map((card) => {
@@ -97,9 +99,9 @@ export function WizardTemplateStep({ form, onNext, onBack }: Props) {
                   {card.icon}
                 </div>
                 <div>
-                  <p className="font-semibold">{card.title}</p>
+                  <p className="font-semibold">{t(card.titleKey)}</p>
                   <p className="text-sm text-muted-foreground">
-                    {card.description}
+                    {t(card.descriptionKey)}
                   </p>
                 </div>
                 <span
@@ -108,7 +110,7 @@ export function WizardTemplateStep({ form, onNext, onBack }: Props) {
                     !selected && "invisible",
                   )}
                 >
-                  <Check className="size-4" /> Selecionado
+                  <Check className="size-4" /> {t("admin.template.selected")}
                 </span>
               </CardContent>
             </Card>
@@ -118,10 +120,10 @@ export function WizardTemplateStep({ form, onNext, onBack }: Props) {
 
       <div className="flex justify-between pt-2">
         <Button type="button" variant="outline" onClick={onBack}>
-          Voltar
+          {t("admin.back")}
         </Button>
         <Button type="button" onClick={handleContinue}>
-          Continuar
+          {t("admin.continue")}
         </Button>
       </div>
     </div>

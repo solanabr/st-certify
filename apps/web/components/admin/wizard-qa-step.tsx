@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useCreateEdition } from "@/hooks/useCreateEdition";
 import { useSetEditionStatus } from "@/hooks/useSetEditionStatus";
 import { onAppError } from "@/lib/on-app-error";
+import { useT } from "@/lib/i18n";
 import type { EditionWizardInput } from "@/lib/schemas";
 
 interface Props {
@@ -25,6 +26,7 @@ interface Props {
  * recoverable later from the admin Edições tab (abandonment-safe).
  */
 export function WizardQaStep({ form, onOpened }: Props) {
+  const { t } = useT();
   const router = useRouter();
   const createEdition = useCreateEdition();
   const setStatus = useSetEditionStatus();
@@ -70,7 +72,7 @@ export function WizardQaStep({ form, onOpened }: Props) {
     return (
       <div className="space-y-4">
         <p className="text-sm text-muted-foreground" aria-live="polite">
-          Criando edição on-chain…
+          {t("admin.qa.creating")}
         </p>
         <Skeleton className="aspect-[16/11] w-full rounded-lg" />
       </div>
@@ -82,9 +84,9 @@ export function WizardQaStep({ form, onOpened }: Props) {
       <div className="space-y-4">
         <Alert variant="destructive">
           <AlertTriangle />
-          <AlertTitle>Falha ao criar edição</AlertTitle>
+          <AlertTitle>{t("admin.qa.createError")}</AlertTitle>
           <AlertDescription>
-            {createEdition.error?.message ?? "Tente novamente."}
+            {createEdition.error?.message ?? t("admin.qa.tryAgain")}
           </AlertDescription>
         </Alert>
         <div className="flex justify-between pt-2">
@@ -93,7 +95,7 @@ export function WizardQaStep({ form, onOpened }: Props) {
             variant="outline"
             onClick={() => router.push("/admin")}
           >
-            Voltar ao painel
+            {t("admin.qa.backToDashboard")}
           </Button>
           <Button
             type="button"
@@ -102,7 +104,7 @@ export function WizardQaStep({ form, onOpened }: Props) {
               fireCreate();
             }}
           >
-            Tentar novamente
+            {t("admin.retry")}
           </Button>
         </div>
       </div>
@@ -112,14 +114,13 @@ export function WizardQaStep({ form, onOpened }: Props) {
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Edição criada e pausada. Confira a amostra abaixo com dados de exemplo
-        antes de abrir para o público.
+        {t("admin.qa.createdPaused")}
       </p>
       {created && (
         // eslint-disable-next-line @next/next/no-img-element -- server-rendered PNG, not a static/local asset
         <img
           src={`/api/admin/editions/${created.address}/qa-sample`}
-          alt="Amostra do certificado com dados de exemplo"
+          alt={t("admin.qa.sampleAlt")}
           className="w-full rounded-lg border border-border"
         />
       )}
@@ -129,7 +130,7 @@ export function WizardQaStep({ form, onOpened }: Props) {
           variant="outline"
           onClick={() => router.push("/admin")}
         >
-          Voltar ao painel
+          {t("admin.qa.backToDashboard")}
         </Button>
         <Button
           type="button"
@@ -137,12 +138,13 @@ export function WizardQaStep({ form, onOpened }: Props) {
           disabled={setStatus.isPending}
           aria-busy={setStatus.isPending}
         >
-          {setStatus.isPending ? "Abrindo…" : "Abrir edição"}
+          {setStatus.isPending
+            ? t("admin.qa.opening")
+            : t("admin.qa.openEdition")}
         </Button>
       </div>
       <p className="text-xs text-muted-foreground">
-        A edição fica pausada até você clicar em &ldquo;Abrir edição&rdquo; —
-        você pode sair desta página e retomar depois pelo painel.
+        {t("admin.qa.pausedNote")}
       </p>
     </div>
   );

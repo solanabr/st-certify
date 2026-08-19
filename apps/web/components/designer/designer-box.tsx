@@ -2,6 +2,7 @@
 
 import { useRef, type CSSProperties, type ReactNode } from "react";
 import { NUDGE_STEP, NUDGE_STEP_SHIFT } from "./geometry";
+import { useT } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 export interface DesignerBoxProps {
@@ -47,6 +48,7 @@ export function DesignerBox({
   onNudge,
   children,
 }: DesignerBoxProps): React.JSX.Element {
+  const { t } = useT();
   const dragOrigin = useRef<{ x: number; y: number } | null>(null);
   const resizeOrigin = useRef<{ x: number; y: number } | null>(null);
 
@@ -120,7 +122,7 @@ export function DesignerBox({
       id={`designer-box-${id}`}
       role="button"
       tabIndex={0}
-      aria-label={`${label} — arraste para mover, use as setas do teclado para ajustar a posição`}
+      aria-label={t("designer.box.aria", { label })}
       aria-pressed={selected}
       className={cn(
         "group absolute cursor-move touch-none rounded-[2px] border-2 outline-none",

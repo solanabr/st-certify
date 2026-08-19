@@ -4,11 +4,15 @@ import Link from "next/link";
 import { usePrivy } from "@privy-io/react-auth";
 import { Button } from "@/components/ui/button";
 import { useMe } from "@/hooks/useMe";
+import { useT, type TranslationKey } from "@/lib/i18n";
 
-const DASHBOARD_LABEL: Record<"sysadmin" | "certifier" | "student", string> = {
-  sysadmin: "Ir para a administração",
-  certifier: "Ir para o certificador",
-  student: "Ver meus certificados",
+const DASHBOARD_LABEL_KEY: Record<
+  "sysadmin" | "certifier" | "student",
+  TranslationKey
+> = {
+  sysadmin: "cta.goAdmin",
+  certifier: "cta.goCertificator",
+  student: "cta.goMyCerts",
 };
 
 const DASHBOARD_HREF: Record<"sysadmin" | "certifier" | "student", string> = {
@@ -21,6 +25,7 @@ const DASHBOARD_HREF: Record<"sysadmin" | "certifier" | "student", string> = {
 export function LandingCta() {
   const { ready, authenticated, login } = usePrivy();
   const { data: me } = useMe();
+  const { t } = useT();
 
   if (!ready) {
     return <div className="h-10 w-40" aria-hidden="true" />;
@@ -29,7 +34,7 @@ export function LandingCta() {
   if (!authenticated || !me?.authenticated) {
     return (
       <Button onClick={() => login()} variant="outline" size="lg">
-        Entrar
+        {t("nav.signIn")}
       </Button>
     );
   }
@@ -38,7 +43,7 @@ export function LandingCta() {
 
   return (
     <Button asChild variant="outline" size="lg">
-      <Link href={DASHBOARD_HREF[role]}>{DASHBOARD_LABEL[role]}</Link>
+      <Link href={DASHBOARD_HREF[role]}>{t(DASHBOARD_LABEL_KEY[role])}</Link>
     </Button>
   );
 }

@@ -14,6 +14,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/lib/api-client";
+import { useT } from "@/lib/i18n";
 import type { EditionWizardInput } from "@/lib/schemas";
 
 const COMBINING_DIACRITICS = new RegExp("[\\u0300-\\u036f]", "g");
@@ -36,6 +37,7 @@ interface Props {
 type SlugStatus = "idle" | "checking" | "available" | "taken";
 
 export function WizardMetaStep({ form, onNext }: Props) {
+  const { t } = useT();
   const [slugEdited, setSlugEdited] = useState(
     Boolean(form.getValues("meta.slug")),
   );
@@ -53,7 +55,7 @@ export function WizardMetaStep({ form, onNext }: Props) {
       );
       setSlugStatus(res.available ? "available" : "taken");
       if (!res.available) {
-        form.setError("meta.slug", { message: "Este slug já está em uso." });
+        form.setError("meta.slug", { message: t("admin.meta.slugTaken") });
       }
     } catch {
       setSlugStatus("idle");
@@ -80,10 +82,10 @@ export function WizardMetaStep({ form, onNext }: Props) {
         name="meta.name"
         render={({ field }) => (
           <FormItem>
-            <FormLabel>Nome da edição</FormLabel>
+            <FormLabel>{t("admin.meta.nameLabel")}</FormLabel>
             <FormControl>
               <Input
-                placeholder="Ex.: Solana Bootcamp 2026"
+                placeholder={t("admin.meta.namePlaceholder")}
                 {...field}
                 onChange={(e) => {
                   field.onChange(e);
@@ -103,7 +105,7 @@ export function WizardMetaStep({ form, onNext }: Props) {
         name="meta.slug"
         render={({ field }) => (
           <FormItem>
-            <FormLabel>Slug (link público)</FormLabel>
+            <FormLabel>{t("admin.meta.slugLabel")}</FormLabel>
             <FormControl>
               <Input
                 placeholder="solana-bootcamp-2026"
@@ -120,8 +122,8 @@ export function WizardMetaStep({ form, onNext }: Props) {
               />
             </FormControl>
             <FormDescription>
-              {slugStatus === "checking" && "Verificando disponibilidade…"}
-              {slugStatus === "available" && "Disponível."}
+              {slugStatus === "checking" && t("admin.meta.slugChecking")}
+              {slugStatus === "available" && t("admin.meta.slugAvailable")}
               {slugStatus === "idle" && `/editions/${field.value || "..."}`}
             </FormDescription>
             <FormMessage />
@@ -134,12 +136,12 @@ export function WizardMetaStep({ form, onNext }: Props) {
         name="meta.maxSupply"
         render={({ field }) => (
           <FormItem>
-            <FormLabel>Limite de certificados (opcional)</FormLabel>
+            <FormLabel>{t("admin.meta.maxSupplyLabel")}</FormLabel>
             <FormControl>
               <Input
                 type="number"
                 min={1}
-                placeholder="Sem limite"
+                placeholder={t("admin.meta.maxSupplyPlaceholder")}
                 name={field.name}
                 ref={field.ref}
                 onBlur={field.onBlur}
@@ -161,7 +163,7 @@ export function WizardMetaStep({ form, onNext }: Props) {
         name="meta.completionDate"
         render={({ field }) => (
           <FormItem>
-            <FormLabel>Data de conclusão (opcional)</FormLabel>
+            <FormLabel>{t("admin.meta.completionDateLabel")}</FormLabel>
             <FormControl>
               <Input type="date" {...field} value={field.value ?? ""} />
             </FormControl>
@@ -175,7 +177,7 @@ export function WizardMetaStep({ form, onNext }: Props) {
         name="meta.description"
         render={({ field }) => (
           <FormItem>
-            <FormLabel>Descrição (opcional)</FormLabel>
+            <FormLabel>{t("admin.meta.descriptionLabel")}</FormLabel>
             <FormControl>
               <Textarea rows={3} {...field} value={field.value ?? ""} />
             </FormControl>
@@ -186,7 +188,7 @@ export function WizardMetaStep({ form, onNext }: Props) {
 
       <div className="flex justify-end pt-2">
         <Button type="button" onClick={() => void handleNext()}>
-          Continuar
+          {t("admin.continue")}
         </Button>
       </div>
     </div>

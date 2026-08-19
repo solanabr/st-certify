@@ -9,6 +9,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthSync } from "@/components/auth-sync";
 import { getRpc, getRpcSubscriptions, rpcConfigured } from "@/lib/chain";
+import { useT } from "@/lib/i18n";
 
 const PRIVY_APP_ID = process.env.NEXT_PUBLIC_PRIVY_APP_ID;
 
@@ -55,21 +56,27 @@ function AppProviders({ children }: { children: React.ReactNode }) {
   );
 }
 
+function AuthUnavailable() {
+  const { t } = useT();
+  return (
+    <div className="p-4">
+      <Alert variant="destructive">
+        <AlertTitle>{t("providers.authUnavailableTitle")}</AlertTitle>
+        <AlertDescription>
+          {t("providers.authUnavailableDesc")}
+        </AlertDescription>
+      </Alert>
+    </div>
+  );
+}
+
 export function Providers({ children }: { children: React.ReactNode }) {
   if (!PRIVY_APP_ID) {
     // Never hard-crash on missing env — surface a clear inline message and
     // keep the rest of the app (query client, toaster) working.
     return (
       <AppProviders>
-        <div className="p-4">
-          <Alert variant="destructive">
-            <AlertTitle>Autenticação indisponível</AlertTitle>
-            <AlertDescription>
-              NEXT_PUBLIC_PRIVY_APP_ID não está configurado. Defina essa
-              variável de ambiente para habilitar o login.
-            </AlertDescription>
-          </Alert>
-        </div>
+        <AuthUnavailable />
         {children}
       </AppProviders>
     );

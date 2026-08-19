@@ -11,6 +11,7 @@ import { fail } from "@/lib/errors";
 import { isUserRejection } from "@/lib/chain/errors";
 import { buildRejectTx } from "@/lib/chain/certificator";
 import { bytesToBase64 } from "@/lib/bytes";
+import { useT } from "@/lib/i18n";
 
 export interface RejectInput {
   certificateAddress: string;
@@ -37,6 +38,7 @@ export function useReject(): UseMutationResult<
   Error,
   RejectInput
 > {
+  const { t } = useT();
   const { wallets } = useStandardWallets();
   const queryClient = useQueryClient();
 
@@ -49,14 +51,11 @@ export function useReject(): UseMutationResult<
         (a) => a.address === input.signerWallet,
       );
       if (!wallet || !account) {
-        fail(
-          "UNAUTHORIZED",
-          "Carteira não encontrada. Reconecte e tente novamente.",
-        );
+        fail("UNAUTHORIZED", t("certificator.walletNotFound"));
       }
       const signFeature = wallet.features["solana:signTransaction"];
       if (!signFeature) {
-        fail("INTERNAL", "Esta carteira não suporta assinatura de transações.");
+        fail("INTERNAL", t("certificator.walletNoSigning"));
       }
 
       const tx = await buildRejectTx({
@@ -76,7 +75,7 @@ export function useReject(): UseMutationResult<
         signedBytes = signed.signedTransaction;
       } catch (err) {
         if (isUserRejection(err)) {
-          fail("CHAIN_REJECTED_BY_USER", "Assinatura cancelada.");
+          fail("CHAIN_REJECTED_BY_USER", t("certificator.signatureCancelled"));
         }
         throw err;
       }

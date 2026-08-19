@@ -13,6 +13,7 @@ import { fail, toAppError } from "@/lib/errors";
 import { isUserRejection } from "@/lib/chain/errors";
 import { onAppError } from "@/lib/on-app-error";
 import { base64ToBytes, bytesToBase64 } from "@/lib/bytes";
+import { useT } from "@/lib/i18n";
 
 /** Claim stepper stages (appendix §M5 delta). "minting"/done are shown by the card's Claimed state (chain-truthful). */
 export type ClaimStage = "idle" | "rendering" | "signing" | "confirming";
@@ -51,6 +52,7 @@ export function useClaim(): UseMutationResult<
 > & { stage: ClaimStage } {
   const { wallets } = useStandardWallets();
   const queryClient = useQueryClient();
+  const { t } = useT();
   const [stage, setStage] = useState<ClaimStage>("idle");
   // The cert's student wallet (fee payer) — targets the airdrop CTA on insufficient funds.
   const studentWalletRef = useRef<string | undefined>(undefined);
@@ -73,10 +75,7 @@ export function useClaim(): UseMutationResult<
         );
         const signFeature = wallet?.features["solana:signTransaction"];
         if (!wallet || !account || !signFeature) {
-          fail(
-            "UNAUTHORIZED",
-            "Carteira do certificado não encontrada. Reconecte e tente novamente.",
-          );
+          fail("UNAUTHORIZED", t("student.claimWalletNotFound"));
         }
 
         setStage("signing");
@@ -90,7 +89,7 @@ export function useClaim(): UseMutationResult<
           signedBytes = signed.signedTransaction;
         } catch (err) {
           if (isUserRejection(err)) {
-            fail("CHAIN_REJECTED_BY_USER", "Assinatura cancelada.");
+            fail("CHAIN_REJECTED_BY_USER", t("student.signatureCancelled"));
           }
           throw err;
         }
@@ -119,7 +118,7 @@ export function useClaim(): UseMutationResult<
     },
     onSuccess: () => {
       setStage("idle");
-      toast.success("Certificado resgatado");
+      toast.success(t("claim.done"));
       void queryClient.invalidateQueries({ queryKey: ["me", "certificates"] });
     },
     onError: (err) => {

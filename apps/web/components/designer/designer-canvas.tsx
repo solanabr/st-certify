@@ -3,6 +3,7 @@
 import { useRef } from "react";
 import { QrCode } from "lucide-react";
 import type { QrField, SignatureBox, TextField } from "@/lib/render/layout";
+import { useT, type TranslationKey } from "@/lib/i18n";
 import {
   moveRect,
   moveSquare,
@@ -15,13 +16,19 @@ import {
 } from "./geometry";
 import { DesignerBox } from "./designer-box";
 import {
-  TEXT_FIELD_LABELS,
   selectionId,
   selectionsEqual,
   type DesignerLayoutDraft,
   type SelectedBox,
   type TextFieldKey,
 } from "./types";
+
+/** Text-field labels, shared with the field-editor panel. */
+export const TEXT_FIELD_LABEL_KEYS: Record<TextFieldKey, TranslationKey> = {
+  student_name: "designer.field.studentName",
+  date: "designer.field.date",
+  cert_id: "designer.field.certId",
+};
 
 export interface SamplePreviewValues {
   studentName: string;
@@ -99,6 +106,7 @@ function SignatureContent({
   box: SignatureBox;
   signer: SignaturePreview | undefined;
 }): React.JSX.Element {
+  const { t } = useT();
   return (
     <div
       className="flex size-full flex-col justify-center"
@@ -116,7 +124,7 @@ function SignatureContent({
           lineHeight: 1,
         }}
       >
-        {signer?.name || "Nome do signatário"}
+        {signer?.name || t("designer.signature.namePlaceholder")}
       </div>
       <div className="mt-[6%] h-px w-full bg-[#7C879E]" />
       <div
@@ -127,7 +135,7 @@ function SignatureContent({
           color: "#B7C0D8",
         }}
       >
-        {signer?.role || "Cargo"}
+        {signer?.role || t("designer.signature.rolePlaceholder")}
       </div>
     </div>
   );
@@ -156,6 +164,7 @@ export function DesignerCanvas({
   sampleValues,
   signerPreviews,
 }: DesignerCanvasProps): React.JSX.Element {
+  const { t } = useT();
   const containerRef = useRef<HTMLDivElement>(null);
   const aspect = canvasWidth / canvasHeight;
 
@@ -190,7 +199,7 @@ export function DesignerCanvas({
       {/* eslint-disable-next-line @next/next/no-img-element -- data URI / Supabase-hosted upload, not a static/local asset */}
       <img
         src={imageUrl}
-        alt="Template do certificado enviado"
+        alt={t("designer.canvas.templateAlt")}
         className="pointer-events-none absolute inset-0 size-full object-fill"
         draggable={false}
       />
@@ -201,7 +210,7 @@ export function DesignerCanvas({
           <DesignerBox
             key={selectionId(sel)}
             id={selectionId(sel)}
-            label={TEXT_FIELD_LABELS[key]}
+            label={t(TEXT_FIELD_LABEL_KEYS[key])}
             style={rectToPercentStyle(field)}
             selected={selectionsEqual(selected, sel)}
             onSelect={() => onSelect(sel)}
@@ -228,7 +237,7 @@ export function DesignerCanvas({
           <DesignerBox
             key={selectionId(sel)}
             id={selectionId(sel)}
-            label="QR code"
+            label={t("designer.qr.label")}
             style={squareToStyle(draft.qr)}
             selected={selectionsEqual(selected, sel)}
             onSelect={() => onSelect(sel)}
@@ -255,7 +264,7 @@ export function DesignerCanvas({
           <DesignerBox
             key={selectionId(sel)}
             id={selectionId(sel)}
-            label={`Assinatura ${index + 1}`}
+            label={t("designer.signature.label", { index: index + 1 })}
             style={rectToPercentStyle(box)}
             selected={selectionsEqual(selected, sel)}
             onSelect={() => onSelect(sel)}

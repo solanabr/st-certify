@@ -5,12 +5,14 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { RequestCertificateForm } from "@/components/request-certificate-form";
 import { dbConfigured, getEditionBySlug } from "@/lib/db/queries";
+import { getT } from "@/lib/i18n/server";
+import type { TranslationKey } from "@/lib/i18n";
 import type { EditionStatusValue } from "@/lib/db/types";
 
-const STATUS_LABEL: Record<EditionStatusValue, string> = {
-  Open: "Aberta",
-  Paused: "Pausada",
-  Closed: "Encerrada",
+const STATUS_LABEL_KEY: Record<EditionStatusValue, TranslationKey> = {
+  Open: "editions.status.open",
+  Paused: "editions.status.paused",
+  Closed: "editions.status.closed",
 };
 
 export async function generateMetadata({
@@ -18,15 +20,16 @@ export async function generateMetadata({
 }: {
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
+  const { t } = await getT();
   if (!dbConfigured) {
-    return { title: "Edição | Superteam Certify" };
+    return { title: t("editions.detailMetaTitle") };
   }
   const { slug } = await params;
   const edition = await getEditionBySlug(slug);
   return {
     title: edition
       ? `${edition.name} | Superteam Certify`
-      : "Edição não encontrada",
+      : t("editions.notFoundMetaTitle"),
   };
 }
 
@@ -35,13 +38,15 @@ export default async function EditionDetailPage({
 }: {
   params: Promise<{ slug: string }>;
 }) {
+  const { t } = await getT();
+
   if (!dbConfigured) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-16">
         <Alert>
-          <AlertTitle>Supabase não configurado</AlertTitle>
+          <AlertTitle>{t("editions.dbUnconfiguredTitle")}</AlertTitle>
           <AlertDescription>
-            Esta edição não pode ser carregada no momento.
+            {t("editions.detailDbUnconfiguredDesc")}
           </AlertDescription>
         </Alert>
       </div>
@@ -57,8 +62,11 @@ export default async function EditionDetailPage({
 
   const supplyLabel =
     edition.maxSupply > 0
-      ? `${edition.minted} de ${edition.maxSupply} certificados emitidos`
-      : `${edition.minted} certificados emitidos`;
+      ? t("editions.supplyWithMax", {
+          minted: edition.minted,
+          max: edition.maxSupply,
+        })
+      : t("editions.supply", { minted: edition.minted });
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-16">
@@ -74,7 +82,7 @@ export default async function EditionDetailPage({
           {edition.name}
         </h1>
         <Badge variant={edition.status === "Open" ? "default" : "secondary"}>
-          {STATUS_LABEL[edition.status]}
+          {t(STATUS_LABEL_KEY[edition.status])}
         </Badge>
       </div>
 
@@ -89,7 +97,7 @@ export default async function EditionDetailPage({
       {edition.signers.length > 0 && (
         <div className="mt-8">
           <h2 className="text-sm font-medium text-muted-foreground">
-            Signatários
+            {t("editions.signers")}
           </h2>
           <ul className="mt-3 space-y-2">
             {edition.signers.map((signer) => (
@@ -112,27 +120,24 @@ export default async function EditionDetailPage({
       <Separator className="my-10" />
 
       <div>
-        <h2 className="mb-4 text-lg font-semibold">Solicitar certificado</h2>
+        <h2 className="mb-4 text-lg font-semibold">
+          {t("student.requestCertificate")}
+        </h2>
         {edition.status === "Paused" ? (
           <Alert>
-            <AlertTitle>Esta edição ainda não está aberta</AlertTitle>
-            <AlertDescription>
-              Volte em breve — as solicitações abrem assim que os
-              administradores publicarem esta edição.
-            </AlertDescription>
+            <AlertTitle>{t("editions.pausedTitle")}</AlertTitle>
+            <AlertDescription>{t("editions.pausedDesc")}</AlertDescription>
           </Alert>
         ) : edition.status === "Closed" ? (
           <Alert>
-            <AlertTitle>Esta edição está encerrada</AlertTitle>
-            <AlertDescription>
-              Não é mais possível solicitar novos certificados para esta edição.
-            </AlertDescription>
+            <AlertTitle>{t("editions.closedTitle")}</AlertTitle>
+            <AlertDescription>{t("editions.closedDesc")}</AlertDescription>
           </Alert>
         ) : edition.maxSupply > 0 && edition.minted >= edition.maxSupply ? (
           <Alert>
-            <AlertTitle>Limite de certificados atingido</AlertTitle>
+            <AlertTitle>{t("editions.supplyExhaustedTitle")}</AlertTitle>
             <AlertDescription>
-              Esta edição atingiu o número máximo de certificados.
+              {t("editions.supplyExhaustedDesc")}
             </AlertDescription>
           </Alert>
         ) : (

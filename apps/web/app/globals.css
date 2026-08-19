@@ -1,9 +1,21 @@
 @import "tailwindcss";
 
-/* Class-based dark-mode variant (Tailwind v4). We hard-code <html class="dark">
-   in the root layout — there is no light theme and no next-themes — this only
-   exists so any `dark:` utility a component ships with resolves predictably. */
+/* Class-based dark-mode variant (Tailwind v4), driven by next-themes
+   (attribute="class", defaultTheme="system") — see components/theme-provider. */
 @custom-variant dark (&:where(.dark, .dark *));
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Superteam Brasil — design tokens
+
+   Warm · earthy · optimistic. Light mode is the brand-guide system: cream
+   canvas, emerald hero, yellow accent, dark-green ink (values from
+   stbr-brand-tokens.css, brand guide 1.7). Dark mode is our derivation on the
+   brand's warm green-dark ramp — the guide itself is light-only.
+
+   Contrast notes follow the M0 discipline: every text-bearing fill documents
+   its measured ratio; AA (4.5:1) is the floor, so a few brand values are
+   nudged one step down their own ramp (marked below).
+   ─────────────────────────────────────────────────────────────────────────── */
 
 @theme inline {
   --color-background: var(--background);
@@ -30,78 +42,151 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
 
-  /* Raw (undarkened) brand hues — decorative only, see allowlist below.
-     Do NOT use these for text-bearing fills; use --color-primary /
-     --color-success / etc. for anything with text or icons on top. */
-  --color-solana-purple: #9945ff;
-  --color-solana-green: #14f195;
+  /* Dark-green impact field (footer, brand blocks) — same in both themes. */
+  --color-inverse: var(--inverse);
+  --color-inverse-foreground: var(--inverse-foreground);
+
+  /* Raw brand hues — decorative only (badges/strips), not text-bearing fills. */
+  --color-brand-emerald: #008b4c;
+  --color-brand-yellow: #ffd23f;
+  --color-brand-cream: #f5e8ca;
 
   --font-sans: var(--font-inter);
+  /* --font-display stays the certificate script face (Great Vibes): the
+     template designer previews it via this var — do not point it at Archivo. */
   --font-display: var(--font-great-vibes);
+  --font-heading: var(--font-archivo);
 
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) * 2);
 }
 
 :root {
-  /* Single hard-coded dark theme (see app/layout.tsx, <html class="dark">).
-     No light variant exists — these are the only values that ever apply. */
-  --background: #0b0f1a;
-  --foreground: #e6eaf2;
+  /* ── Light (brand-guide) ── */
+  --background: #f5e8ca; /* cream canvas */
+  --foreground: #1b231d; /* dark-green ink — 12.4:1 on cream */
 
-  --card: #101626;
-  --card-foreground: #e6eaf2;
+  --card: #ffffff;
+  --card-foreground: #1b231d;
 
-  --popover: #101626;
-  --popover-foreground: #e6eaf2;
+  --popover: #ffffff;
+  --popover-foreground: #1b231d;
 
-  /* Primary = Solana purple #9945FF darkened for a safe WCAG AA margin.
-     Raw #9945FF measures 4.52:1 white-on-primary — technically over 4.5:1
-     but with essentially no margin (see M0 report contrast script). Darkened
-     to #7A2FE0 (same hue/~74% saturation, lower lightness) = 6.34:1. */
-  --primary: #7a2fe0;
-  --primary-foreground: #ffffff;
+  /* Primary = brand emerald stepped to emerald-700: raw #008b4c measures
+     3.5:1 under cream text; #007340 (the brand's own hover step) = 4.8:1. */
+  --primary: #007340;
+  --primary-foreground: #f5e8ca;
 
-  --secondary: #161d2e;
-  --secondary-foreground: #e6eaf2;
+  --secondary: #ede0bf; /* cream-300 */
+  --secondary-foreground: #1b231d;
 
-  --muted: #151c2e;
-  --muted-foreground: #94a3b8;
+  /* muted-foreground: brand ink-500 #767f73 measures 3.3:1 on cream; nudged
+     to #5a635a = 5.0:1 on cream, 4.8:1 on muted. */
+  --muted: #ede0bf;
+  --muted-foreground: #5a635a;
 
-  --accent: #17213a;
-  --accent-foreground: #e6eaf2;
+  --accent: #e4f0e7; /* emerald-tinted hover rows */
+  --accent-foreground: #265634; /* green-700 — 7.3:1 on accent */
 
-  /* white-on-fill contrast: destructive 4.83:1, success 5.02:1, warning 5.02:1 */
-  --destructive: #dc2626;
+  /* white-on-fill: destructive 5.4:1 · success(cream fg) 5.1:1 · warning uses
+     ink text at 7.2:1 (white on yellow-700 would fail). */
+  --destructive: #c0392b;
   --destructive-foreground: #ffffff;
 
-  --success: #15803d;
-  --success-foreground: #ffffff;
+  --success: #306c40; /* brand green */
+  --success-foreground: #f5e8ca;
 
-  --warning: #b45309;
-  --warning-foreground: #ffffff;
+  --warning: #d9a608; /* yellow-700 */
+  --warning-foreground: #1b231d;
 
-  --border: rgba(148, 163, 184, 0.12);
-  --input: rgba(148, 163, 184, 0.2);
+  --border: #ede0bf; /* warm cream hairlines (brand) */
+  --input: #e3d4ab; /* one step deeper so field edges read on cream */
+  --ring: #008b4c; /* non-text: 3.5:1 vs cream ≥ 3:1 */
 
-  /* Ring is intentionally NOT --primary: a purple ring on a purple button
-     fill has ~1:1 contrast (invisible). Solana green reads clearly against
-     every surface in this palette, including the primary fill itself
-     (4.24:1) and background/card (12.8:1 / 12.1:1). */
-  --ring: #14f195;
+  --inverse: #1b231d;
+  --inverse-foreground: #f5e8ca;
 
   --radius: 0.75rem;
 }
 
+.dark {
+  /* ── Dark (our derivation: warm green-black, cream type) ── */
+  --background: #11160f; /* brand dark-900 */
+  --foreground: #f5e8ca; /* cream — 14.6:1 */
+
+  --card: #1b231d; /* brand dark */
+  --card-foreground: #f5e8ca;
+
+  --popover: #1b231d;
+  --popover-foreground: #f5e8ca;
+
+  /* Emerald brightened for dark ground; ink text on it = 5.4:1
+     (cream text on raw emerald would be 3.5:1). */
+  --primary: #0aa25a;
+  --primary-foreground: #11160f;
+
+  --secondary: #242e26;
+  --secondary-foreground: #f5e8ca;
+
+  --muted: #232c24;
+  --muted-foreground: #b8bdb6; /* ink-300 — 9.5:1 on bg, 7.5:1 on muted */
+
+  --accent: #223529;
+  --accent-foreground: #f5e8ca; /* 10.5:1 */
+
+  /* ink-on-fill: destructive 5.8:1 · success 5.3:1 · warning 12.5:1 */
+  --destructive: #ff6b5e;
+  --destructive-foreground: #11160f;
+
+  --success: #2e9e64;
+  --success-foreground: #11160f;
+
+  --warning: #ffd23f; /* brand yellow */
+  --warning-foreground: #11160f;
+
+  --border: rgba(245, 232, 202, 0.14);
+  --input: rgba(245, 232, 202, 0.22);
+
+  /* Yellow ring: visible on every dark surface including the emerald
+     primary fill (2.5:1 vs fill is rescued by ring-offset; 6.3:1 vs bg). */
+  --ring: #ffd23f;
+
+  --inverse: #1b231d;
+  --inverse-foreground: #f5e8ca;
+}
+
 html {
+  color-scheme: light;
+}
+
+html.dark {
   color-scheme: dark;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
+}
+
+@layer base {
+  /* Brand headings: Archivo, semi-expanded, tight tracking — the wordmark
+     voice. Deeper heading levels stay Inter on purpose (calmer hierarchy). */
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-heading), var(--font-inter), system-ui, sans-serif;
+    font-stretch: 110%;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+  }
+
+  ::selection {
+    background: #ffd23f;
+    color: #1b231d;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -117,15 +202,30 @@ body {
 
 @layer utilities {
   /*
-   * Solana brand gradient (#9945FF -> #14F195), RAW hues — decorative only.
+   * Brand accent gradient (emerald -> yellow) — decorative only.
    * ALLOWLIST — this utility may ONLY be used for:
    *   - hero accent
    *   - CTA hover sheen
    *   - success card edge
    *   - verified-stamp underline
-   * Never use as a full-surface fill or as a background behind body text.
+   * Never as a full-surface fill or behind body text.
+   * (Class keeps its pre-rebrand name; renaming would touch every consumer.)
    */
   .gradient-solana-accent {
-    background-image: linear-gradient(135deg, #9945ff 0%, #14f195 100%);
+    background-image: linear-gradient(135deg, #008b4c 0%, #ffd23f 100%);
+  }
+
+  /* Brand eyebrow / overline label (Archivo, wide tracking, emerald). */
+  .stbr-eyebrow {
+    font-family: var(--font-heading), var(--font-inter), sans-serif;
+    font-stretch: 110%;
+    font-weight: 700;
+    font-size: 0.75rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #008b4c;
+  }
+  .dark .stbr-eyebrow {
+    color: #0aa25a;
   }
 }

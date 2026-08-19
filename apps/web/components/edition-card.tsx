@@ -3,12 +3,14 @@ import { Avatar, AvatarFallback, AvatarGroup } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { getT } from "@/lib/i18n/server";
+import type { TranslationKey } from "@/lib/i18n";
 import type { EditionStatusValue, EditionWithSigners } from "@/lib/db/types";
 
-const STATUS_LABEL: Record<EditionStatusValue, string> = {
-  Open: "Aberta",
-  Paused: "Pausada",
-  Closed: "Encerrada",
+const STATUS_LABEL_KEY: Record<EditionStatusValue, TranslationKey> = {
+  Open: "editions.status.open",
+  Paused: "editions.status.paused",
+  Closed: "editions.status.closed",
 };
 
 const STATUS_VARIANT: Record<
@@ -20,7 +22,12 @@ const STATUS_VARIANT: Record<
   Closed: "outline",
 };
 
-export function EditionCard({ edition }: { edition: EditionWithSigners }) {
+export async function EditionCard({
+  edition,
+}: {
+  edition: EditionWithSigners;
+}) {
+  const { t } = await getT();
   const progressPct =
     edition.maxSupply > 0
       ? Math.min(100, (edition.minted / edition.maxSupply) * 100)
@@ -42,14 +49,17 @@ export function EditionCard({ edition }: { edition: EditionWithSigners }) {
           <div className="flex items-start justify-between gap-2">
             <h3 className="font-semibold leading-snug">{edition.name}</h3>
             <Badge variant={STATUS_VARIANT[edition.status]}>
-              {STATUS_LABEL[edition.status]}
+              {t(STATUS_LABEL_KEY[edition.status])}
             </Badge>
           </div>
 
           <div className="space-y-1.5">
             <Progress value={progressPct} />
             <p className="text-xs text-muted-foreground tabular-nums">
-              {edition.minted}/{edition.maxSupply} emitidos
+              {t("editions.mintedShort", {
+                minted: edition.minted,
+                max: edition.maxSupply,
+              })}
             </p>
           </div>
 

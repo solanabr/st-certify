@@ -1,20 +1,19 @@
+"use client";
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useT, type TranslationKey } from "@/lib/i18n";
 import type { AdminEvent } from "@/app/api/admin/stats/route";
 
-const EVENT_LABEL: Record<string, string> = {
-  edition_created: "Edição criada",
-  edition_status_changed: "Status da edição alterado",
-  certificate_requested: "Certificado solicitado",
-  certificate_signed: "Certificado assinado",
-  certificate_claimed: "Certificado resgatado",
-  certificate_rejected: "Certificado rejeitado",
-  certificate_revoked: "Certificado revogado",
+const EVENT_LABEL_KEY: Record<string, TranslationKey> = {
+  edition_created: "admin.event.editionCreated",
+  edition_status_changed: "admin.event.editionStatusChanged",
+  certificate_requested: "admin.event.certificateRequested",
+  certificate_signed: "admin.event.certificateSigned",
+  certificate_claimed: "admin.event.certificateClaimed",
+  certificate_rejected: "admin.event.certificateRejected",
+  certificate_revoked: "admin.event.certificateRevoked",
 };
-
-function eventLabel(type: string): string {
-  return EVENT_LABEL[type] ?? type;
-}
 
 function formatTimestamp(iso: string): string {
   return new Intl.DateTimeFormat("pt-BR", {
@@ -30,10 +29,17 @@ export function EventsFeed({
   events: AdminEvent[] | undefined;
   isLoading: boolean;
 }) {
+  const { t } = useT();
+
+  function eventLabel(type: string): string {
+    const key = EVENT_LABEL_KEY[type];
+    return key ? t(key) : type;
+  }
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Atividade recente</CardTitle>
+        <CardTitle>{t("admin.recentActivity")}</CardTitle>
       </CardHeader>
       <CardContent>
         {isLoading ? (
@@ -43,9 +49,7 @@ export function EventsFeed({
             <Skeleton className="h-5 w-5/6" />
           </div>
         ) : !events || events.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            Nenhum evento registrado ainda.
-          </p>
+          <p className="text-sm text-muted-foreground">{t("admin.noEvents")}</p>
         ) : (
           <ul className="divide-y divide-border">
             {events.map((event) => (

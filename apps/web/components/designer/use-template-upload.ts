@@ -2,15 +2,24 @@
 
 import { useCallback, useState } from "react";
 import { useUploadTemplate } from "@/hooks/useUploadTemplate";
+import { useT, type TranslationKey } from "@/lib/i18n";
 import {
   blobToDataUri,
   downscaleImageFile,
+  ImageProcessingError,
   isPngFile,
   sha256Hex,
+  type ImageErrorCode,
 } from "./image-utils";
 
 const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
 const MAX_LONG_EDGE_PX = 2400;
+
+const IMAGE_ERROR_KEYS: Record<ImageErrorCode, TranslationKey> = {
+  "canvas-unavailable": "designer.upload.canvasUnavailable",
+  "encode-failed": "designer.upload.encodeFailed",
+  "read-failed": "designer.upload.readFailed",
+};
 
 export interface TemplateAsset {
   sha256: string;
@@ -48,6 +57,7 @@ export function useTemplateDesignerUpload(): UseTemplateDesignerUpload {
   const [asset, setAsset] = useState<TemplateAsset | null>(null);
   const [error, setError] = useState<string | null>(null);
   const uploadMutation = useUploadTemplate();
+  const { t } = useT();
 
   const upload = useCallback(
     async (file: File) => {
@@ -55,12 +65,12 @@ export function useTemplateDesignerUpload(): UseTemplateDesignerUpload {
 
       if (file.type !== "image/png") {
         setStatus("error");
-        setError("Envie um arquivo PNG.");
+        setError(t("designer.upload.notPng"));
         return;
       }
       if (file.size === 0 || file.size > MAX_UPLOAD_BYTES) {
         setStatus("error");
-        setError("A imagem deve ter no máximo 8MB.");
+        setError(t("designer.upload.tooLarge"));
         return;
       }
 
@@ -68,7 +78,7 @@ export function useTemplateDesignerUpload(): UseTemplateDesignerUpload {
       try {
         if (!(await isPngFile(file))) {
           setStatus("error");
-          setError("O arquivo enviado não é um PNG válido.");
+          setError(t("designer.upload.invalidPng"));
           return;
         }
 
@@ -106,20 +116,22 @@ export function useTemplateDesignerUpload(): UseTemplateDesignerUpload {
             degradedReason:
               uploadErr instanceof Error
                 ? uploadErr.message
-                : "Falha ao enviar a imagem.",
+                : t("designer.upload.uploadFailed"),
           });
         }
         setStatus("ready");
       } catch (processErr) {
         setStatus("error");
         setError(
-          processErr instanceof Error
-            ? processErr.message
-            : "Falha ao processar a imagem.",
+          processErr instanceof ImageProcessingError
+            ? t(IMAGE_ERROR_KEYS[processErr.code])
+            : processErr instanceof Error
+              ? processErr.message
+              : t("designer.upload.processFailed"),
         );
       }
     },
-    [uploadMutation],
+    [uploadMutation, t],
   );
 
   const reset = useCallback(() => {

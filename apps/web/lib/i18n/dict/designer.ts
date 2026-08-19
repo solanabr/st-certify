@@ -1,0 +1,163 @@
+import type { Locale } from "../locales";
+
+/** Template designer: canvas boxes, field-editor panel, template upload. */
+const pt = {
+  "designer.box.aria":
+    "{label} — arraste para mover, use as setas do teclado para ajustar a posição",
+  "designer.canvas.templateAlt": "Template do certificado enviado",
+  "designer.field.studentName": "Nome do aluno",
+  "designer.field.date": "Data",
+  "designer.field.certId": "ID do certificado",
+  "designer.qr.label": "QR code",
+  "designer.signature.label": "Assinatura {index}",
+  "designer.signature.namePlaceholder": "Nome do signatário",
+  "designer.signature.rolePlaceholder": "Cargo",
+  "designer.panel.empty":
+    "Selecione um campo no modelo (clique ou use Tab) para editar sua posição, tamanho e estilo. Cada campo também pode ser movido com as setas do teclado (Shift+seta move mais rápido).",
+  "designer.panel.x": "X",
+  "designer.panel.y": "Y",
+  "designer.panel.width": "Largura",
+  "designer.panel.height": "Altura",
+  "designer.panel.size": "Tamanho",
+  "designer.panel.fontSize": "Tamanho da fonte",
+  "designer.panel.color": "Cor",
+  "designer.panel.colorPicker": "{label} — seletor visual",
+  "designer.panel.align": "Alinhamento",
+  "designer.panel.alignLeft": "Esquerda",
+  "designer.panel.alignCenter": "Centro",
+  "designer.panel.alignRight": "Direita",
+  "designer.panel.font": "Fonte",
+  "designer.panel.weight": "Peso",
+  "designer.panel.weightNormal": "Normal",
+  "designer.panel.weightBold": "Negrito",
+  "designer.panel.qrHint":
+    "O QR aponta para a página de verificação do certificado — gerado no servidor, sempre quadrado.",
+  "designer.panel.signatureMissing":
+    "Esta caixa de assinatura não existe mais.",
+  "designer.panel.signatureHint":
+    "Nome e cargo usam fonte e cores fixas do certificado — apenas posição, tamanho e alinhamento são ajustáveis.",
+  "designer.upload.dropzoneAria":
+    "Enviar template PNG — clique ou arraste o arquivo aqui",
+  "designer.upload.processing": "Processando imagem…",
+  "designer.upload.hint":
+    "PNG, até 8MB. Redimensionamos automaticamente para no máximo 2400px no lado maior.",
+  "designer.upload.chooseFile": "Escolher arquivo",
+  "designer.upload.errorTitle": "Não foi possível usar esta imagem",
+  "designer.upload.notPng": "Envie um arquivo PNG.",
+  "designer.upload.tooLarge": "A imagem deve ter no máximo 8MB.",
+  "designer.upload.invalidPng": "O arquivo enviado não é um PNG válido.",
+  "designer.upload.uploadFailed": "Falha ao enviar a imagem.",
+  "designer.upload.processFailed": "Falha ao processar a imagem.",
+  "designer.upload.canvasUnavailable":
+    "Canvas 2D indisponível neste navegador.",
+  "designer.upload.encodeFailed": "Falha ao gerar o PNG redimensionado.",
+  "designer.upload.readFailed": "Falha ao ler a imagem.",
+} as const;
+
+export type designerKey = keyof typeof pt;
+
+export const designerDict: Record<Locale, Record<designerKey, string>> = {
+  "pt-BR": pt,
+  en: {
+    "designer.box.aria":
+      "{label} — drag to move, use the arrow keys to adjust its position",
+    "designer.canvas.templateAlt": "Uploaded certificate template",
+    "designer.field.studentName": "Student name",
+    "designer.field.date": "Date",
+    "designer.field.certId": "Certificate ID",
+    "designer.qr.label": "QR code",
+    "designer.signature.label": "Signature {index}",
+    "designer.signature.namePlaceholder": "Signer name",
+    "designer.signature.rolePlaceholder": "Role",
+    "designer.panel.empty":
+      "Select a field on the template (click or use Tab) to edit its position, size and style. Each field can also be moved with the arrow keys (Shift+arrow moves faster).",
+    "designer.panel.x": "X",
+    "designer.panel.y": "Y",
+    "designer.panel.width": "Width",
+    "designer.panel.height": "Height",
+    "designer.panel.size": "Size",
+    "designer.panel.fontSize": "Font size",
+    "designer.panel.color": "Color",
+    "designer.panel.colorPicker": "{label} — visual picker",
+    "designer.panel.align": "Alignment",
+    "designer.panel.alignLeft": "Left",
+    "designer.panel.alignCenter": "Center",
+    "designer.panel.alignRight": "Right",
+    "designer.panel.font": "Font",
+    "designer.panel.weight": "Weight",
+    "designer.panel.weightNormal": "Normal",
+    "designer.panel.weightBold": "Bold",
+    "designer.panel.qrHint":
+      "The QR points to the certificate's verification page — generated on the server, always square.",
+    "designer.panel.signatureMissing": "This signature box no longer exists.",
+    "designer.panel.signatureHint":
+      "Name and role use the certificate's fixed font and colors — only position, size and alignment are adjustable.",
+    "designer.upload.dropzoneAria":
+      "Upload PNG template — click or drag the file here",
+    "designer.upload.processing": "Processing image…",
+    "designer.upload.hint":
+      "PNG, up to 8MB. We automatically resize it to at most 2400px on the longer side.",
+    "designer.upload.chooseFile": "Choose file",
+    "designer.upload.errorTitle": "Couldn't use this image",
+    "designer.upload.notPng": "Upload a PNG file.",
+    "designer.upload.tooLarge": "The image must be at most 8MB.",
+    "designer.upload.invalidPng": "The uploaded file is not a valid PNG.",
+    "designer.upload.uploadFailed": "Failed to upload the image.",
+    "designer.upload.processFailed": "Failed to process the image.",
+    "designer.upload.canvasUnavailable":
+      "2D canvas unavailable in this browser.",
+    "designer.upload.encodeFailed": "Failed to generate the resized PNG.",
+    "designer.upload.readFailed": "Failed to read the image.",
+  },
+  es: {
+    "designer.box.aria":
+      "{label} — arrastra para mover, usa las flechas del teclado para ajustar la posición",
+    "designer.canvas.templateAlt": "Plantilla del certificado subida",
+    "designer.field.studentName": "Nombre del estudiante",
+    "designer.field.date": "Fecha",
+    "designer.field.certId": "ID del certificado",
+    "designer.qr.label": "Código QR",
+    "designer.signature.label": "Firma {index}",
+    "designer.signature.namePlaceholder": "Nombre del firmante",
+    "designer.signature.rolePlaceholder": "Cargo",
+    "designer.panel.empty":
+      "Selecciona un campo en la plantilla (haz clic o usa Tab) para editar su posición, tamaño y estilo. Cada campo también se puede mover con las flechas del teclado (Shift+flecha lo mueve más rápido).",
+    "designer.panel.x": "X",
+    "designer.panel.y": "Y",
+    "designer.panel.width": "Ancho",
+    "designer.panel.height": "Alto",
+    "designer.panel.size": "Tamaño",
+    "designer.panel.fontSize": "Tamaño de fuente",
+    "designer.panel.color": "Color",
+    "designer.panel.colorPicker": "{label} — selector visual",
+    "designer.panel.align": "Alineación",
+    "designer.panel.alignLeft": "Izquierda",
+    "designer.panel.alignCenter": "Centro",
+    "designer.panel.alignRight": "Derecha",
+    "designer.panel.font": "Fuente",
+    "designer.panel.weight": "Peso",
+    "designer.panel.weightNormal": "Normal",
+    "designer.panel.weightBold": "Negrita",
+    "designer.panel.qrHint":
+      "El QR apunta a la página de verificación del certificado — se genera en el servidor y siempre es cuadrado.",
+    "designer.panel.signatureMissing": "Esta caja de firma ya no existe.",
+    "designer.panel.signatureHint":
+      "El nombre y el cargo usan la fuente y los colores fijos del certificado — solo la posición, el tamaño y la alineación son ajustables.",
+    "designer.upload.dropzoneAria":
+      "Subir plantilla PNG — haz clic o arrastra el archivo aquí",
+    "designer.upload.processing": "Procesando imagen…",
+    "designer.upload.hint":
+      "PNG, hasta 8MB. La redimensionamos automáticamente a un máximo de 2400px en el lado mayor.",
+    "designer.upload.chooseFile": "Elegir archivo",
+    "designer.upload.errorTitle": "No se pudo usar esta imagen",
+    "designer.upload.notPng": "Sube un archivo PNG.",
+    "designer.upload.tooLarge": "La imagen debe pesar como máximo 8MB.",
+    "designer.upload.invalidPng": "El archivo subido no es un PNG válido.",
+    "designer.upload.uploadFailed": "No se pudo subir la imagen.",
+    "designer.upload.processFailed": "No se pudo procesar la imagen.",
+    "designer.upload.canvasUnavailable":
+      "Canvas 2D no disponible en este navegador.",
+    "designer.upload.encodeFailed": "No se pudo generar el PNG redimensionado.",
+    "designer.upload.readFailed": "No se pudo leer la imagen.",
+  },
+};

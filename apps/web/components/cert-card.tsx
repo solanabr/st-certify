@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import { AlertTriangle, Download, ExternalLink } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -8,17 +10,18 @@ import { StatusTimeline } from "@/components/status-timeline";
 import { ClaimAction } from "@/components/claim/claim-action";
 import { MintingStatus } from "@/components/claim/minting-status";
 import { CopyLinkButton } from "@/components/verify/copy-link-button";
+import { useT, type TranslationKey } from "@/lib/i18n";
 import type {
   CertificateForOwner,
   CertificateStatusValue,
 } from "@/lib/db/types";
 
-const STATUS_LABEL: Record<CertificateStatusValue, string> = {
-  Requested: "Em andamento",
-  FullySigned: "Pronto para resgatar",
-  Claimed: "Resgatado",
-  Revoked: "Revogado",
-  Rejected: "Rejeitado",
+const STATUS_LABEL_KEY: Record<CertificateStatusValue, TranslationKey> = {
+  Requested: "student.status.requested",
+  FullySigned: "student.status.fullySigned",
+  Claimed: "student.status.claimed",
+  Revoked: "student.status.revoked",
+  Rejected: "student.status.rejected",
 };
 
 const STATUS_VARIANT: Record<
@@ -33,19 +36,21 @@ const STATUS_VARIANT: Record<
 };
 
 function RejectedContent({ cert }: { cert: CertificateForOwner }) {
+  const { t } = useT();
+
   return (
     <div className="mt-4 space-y-4">
       <Alert variant="destructive">
         <AlertTriangle />
-        <AlertTitle>Solicitação rejeitada</AlertTitle>
+        <AlertTitle>{t("student.rejectedTitle")}</AlertTitle>
         <AlertDescription>
-          {cert.rejectReason || "Nenhum motivo foi informado."}
+          {cert.rejectReason || t("student.rejectedNoReason")}
         </AlertDescription>
       </Alert>
       {cert.editionSlug && (
         <Button asChild variant="outline">
           <Link href={`/editions/${cert.editionSlug}`}>
-            Solicitar novamente
+            {t("student.requestAgain")}
           </Link>
         </Button>
       )}
@@ -54,14 +59,15 @@ function RejectedContent({ cert }: { cert: CertificateForOwner }) {
 }
 
 function RevokedContent({ cert }: { cert: CertificateForOwner }) {
+  const { t } = useT();
+
   return (
     <div className="mt-4">
       <Alert variant="destructive">
         <AlertTriangle />
-        <AlertTitle>Certificado revogado</AlertTitle>
+        <AlertTitle>{t("student.revokedTitle")}</AlertTitle>
         <AlertDescription>
-          {cert.revokeReason ||
-            "Este certificado não é mais válido para verificação."}
+          {cert.revokeReason || t("student.revokedNoReason")}
         </AlertDescription>
       </Alert>
     </div>
@@ -69,6 +75,8 @@ function RevokedContent({ cert }: { cert: CertificateForOwner }) {
 }
 
 function ActionZone({ cert }: { cert: CertificateForOwner }) {
+  const { t } = useT();
+
   if (cert.status === "FullySigned") {
     return <ClaimAction cert={cert} />;
   }
@@ -81,7 +89,7 @@ function ActionZone({ cert }: { cert: CertificateForOwner }) {
           // eslint-disable-next-line @next/next/no-img-element -- content-addressed external asset, not a local/Next-optimizable image
           <img
             src={cert.imageUrl}
-            alt={`Certificado de ${cert.studentName}`}
+            alt={t("student.certImageAlt", { name: cert.studentName })}
             className="w-full rounded-lg border border-border motion-safe:animate-in motion-safe:fade-in motion-safe:zoom-in-95 motion-safe:duration-200"
           />
         )}
@@ -94,13 +102,13 @@ function ActionZone({ cert }: { cert: CertificateForOwner }) {
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                <Download /> Baixar
+                <Download /> {t("claim.download")}
               </a>
             </Button>
           )}
           <CopyLinkButton
             path={`/verify/${cert.address}`}
-            label="Copiar link de verificação"
+            label={t("claim.copyLink")}
           />
           {cert.asset && (
             <Button asChild variant="outline" size="sm">
@@ -109,7 +117,7 @@ function ActionZone({ cert }: { cert: CertificateForOwner }) {
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                <ExternalLink /> Ver NFT no Explorer
+                <ExternalLink /> {t("claim.viewNft")}
               </a>
             </Button>
           )}
@@ -122,6 +130,8 @@ function ActionZone({ cert }: { cert: CertificateForOwner }) {
 }
 
 export function CertCard({ cert }: { cert: CertificateForOwner }) {
+  const { t } = useT();
+
   return (
     <Card>
       <CardHeader className="flex-row items-start justify-between gap-3">
@@ -130,7 +140,7 @@ export function CertCard({ cert }: { cert: CertificateForOwner }) {
           <h3 className="font-semibold">{cert.studentName}</h3>
         </div>
         <Badge variant={STATUS_VARIANT[cert.status]}>
-          {STATUS_LABEL[cert.status]}
+          {t(STATUS_LABEL_KEY[cert.status])}
         </Badge>
       </CardHeader>
       <CardContent>

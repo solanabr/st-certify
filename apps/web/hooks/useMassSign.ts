@@ -8,6 +8,7 @@ import { api } from "@/lib/api-client";
 import { isUserRejection } from "@/lib/chain/errors";
 import { onAppError } from "@/lib/on-app-error";
 import { bytesToBase64 } from "@/lib/bytes";
+import { useT } from "@/lib/i18n";
 import {
   buildSignBatchTxs,
   type SignBatchGroup,
@@ -69,6 +70,7 @@ export function useMassSign(): {
   progress: MassSignProgress;
   reset: () => void;
 } {
+  const { t } = useT();
   const { wallets } = useStandardWallets();
   const queryClient = useQueryClient();
   const [progress, setProgress] = useState<MassSignProgress>(IDLE);
@@ -93,7 +95,7 @@ export function useMassSign(): {
         const account = wallet?.accounts.find((a) => a.address === w);
         const signFeature = wallet?.features["solana:signTransaction"];
         if (!wallet || !account || !signFeature) {
-          toast.error("Carteira não encontrada. Reconecte e tente novamente.");
+          toast.error(t("certificator.walletNotFound"));
           return;
         }
       }
@@ -166,7 +168,7 @@ export function useMassSign(): {
             signedByIndex.set(i, signed[j].signedTransaction),
           );
         } catch (err) {
-          if (isUserRejection(err)) toast("Assinatura cancelada.");
+          if (isUserRejection(err)) toast(t("certificator.signatureCancelled"));
           else onAppError(err);
           setProgress((p) => ({
             ...p,
@@ -232,17 +234,21 @@ export function useMassSign(): {
 
       setProgress((p) => ({ ...p, running: false }));
       if (failedCount === 0) {
-        toast.success(`${signedCount} assinados`);
+        toast.success(t("certificator.signedToast", { count: signedCount }));
       } else {
-        toast.message(`${signedCount} assinados · ${failedCount} falharam`, {
-          description: "Selecione as linhas com erro e tente novamente.",
-        });
+        toast.message(
+          t("certificator.partialToast", {
+            signed: signedCount,
+            failed: failedCount,
+          }),
+          { description: t("certificator.partialToastHint") },
+        );
       }
       void queryClient.invalidateQueries({
         queryKey: ["certificator", "pending"],
       });
     },
-    [wallets, queryClient],
+    [wallets, queryClient, t],
   );
 
   return { run, progress, reset };

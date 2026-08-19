@@ -27,6 +27,7 @@ import {
   type SignatureBox,
   type TextField,
 } from "@/lib/render/layout";
+import { useT } from "@/lib/i18n";
 import type { EditionWizardInput } from "@/lib/schemas";
 
 interface Props {
@@ -131,6 +132,7 @@ export function WizardDesignerStep({
   onNext,
   onBack,
 }: Props): React.JSX.Element {
+  const { t } = useT();
   const signers = form.watch("signers");
   const {
     status,
@@ -177,10 +179,10 @@ export function WizardDesignerStep({
   const signerPreviews = useMemo(
     () =>
       signers.map((s) => ({
-        name: s.name || "Nome do signatário",
-        role: s.role || "Cargo",
+        name: s.name || t("admin.designer.signerNameFallback"),
+        role: s.role || t("admin.signers.rolePlaceholder"),
       })),
-    [signers],
+    [signers, t],
   );
 
   function updateField(key: TextFieldKey, patch: Partial<TextField>): void {
@@ -239,7 +241,7 @@ export function WizardDesignerStep({
     const parsed = editionReadyLayoutSchema.safeParse(layout);
     if (!parsed.success) {
       setSubmitErrorState(
-        parsed.error.issues[0]?.message ?? "Layout do template inválido.",
+        parsed.error.issues[0]?.message ?? t("admin.designer.invalidLayout"),
       );
       return;
     }
@@ -252,11 +254,9 @@ export function WizardDesignerStep({
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="font-medium">Designer do template</h2>
+        <h2 className="font-medium">{t("admin.designer.title")}</h2>
         <p className="text-sm text-muted-foreground">
-          Posicione o nome do aluno, a data, o ID do certificado, o QR code e as{" "}
-          {signers.length} assinaturas sobre a imagem enviada. Cada campo pode
-          ser arrastado ou, com o teclado, selecionado e movido com as setas.
+          {t("admin.designer.intro", { count: signers.length })}
         </p>
       </div>
 
@@ -271,11 +271,10 @@ export function WizardDesignerStep({
       {asset?.degraded && (
         <Alert>
           <AlertTriangle />
-          <AlertTitle>Envio pendente</AlertTitle>
+          <AlertTitle>{t("admin.designer.uploadPendingTitle")}</AlertTitle>
           <AlertDescription>
-            {asset.degradedReason ?? "Armazenamento não configurado."} Você pode
-            continuar desenhando — a imagem fica guardada neste navegador — mas
-            publicar a edição exige o armazenamento configurado.
+            {asset.degradedReason ?? t("admin.designer.storageNotConfigured")}{" "}
+            {t("admin.designer.uploadPendingBody")}
           </AlertDescription>
         </Alert>
       )}
@@ -309,7 +308,7 @@ export function WizardDesignerStep({
                 onSelectedChange(null);
               }}
             >
-              Trocar imagem
+              {t("admin.designer.changeImage")}
             </Button>
           </div>
           <FieldEditorPanel
@@ -326,21 +325,21 @@ export function WizardDesignerStep({
       {submitError && (
         <Alert variant="destructive">
           <AlertTriangle />
-          <AlertTitle>Não foi possível continuar</AlertTitle>
+          <AlertTitle>{t("admin.designer.cannotContinue")}</AlertTitle>
           <AlertDescription>{submitError}</AlertDescription>
         </Alert>
       )}
 
       <div className="flex justify-between pt-2">
         <Button type="button" variant="outline" onClick={onBack}>
-          Voltar
+          {t("admin.back")}
         </Button>
         <Button
           type="button"
           onClick={handleContinue}
           disabled={!asset || !draft}
         >
-          Continuar
+          {t("admin.continue")}
         </Button>
       </div>
     </div>

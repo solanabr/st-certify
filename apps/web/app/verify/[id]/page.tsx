@@ -11,6 +11,7 @@ import {
   getVerifyViewByAsset,
   type VerifyCertView,
 } from "@/lib/db/claim-verify-queries";
+import { getT } from "@/lib/i18n/server";
 
 // Verify is inherently dynamic (chain-truthful; a cert can be claimed/revoked
 // between visits) — never serve a stale cached verdict.
@@ -33,19 +34,23 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { id } = await params;
   const view = await resolveView(id);
+  const { t } = await getT();
 
   if (!view) {
     return {
-      title: "Verificar certificado · Superteam Certify",
-      description: "Verificação de certificado onchain da Superteam Brasil.",
+      title: t("verify.meta.titleFallback"),
+      description: t("verify.meta.descriptionFallback"),
     };
   }
 
   const revoked = view.status === "Revoked";
   const title = `${view.studentName} · ${view.editionName} — Superteam Certify`;
   const description = revoked
-    ? `Certificado de ${view.studentName} — REVOGADO.`
-    : `Certificado de ${view.studentName} para "${view.editionName}", verificável onchain.`;
+    ? t("verify.meta.descriptionRevoked", { student: view.studentName })
+    : t("verify.meta.description", {
+        student: view.studentName,
+        edition: view.editionName,
+      });
 
   return {
     title,
@@ -59,16 +64,14 @@ export async function generateMetadata({
 }
 
 /** Fallback when the mirror can't resolve the id — still runs the live chain-check. */
-function ChainOnlyFallback({ id }: { id: string }) {
+async function ChainOnlyFallback({ id }: { id: string }) {
+  const { t } = await getT();
   const looksLikeAddress = BASE58.test(id);
   return (
     <div className="space-y-6">
       <Alert>
-        <AlertTitle>Detalhes indisponíveis</AlertTitle>
-        <AlertDescription>
-          Não foi possível carregar os detalhes deste certificado. A verificação
-          on-chain abaixo é a fonte da verdade.
-        </AlertDescription>
+        <AlertTitle>{t("verify.fallback.title")}</AlertTitle>
+        <AlertDescription>{t("verify.fallback.body")}</AlertDescription>
       </Alert>
       {looksLikeAddress && (
         <Card>
@@ -91,6 +94,7 @@ export default async function VerifyIdPage({
   const { id } = await params;
   const { reencode } = await searchParams;
   const view = await resolveView(id);
+  const { t } = await getT();
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-12">
@@ -99,7 +103,7 @@ export default async function VerifyIdPage({
         className="mb-6 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft className="size-4" aria-hidden="true" />
-        Verificar outro
+        {t("verify.verifyAnother")}
       </Link>
 
       {view ? (
