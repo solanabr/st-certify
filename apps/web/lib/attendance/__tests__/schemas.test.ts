@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { claimSchema, createEventSchema, eventActionSchema } from "../schemas";
+import {
+  authNonceSchema,
+  authVerifySchema,
+  claimSchema,
+  createEventSchema,
+  eventActionSchema,
+} from "../schemas";
 
 const WALLET = "ENn4h8RZGXfXhmU6LQKZtujWjddpvYhT4NXWhNacvHsb";
 const TINY_PNG = `data:image/png;base64,${Buffer.from("png!").toString("base64")}`;
@@ -65,5 +71,44 @@ describe("claimSchema / eventActionSchema", () => {
     expect(eventActionSchema.safeParse({ action: "delete" }).success).toBe(
       false,
     );
+  });
+});
+
+describe("authVerifySchema", () => {
+  it("accepts message+signatureBase64 present (SIWS path)", () => {
+    expect(
+      authVerifySchema.safeParse({
+        wallet: WALLET,
+        message: "m",
+        signatureBase64: "aGk=",
+      }).success,
+    ).toBe(true);
+  });
+
+  it("accepts neither field present (Privy-session shortcut)", () => {
+    expect(authVerifySchema.safeParse({ wallet: WALLET }).success).toBe(true);
+  });
+
+  it("rejects a non-base58 wallet", () => {
+    expect(authVerifySchema.safeParse({ wallet: "not-base58" }).success).toBe(
+      false,
+    );
+  });
+});
+
+describe("authNonceSchema", () => {
+  it("accepts a valid wallet + purpose", () => {
+    expect(
+      authNonceSchema.safeParse({
+        wallet: WALLET,
+        purpose: "attendance-claim",
+      }).success,
+    ).toBe(true);
+  });
+
+  it("rejects an unknown purpose", () => {
+    expect(
+      authNonceSchema.safeParse({ wallet: WALLET, purpose: "bogus" }).success,
+    ).toBe(false);
   });
 });

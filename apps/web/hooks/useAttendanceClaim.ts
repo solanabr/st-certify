@@ -17,9 +17,9 @@ import type { ClaimPageInfo } from "@/app/api/attendance/claim/[token]/route";
 import type { ClaimResult } from "@/app/api/attendance/claim/route";
 
 /**
- * Public claim page's event + caller-claim info. Polls every 5s ONLY while
- * the caller's claim is minted but its asset id hasn't backfilled yet (the
- * route resolves it best-effort via `after()`) — idle otherwise.
+ * Public claim page's event + caller-claim info. The route resolves a
+ * minted claim's asset id best-effort via `after()`; this hook doesn't poll
+ * for it — the UI never renders assetId, so there's nothing to refresh for.
  */
 export function useClaimInfo(
   token: string,
@@ -32,10 +32,6 @@ export function useClaimInfo(
         `/api/attendance/claim/${token}${wallet ? `?wallet=${wallet}` : ""}`,
       ),
     retry: false,
-    refetchInterval: (query) => {
-      const claim = query.state.data?.callerClaim;
-      return claim?.status === "minted" && !claim.assetId ? 5_000 : false;
-    },
   });
 }
 
@@ -65,9 +61,15 @@ export function useMintAttendance(
         json: { token, ...proof },
       });
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       setStage("idle");
-      toast.success(t("attendance.claim.success"));
+      toast.success(
+        t(
+          data.status === "minted"
+            ? "attendance.claim.success"
+            : "attendance.claim.already",
+        ),
+      );
       void queryClient.invalidateQueries({
         queryKey: ["attendance", "claim", token],
       });

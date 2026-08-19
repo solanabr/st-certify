@@ -171,7 +171,10 @@ export interface ReserveResult {
 /**
  * Atomic slot reservation via the SQL function (see 0002_attendance.sql).
  * A concurrent duplicate insert (23505) means another request won the row —
- * calling again returns its outcome.
+ * calling again returns its outcome. A 'pending' row inside its 90s
+ * `reserved_at` window yields 'in_flight' (caller must not mint — another
+ * request is likely minting right now); past that window it's treated as a
+ * crashed attempt and yields 'retry' (caller mints again).
  */
 export async function reserveClaim(
   eventId: string,

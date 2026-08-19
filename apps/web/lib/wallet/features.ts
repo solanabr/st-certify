@@ -44,6 +44,9 @@ export async function signMessageWith(
     "solana:signMessage"
   ] as SolanaSignMessageFeature;
   const [result] = await feature.signMessage({ account, message });
-  if (!result) throw new Error("carteira retornou assinatura vazia");
+  // Invariant guard, not user-facing copy: this Error's .message never
+  // reaches the UI directly — toAppError() maps any thrown Error to its
+  // generic pt-BR message before a toast renders it.
+  if (!result) throw new Error("wallet returned an empty signature");
   return result.signature;
 }

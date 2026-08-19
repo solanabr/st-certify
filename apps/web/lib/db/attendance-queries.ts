@@ -1,11 +1,15 @@
 import "server-only";
 
-// Attendance NFTs: reads for events and claims. attendance_events/
-// attendance_claims have no anon SELECT policy (service-role only, same
-// posture as the events table — see 0002_attendance.sql), so this reuses
-// the singleton service client from ./mutations rather than an anon client.
-// Degrades to null/[] when Supabase isn't configured (public claim page
-// shows "indisponível") — contrast attendance-mutations.ts, which throws.
+// Attendance NFTs: reads for events and claims. RLS is enabled on
+// attendance_events/attendance_claims with no anon policies (service-role
+// only, same posture as the events table — see 0002_attendance.sql), so
+// this reuses the singleton service client from ./mutations rather than an
+// anon client. Degrades to null/[] when Supabase isn't configured — for
+// getEventByToken specifically, that null makes the caller (GET
+// /api/attendance/claim/[token]) throw ATTENDANCE_LINK_INVALID, which
+// renders the public claim page's invalid-link state, not a generic
+// "unavailable" one — contrast attendance-mutations.ts, which throws
+// directly on an unconfigured DB.
 
 import { fail } from "@/lib/errors";
 import { dbConfigured, getServiceClient } from "./mutations";

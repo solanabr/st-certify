@@ -49,6 +49,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
+    // Gate is checked once, here, against the event row fetched above — it
+    // is NOT re-checked inside the SQL reservation below. A creator pause
+    // (claim_open → false) or a deadline passing between this check and the
+    // reserveClaim() call a few lines down can therefore admit one
+    // straggler request that was already past this point. Accepted: the
+    // window is a single request's worth of latency, and supply/one-per-
+    // wallet are still enforced atomically in SQL regardless.
     const gate = checkClaimGate(event);
     if (!gate.ok) fail(gate.code, gate.message);
 
@@ -70,6 +77,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       fail(
         "ATTENDANCE_SUPPLY_EXHAUSTED",
         "Todas as vagas deste evento já foram reivindicadas.",
+      );
+    }
+    if (reserved.outcome === "in_flight") {
+      fail(
+        "CONFLICT",
+        "Emissão em andamento para esta carteira. Aguarde alguns segundos e tente novamente.",
+        { retryable: true },
       );
     }
 

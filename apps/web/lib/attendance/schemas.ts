@@ -52,6 +52,10 @@ export const authNonceSchema = z.object({
 
 export const authVerifySchema = z.object({
   wallet: walletSchema,
-  message: z.string().max(2_000),
-  signatureBase64: z.string().max(200),
+  // Optional, mirroring claimSchema: omitted entirely means "prove via the
+  // Privy-session shortcut in resolveProvedWallet" rather than a signed
+  // SIWS message. A non-allowlisted Privy wallet then fails downstream with
+  // ATTENDANCE_NOT_CREATOR (inline denied banner) instead of a 400 here.
+  message: z.string().max(2_000).optional(),
+  signatureBase64: z.string().max(200).optional(),
 });

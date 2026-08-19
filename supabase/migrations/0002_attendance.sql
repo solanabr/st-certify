@@ -26,6 +26,10 @@ create table if not exists attendance_claims (
   wallet text not null,
   status text not null default 'pending'
     check (status in ('pending', 'minted', 'failed')),
+  -- Set whenever status transitions to 'pending' (fresh insert or a
+  -- failed→pending retry). Lets attendance_reserve_claim tell a crashed
+  -- mint (stale reservation, safe to retry) from one still in flight.
+  reserved_at timestamptz,
   tx_sig text,
   asset_id text,
   created_at timestamptz not null default now(),
@@ -43,9 +47,22 @@ create table if not exists attendance_nonces (
   used_at timestamptz
 );
 
+-- Row Level Security: service-role only, no anon policies on any of the
+-- three tables above — same posture as profiles/events in 0001_init.sql
+-- (RLS enabled with zero policies denies all access except the service
+-- role, which bypasses RLS entirely). Safe to re-run.
+alter table attendance_events enable row level security;
+alter table attendance_claims enable row level security;
+alter table attendance_nonces enable row level security;
+
 -- Atomically reserve a claim slot. Outcomes:
 --   'reserved'        → new/retried pending claim; caller mints
---   'retry'           → a pending claim already exists (mint in flight or crashed); caller mints again
+--   'retry'           → a pending claim exists and its reservation is stale
+--                        (>90s — the previous mint attempt likely crashed);
+--                        caller mints again
+--   'in_flight'       → a pending claim exists and its reservation is recent
+--                        (<=90s); another request is probably minting right
+--                        now, caller should not mint
 --   'already_claimed' → returns the original tx_sig
 --   'exhausted'       → no capacity left (or claiming closed via claim_open=false is checked in TS)
 create or replace function attendance_reserve_claim(p_event_id uuid, p_wallet text)
@@ -65,6 +82,13 @@ begin
       return query select 'already_claimed'::text, v_claim.id, v_claim.tx_sig;
       return;
     elsif v_claim.status = 'pending' then
+      if v_claim.reserved_at > now() - interval '90 seconds' then
+        return query select 'in_flight'::text, v_claim.id, null::text;
+        return;
+      end if;
+      update attendance_claims
+        set reserved_at = now()
+        where id = v_claim.id;
       return query select 'retry'::text, v_claim.id, null::text;
       return;
     else
@@ -79,7 +103,7 @@ begin
         return;
       end if;
       update attendance_claims
-        set status = 'pending', tx_sig = null
+        set status = 'pending', tx_sig = null, reserved_at = now()
         where id = v_claim.id;
       return query select 'reserved'::text, v_claim.id, null::text;
       return;
@@ -96,8 +120,8 @@ begin
     return;
   end if;
 
-  insert into attendance_claims (event_id, wallet, status)
-    values (p_event_id, p_wallet, 'pending')
+  insert into attendance_claims (event_id, wallet, status, reserved_at)
+    values (p_event_id, p_wallet, 'pending', now())
     returning * into v_claim;
   return query select 'reserved'::text, v_claim.id, null::text;
 end;

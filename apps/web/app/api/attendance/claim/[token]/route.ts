@@ -1,4 +1,4 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { after, NextResponse, type NextRequest } from "next/server";
 import { apiRoute } from "@/lib/api";
 import { fail } from "@/lib/errors";
 import { checkClaimGate } from "@/lib/attendance/gate";
@@ -30,7 +30,10 @@ export interface ClaimPageInfo {
 /**
  * Public claim-page info: event details, derived state, and (when a wallet
  * query param is given) that wallet's existing claim, if any. Lazily
- * backfills asset_id once a minted claim's mint transaction finalizes.
+ * backfills asset_id once a minted claim's mint transaction finalizes —
+ * scheduled via `after()` so this GET never blocks the response on RPC; the
+ * response below always carries the claim's current (possibly still null)
+ * asset_id.
  */
 export async function GET(
   request: NextRequest,
@@ -62,17 +65,15 @@ export async function GET(
     if (walletParam && BASE58_RE.test(walletParam)) {
       const claim = await getClaimByEventWallet(event.id, walletParam);
       if (claim) {
-        // Lazy asset-id backfill once the mint transaction finalizes.
-        if (
-          claim.status === "minted" &&
-          claim.asset_id === null &&
-          claim.tx_sig
-        ) {
-          const assetId = await resolveAttendanceAssetId(claim.tx_sig);
-          if (assetId) {
-            await updateClaimAsset(claim.id, assetId);
-            claim.asset_id = assetId;
-          }
+        // Lazy asset-id backfill once the mint transaction finalizes. Runs
+        // after the response is sent, so it never delays this GET.
+        const txSig = claim.tx_sig;
+        if (claim.status === "minted" && claim.asset_id === null && txSig) {
+          const claimId = claim.id;
+          after(async () => {
+            const assetId = await resolveAttendanceAssetId(txSig);
+            if (assetId) await updateClaimAsset(claimId, assetId);
+          });
         }
         callerClaim = {
           status: claim.status,

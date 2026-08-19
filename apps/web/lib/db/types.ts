@@ -170,7 +170,7 @@ export interface AdminStats {
 
 export type AttendanceClaimStatus = "pending" | "minted" | "failed";
 export type ReserveOutcome =
-  "reserved" | "retry" | "already_claimed" | "exhausted";
+  "reserved" | "retry" | "in_flight" | "already_claimed" | "exhausted";
 
 export interface AttendanceEventRow {
   id: string;
@@ -194,6 +194,7 @@ export interface AttendanceClaimRow {
   event_id: string;
   wallet: string;
   status: AttendanceClaimStatus;
+  reserved_at: string | null;
   tx_sig: string | null;
   asset_id: string | null;
   created_at: string;
