@@ -10,7 +10,10 @@ import "server-only";
 
 import { generateSigner, publicKey, some } from "@metaplex-foundation/umi";
 import { base58 } from "@metaplex-foundation/umi/serializers";
-import { createCollection } from "@metaplex-foundation/mpl-core";
+import {
+  createCollection,
+  fetchCollection,
+} from "@metaplex-foundation/mpl-core";
 import {
   mintV2,
   parseLeafFromMintV2Transaction,
@@ -43,6 +46,12 @@ export async function createEventCollection(input: {
     uri: input.metadataUri,
     plugins: [{ type: "BubblegumV2" }],
   }).sendAndConfirm(umi);
+
+  // Confirm visibility before returning: the event row (and its claim link)
+  // must not exist until mintV2 can actually reference the collection —
+  // public devnet RPC lags reads-after-write by ~10s (same guard as mint.ts).
+  await retryFetch(() => fetchCollection(umi, collection.publicKey));
+
   return collection.publicKey.toString();
 }
 
