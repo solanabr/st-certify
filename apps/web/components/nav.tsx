@@ -45,6 +45,9 @@ function RoleLinks({ onNavigate }: { onNavigate?: () => void }) {
       <Link href="/verify" onClick={onNavigate} className={NAV_LINK_CLASS}>
         {t("nav.verify")}
       </Link>
+      <Link href="/events" onClick={onNavigate} className={NAV_LINK_CLASS}>
+        {t("nav.events")}
+      </Link>
       {me?.authenticated && (
         <Link href="/me" onClick={onNavigate} className={NAV_LINK_CLASS}>
           {t("nav.me")}
