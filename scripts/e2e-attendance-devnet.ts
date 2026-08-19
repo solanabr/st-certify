@@ -40,7 +40,14 @@ function loadKeypairBytes(envVal: string): Uint8Array {
   const raw = trimmed.startsWith("[")
     ? trimmed
     : readFileSync(isAbsolute(trimmed) ? trimmed : join(ROOT, trimmed), "utf8");
-  const parsed: unknown = JSON.parse(raw);
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    // Never rethrow the raw SyntaxError — V8 echoes a snippet of the
+    // offending input in its message, which could leak key-byte fragments.
+    throw new Error("Chave inválida: JSON malformado.");
+  }
   if (!Array.isArray(parsed) || !parsed.every((n) => typeof n === "number")) {
     throw new Error(
       "OPERATOR_SECRET_KEY inválida: formato inesperado (esperado array JSON de bytes).",
