@@ -44,12 +44,15 @@ ATTENDANCE_CREATOR_WALLETS=ENn4h8RZGXfXhmU6LQKZtujWjddpvYhT4NXWhNacvHsb,B6pK7Txe
 
 ## 3. Wallet connection & auth
 
-- **New `lib/wallet/` client adapter** — the ONLY module importing `@wallet-standard/react`
-  and `@solana/react` (kit-native; matches repo TS rules). Extends the ESLint
+- **New `lib/wallet/` client adapter** — the ONLY module importing `@wallet-standard/*`
+  (`@wallet-standard/app` registry + `@wallet-standard/base` types; amended at plan time
+  from `@wallet-standard/react`/`@solana/react` — the raw registry returns wallets whose
+  features are directly callable, the exact pattern `hooks/useClaim.ts` already proves,
+  and no client-side transactions exist to justify kit signers). Extends the ESLint
   `no-restricted-imports` fence the same way `@solana/*` is fenced to `lib/chain`.
-  Exposes: wallet discovery hook, a small branded `<WalletPicker/>`, and a
-  message-sign hook that works for both wallet-standard accounts and the Privy embedded
-  wallet fallback.
+  Exposes: wallet discovery hook, a small branded `<WalletPicker/>`, and message-sign
+  helpers that work for both wallet-standard accounts and the Privy embedded wallet
+  fallback (Privy registers embedded wallets on the same wallet-standard registry).
 - **Privy fallback:** "No wallet? Continue with email" routes into the existing app-wide
   `PrivyProvider` (embedded Solana wallet, `useSignMessage`). No provider changes needed.
 - **Ownership proof (SIWS-style):** server-issued single-use nonce (DB table, 5-minute TTL) →
@@ -157,14 +160,15 @@ attendance_nonces
 lib/chain/attendance.ts     server-only; ONLY importer of mpl-bubblegum;
                             createEventCollection(), mintAttendanceAsset();
                             reuses Umi/operator singleton + backoff from mint.ts
-lib/wallet/                 client; ONLY importer of @wallet-standard/react + @solana/react
+lib/wallet/                 client; ONLY importer of @wallet-standard/* (app + base)
 lib/attendance/             use-cases, zod schemas, SIWS message build/verify (pure core)
 lib/db/attendance-*.ts      queries/mutations (Supabase, service role)
 components/attendance/      WalletPicker, event form, event list, claim card, states
 ```
 
 New deps (in `apps/web/package.json`, NOT the workspace root — pnpm purge gotcha):
-`@metaplex-foundation/mpl-bubblegum@^5`, `@wallet-standard/react`, `@solana/react@^6.10`.
+`@metaplex-foundation/mpl-bubblegum@^5`, `@metaplex-foundation/mpl-account-compression@^1`,
+`@wallet-standard/app@^1`, `@wallet-standard/base@^1`.
 New env: `ATTENDANCE_MERKLE_TREE`, `ATTENDANCE_CREATOR_WALLETS`,
 `ATTENDANCE_SESSION_SECRET` (+ `.env.example` entries).
 
