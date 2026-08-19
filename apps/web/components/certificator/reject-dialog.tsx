@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { useT } from "@/lib/i18n";
 
 export interface RejectTarget {
   certificateAddress: string;
@@ -39,6 +40,7 @@ export function RejectDialog({
   onOpenChange: (open: boolean) => void;
   onConfirm: (reason: string) => void;
 }) {
+  const { t } = useT();
   const [reason, setReason] = useState("");
   useEffect(() => {
     if (target) setReason("");
@@ -49,22 +51,22 @@ export function RejectDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>
-            Rejeitar certificado de {target?.studentName}
+            {t("certificator.rejectTitle", {
+              name: target?.studentName ?? "",
+            })}
           </DialogTitle>
           <DialogDescription>
-            A solicitação será encerrada e o valor do aluguel devolvido
-            automaticamente ao estudante. O motivo fica registrado no histórico
-            (não vai para a blockchain). O estudante pode solicitar novamente.
+            {t("certificator.rejectDescription")}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-2">
-          <Label htmlFor="reject-reason">Motivo (opcional)</Label>
+          <Label htmlFor="reject-reason">{t("certificator.reasonLabel")}</Label>
           <Textarea
             id="reject-reason"
             value={reason}
             onChange={(e) => setReason(e.target.value)}
-            placeholder="Ex.: nome não confere com o documento."
+            placeholder={t("certificator.reasonPlaceholder")}
             rows={3}
           />
         </div>
@@ -75,14 +77,14 @@ export function RejectDialog({
             onClick={() => onOpenChange(false)}
             disabled={pending}
           >
-            Cancelar
+            {t("certificator.cancel")}
           </Button>
           <Button
             variant="destructive"
             onClick={() => onConfirm(reason)}
             disabled={pending}
           >
-            {pending ? "Rejeitando…" : "Rejeitar"}
+            {pending ? t("certificator.rejecting") : t("certificator.reject")}
           </Button>
         </DialogFooter>
       </DialogContent>

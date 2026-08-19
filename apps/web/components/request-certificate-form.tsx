@@ -26,6 +26,7 @@ import {
   useRequestCertificate,
 } from "@/hooks/useRequestCertificate";
 import { onAppError } from "@/lib/on-app-error";
+import { useT } from "@/lib/i18n";
 import {
   requestCertificateSchema,
   studentNameSchema,
@@ -41,6 +42,7 @@ export function RequestCertificateForm({
   const { ready, authenticated, login } = usePrivy();
   const { data: me, isLoading: meLoading } = useMe();
   const mutation = useRequestCertificate();
+  const { t } = useT();
 
   const form = useForm<RequestCertificateInput>({
     resolver: zodResolver(requestCertificateSchema),
@@ -59,9 +61,9 @@ export function RequestCertificateForm({
       <Card>
         <CardContent className="flex flex-col items-center gap-4 py-8 text-center">
           <p className="text-sm text-muted-foreground">
-            Entre para solicitar seu certificado nesta edição.
+            {t("student.signInPrompt")}
           </p>
-          <Button onClick={() => login()}>Entrar</Button>
+          <Button onClick={() => login()}>{t("nav.signIn")}</Button>
         </CardContent>
       </Card>
     );
@@ -71,11 +73,8 @@ export function RequestCertificateForm({
   if (!wallet) {
     return (
       <Alert variant="destructive">
-        <AlertTitle>Nenhuma carteira encontrada</AlertTitle>
-        <AlertDescription>
-          Sua conta ainda não tem uma carteira Solana associada. Tente sair e
-          entrar novamente.
-        </AlertDescription>
+        <AlertTitle>{t("student.noWalletTitle")}</AlertTitle>
+        <AlertDescription>{t("student.noWalletDesc")}</AlertDescription>
       </Alert>
     );
   }
@@ -83,7 +82,7 @@ export function RequestCertificateForm({
   async function onSubmit(values: RequestCertificateInput): Promise<void> {
     try {
       await mutation.mutateAsync({ ...values, studentWallet: wallet! });
-      toast.success("Certificado solicitado com sucesso!");
+      toast.success(t("student.requestSuccess"));
       router.push("/me");
     } catch (err) {
       onAppError(err, form, { airdropWallet: wallet });
@@ -103,17 +102,17 @@ export function RequestCertificateForm({
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Seu nome completo</FormLabel>
+                  <FormLabel>{t("student.nameLabel")}</FormLabel>
                   <FormControl>
                     <Input
-                      placeholder="Como você quer que apareça no certificado"
+                      placeholder={t("student.namePlaceholder")}
                       autoComplete="name"
                       {...field}
                     />
                   </FormControl>
                   {sanitizedPreview.success && sanitizedPreview.data && (
                     <FormDescription>
-                      Aparecerá como:{" "}
+                      {t("student.namePreview")}{" "}
                       <span className="font-medium text-foreground">
                         {sanitizedPreview.data}
                       </span>
@@ -137,9 +136,7 @@ export function RequestCertificateForm({
                   </FormControl>
                   <div className="grid gap-1 leading-none">
                     <FormLabel className="font-normal text-muted-foreground">
-                      Entendo que meu endereço de carteira e as datas de
-                      assinatura ficam registrados publicamente na blockchain,
-                      de forma permanente.
+                      {t("student.consent")}
                     </FormLabel>
                     <FormMessage />
                   </div>
@@ -154,8 +151,8 @@ export function RequestCertificateForm({
               className="w-full"
             >
               {mutation.isPending
-                ? REQUEST_STAGE_LABEL[mutation.stage]
-                : "Solicitar certificado"}
+                ? t(REQUEST_STAGE_LABEL[mutation.stage])
+                : t("student.requestCertificate")}
             </Button>
           </form>
         </Form>

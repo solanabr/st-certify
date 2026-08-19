@@ -9,31 +9,35 @@ import { EventsFeed } from "@/components/admin/events-feed";
 import { EditionsTable } from "@/components/admin/editions-table";
 import { CertificatesTable } from "@/components/admin/certificates-table";
 import { useAdminStats } from "@/hooks/useAdminStats";
+import { useT } from "@/lib/i18n";
 
 export default function AdminPage() {
   const { data, isLoading, isError, refetch } = useAdminStats();
+  const { t } = useT();
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-12">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold tracking-tight">Administração</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">
+          {t("nav.admin")}
+        </h1>
         <Button asChild>
-          <Link href="/admin/editions/new">Criar edição</Link>
+          <Link href="/admin/editions/new">{t("admin.createEdition")}</Link>
         </Button>
       </div>
 
       {isError ? (
         <div className="mt-8">
           <Alert variant="destructive">
-            <AlertTitle>Falha ao carregar estatísticas</AlertTitle>
+            <AlertTitle>{t("admin.statsError")}</AlertTitle>
             <AlertDescription className="flex flex-col items-start gap-3">
-              <span>Tente novamente em instantes.</span>
+              <span>{t("admin.statsErrorHint")}</span>
               <Button
                 size="sm"
                 variant="outline"
                 onClick={() => void refetch()}
               >
-                Tentar novamente
+                {t("admin.retry")}
               </Button>
             </AlertDescription>
           </Alert>
@@ -52,8 +56,10 @@ export default function AdminPage() {
 
       <Tabs defaultValue="editions" className="mt-10">
         <TabsList>
-          <TabsTrigger value="editions">Edições</TabsTrigger>
-          <TabsTrigger value="certificates">Certificados</TabsTrigger>
+          <TabsTrigger value="editions">{t("nav.editions")}</TabsTrigger>
+          <TabsTrigger value="certificates">
+            {t("admin.certificates")}
+          </TabsTrigger>
         </TabsList>
         <TabsContent value="editions" className="mt-4">
           <EditionsTable />

@@ -163,3 +163,39 @@ export interface AdminStats {
   claimedCount: number;
   revokedCount: number;
 }
+
+// ---------------------------------------------------------------------------
+// Attendance NFTs — mirrors supabase/migrations/0002_attendance.sql
+// ---------------------------------------------------------------------------
+
+export type AttendanceClaimStatus = "pending" | "minted" | "failed";
+export type ReserveOutcome =
+  "reserved" | "retry" | "in_flight" | "already_claimed" | "exhausted";
+
+export interface AttendanceEventRow {
+  id: string;
+  name: string;
+  description: string;
+  image_url: string;
+  metadata_uri: string;
+  collection_address: string;
+  event_date: string; // ISO date
+  max_supply: number | null;
+  claim_deadline: string | null; // ISO timestamptz
+  claim_open: boolean;
+  claim_token: string;
+  created_by_wallet: string;
+  minted_count: number;
+  created_at: string;
+}
+
+export interface AttendanceClaimRow {
+  id: string;
+  event_id: string;
+  wallet: string;
+  status: AttendanceClaimStatus;
+  reserved_at: string | null;
+  tx_sig: string | null;
+  asset_id: string | null;
+  created_at: string;
+}

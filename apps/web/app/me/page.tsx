@@ -8,17 +8,17 @@ import { CertCard } from "@/components/cert-card";
 import { WalletStrip } from "@/components/wallet-strip";
 import { useMe } from "@/hooks/useMe";
 import { useMyCertificates } from "@/hooks/useMyCertificates";
+import { useT } from "@/lib/i18n";
 
 export default function MePage() {
   const { data: me } = useMe();
   const { data: certs, isLoading, isError, refetch } = useMyCertificates();
+  const { t } = useT();
   const wallet = me?.wallets[0];
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-12">
-      <h1 className="text-2xl font-semibold tracking-tight">
-        Meus certificados
-      </h1>
+      <h1 className="text-2xl font-semibold tracking-tight">{t("nav.me")}</h1>
 
       {wallet && (
         <div className="mt-6">
@@ -34,25 +34,25 @@ export default function MePage() {
           </>
         ) : isError ? (
           <Alert variant="destructive">
-            <AlertTitle>Falha ao carregar seus certificados</AlertTitle>
+            <AlertTitle>{t("me.loadErrorTitle")}</AlertTitle>
             <AlertDescription className="flex flex-col items-start gap-3">
-              <span>Tente novamente em instantes.</span>
+              <span>{t("me.loadErrorDesc")}</span>
               <Button
                 size="sm"
                 variant="outline"
                 onClick={() => void refetch()}
               >
-                Tentar novamente
+                {t("me.retry")}
               </Button>
             </AlertDescription>
           </Alert>
         ) : !certs || certs.length === 0 ? (
           <Alert>
-            <AlertTitle>Você ainda não tem certificados</AlertTitle>
+            <AlertTitle>{t("me.emptyTitle")}</AlertTitle>
             <AlertDescription className="flex flex-col items-start gap-3">
-              <span>Encontre uma edição aberta para solicitar o seu.</span>
+              <span>{t("me.emptyDesc")}</span>
               <Button asChild size="sm">
-                <Link href="/editions">Ver edições abertas</Link>
+                <Link href="/editions">{t("me.browseEditions")}</Link>
               </Button>
             </AlertDescription>
           </Alert>

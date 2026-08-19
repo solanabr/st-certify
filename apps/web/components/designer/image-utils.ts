@@ -5,6 +5,24 @@
 
 const PNG_MAGIC = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
 
+export type ImageErrorCode =
+  "canvas-unavailable" | "encode-failed" | "read-failed";
+
+/**
+ * Failures here carry a stable code, not a message: this module has no
+ * locale (it isn't a React component and can't call `useT`), so
+ * `use-template-upload.ts` maps the code to a translated string.
+ */
+export class ImageProcessingError extends Error {
+  readonly code: ImageErrorCode;
+
+  constructor(code: ImageErrorCode) {
+    super(code);
+    this.name = "ImageProcessingError";
+    this.code = code;
+  }
+}
+
 /** Checks the 8-byte PNG signature — a cheap client-side pre-check; the server re-checks the same bytes (never trust the client). */
 export async function isPngFile(file: File): Promise<boolean> {
   const header = new Uint8Array(await file.slice(0, 8).arrayBuffer());
@@ -39,7 +57,7 @@ export async function downscaleImageFile(
     canvas.height = height;
     const ctx = canvas.getContext("2d");
     if (!ctx) {
-      throw new Error("Canvas 2D indisponível neste navegador.");
+      throw new ImageProcessingError("canvas-unavailable");
     }
     ctx.drawImage(bitmap, 0, 0, width, height);
 
@@ -47,7 +65,7 @@ export async function downscaleImageFile(
       canvas.toBlob(resolve, "image/png"),
     );
     if (!blob) {
-      throw new Error("Falha ao gerar o PNG redimensionado.");
+      throw new ImageProcessingError("encode-failed");
     }
     return { blob, width, height };
   } finally {
@@ -69,7 +87,7 @@ export function blobToDataUri(blob: Blob): Promise<string> {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result as string);
     reader.onerror = () =>
-      reject(reader.error ?? new Error("Falha ao ler a imagem."));
+      reject(reader.error ?? new ImageProcessingError("read-failed"));
     reader.readAsDataURL(blob);
   });
 }

@@ -12,15 +12,16 @@ import { fail } from "@/lib/errors";
 import { isUserRejection } from "@/lib/chain/errors";
 import { prepareRequestCertificateTransaction } from "@/lib/chain";
 import { bytesToBase64, hexToBytes } from "@/lib/bytes";
+import { useT, type TranslationKey } from "@/lib/i18n";
 
 /** Truthful staged pending labels (appendix §2 request-form island spec). */
 export type RequestStage = "idle" | "preparing" | "signing" | "confirming";
 
-export const REQUEST_STAGE_LABEL: Record<RequestStage, string> = {
-  idle: "Solicitar certificado",
-  preparing: "Preparando…",
-  signing: "Aguardando sua assinatura",
-  confirming: "Confirmando…",
+export const REQUEST_STAGE_LABEL: Record<RequestStage, TranslationKey> = {
+  idle: "student.requestCertificate",
+  preparing: "student.stage.preparing",
+  signing: "student.stage.signing",
+  confirming: "claim.confirming",
 };
 
 export interface RequestCertificateInput {
@@ -55,6 +56,7 @@ export function useRequestCertificate(): UseMutationResult<
 > & { stage: RequestStage } {
   const { wallets } = useStandardWallets();
   const queryClient = useQueryClient();
+  const { t } = useT();
   const [stage, setStage] = useState<RequestStage>("idle");
 
   const mutation = useMutation({
@@ -74,15 +76,12 @@ export function useRequestCertificate(): UseMutationResult<
         (a) => a.address === input.studentWallet,
       );
       if (!wallet || !account) {
-        fail(
-          "UNAUTHORIZED",
-          "Carteira não encontrada. Reconecte e tente novamente.",
-        );
+        fail("UNAUTHORIZED", t("student.walletNotFound"));
       }
 
       const signFeature = wallet.features["solana:signTransaction"];
       if (!signFeature) {
-        fail("INTERNAL", "Esta carteira não suporta assinatura de transações.");
+        fail("INTERNAL", t("student.walletNoSign"));
       }
 
       const tx = await prepareRequestCertificateTransaction({
@@ -102,7 +101,7 @@ export function useRequestCertificate(): UseMutationResult<
         signedBytes = signed.signedTransaction;
       } catch (err) {
         if (isUserRejection(err)) {
-          fail("CHAIN_REJECTED_BY_USER", "Assinatura cancelada.");
+          fail("CHAIN_REJECTED_BY_USER", t("student.signatureCancelled"));
         }
         throw err;
       }

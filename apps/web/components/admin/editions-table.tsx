@@ -16,12 +16,13 @@ import {
 import { useAdminEditions } from "@/hooks/useAdminEditions";
 import { useSetEditionStatus } from "@/hooks/useSetEditionStatus";
 import { onAppError } from "@/lib/on-app-error";
+import { useT, type TranslationKey } from "@/lib/i18n";
 import type { EditionStatusValue } from "@/lib/db/types";
 
-const STATUS_LABEL: Record<EditionStatusValue, string> = {
-  Open: "Aberta",
-  Paused: "Pausada",
-  Closed: "Encerrada",
+const STATUS_LABEL_KEY: Record<EditionStatusValue, TranslationKey> = {
+  Open: "admin.editionStatus.open",
+  Paused: "admin.editionStatus.paused",
+  Closed: "admin.editionStatus.closed",
 };
 
 const STATUS_VARIANT: Record<
@@ -42,11 +43,12 @@ function formatDate(iso: string): string {
 export function EditionsTable() {
   const { data: editions, isLoading, isError, refetch } = useAdminEditions();
   const setStatus = useSetEditionStatus();
+  const { t } = useT();
 
   async function copyLink(slug: string): Promise<void> {
     const url = `${window.location.origin}/editions/${slug}`;
     await navigator.clipboard.writeText(url);
-    toast.success("Link copiado");
+    toast.success(t("claim.copied"));
   }
 
   function toggleStatus(address: string, current: EditionStatusValue): void {
@@ -71,10 +73,10 @@ export function EditionsTable() {
     return (
       <div className="flex flex-col items-start gap-3 rounded-lg border border-border p-6">
         <p className="text-sm text-muted-foreground">
-          Falha ao carregar edições.
+          {t("admin.editionsError")}
         </p>
         <Button size="sm" variant="outline" onClick={() => void refetch()}>
-          Tentar novamente
+          {t("admin.retry")}
         </Button>
       </div>
     );
@@ -83,11 +85,9 @@ export function EditionsTable() {
   if (!editions || editions.length === 0) {
     return (
       <div className="flex flex-col items-start gap-3 rounded-lg border border-border p-6">
-        <p className="text-sm text-muted-foreground">
-          Nenhuma edição criada ainda.
-        </p>
+        <p className="text-sm text-muted-foreground">{t("admin.noEditions")}</p>
         <Button asChild size="sm">
-          <Link href="/admin/editions/new">Criar edição</Link>
+          <Link href="/admin/editions/new">{t("admin.createEdition")}</Link>
         </Button>
       </div>
     );
@@ -97,11 +97,11 @@ export function EditionsTable() {
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead>Nome</TableHead>
-          <TableHead>Status</TableHead>
-          <TableHead>Certificados</TableHead>
-          <TableHead>Criada em</TableHead>
-          <TableHead className="text-right">Ações</TableHead>
+          <TableHead>{t("admin.colName")}</TableHead>
+          <TableHead>{t("admin.colStatus")}</TableHead>
+          <TableHead>{t("admin.certificates")}</TableHead>
+          <TableHead>{t("admin.colCreatedAt")}</TableHead>
+          <TableHead className="text-right">{t("admin.colActions")}</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -112,7 +112,7 @@ export function EditionsTable() {
             </TableCell>
             <TableCell>
               <Badge variant={STATUS_VARIANT[edition.status]}>
-                {STATUS_LABEL[edition.status]}
+                {t(STATUS_LABEL_KEY[edition.status])}
               </Badge>
             </TableCell>
             <TableCell className="tabular-nums">
@@ -132,7 +132,9 @@ export function EditionsTable() {
                       toggleStatus(edition.address, edition.status)
                     }
                   >
-                    {edition.status === "Open" ? "Pausar" : "Abrir"}
+                    {edition.status === "Open"
+                      ? t("admin.pause")
+                      : t("admin.open")}
                   </Button>
                 )}
                 <Button
@@ -140,16 +142,16 @@ export function EditionsTable() {
                   variant="ghost"
                   onClick={() => void copyLink(edition.slug)}
                 >
-                  Copiar link
+                  {t("admin.copyLink")}
                 </Button>
                 <Button
                   size="sm"
                   variant="ghost"
                   disabled
                   aria-disabled="true"
-                  title="Duplicar como nova edição (em breve) — edições são imutáveis após criadas"
+                  title={t("admin.editDisabledTitle")}
                 >
-                  Editar
+                  {t("admin.edit")}
                 </Button>
               </div>
             </TableCell>

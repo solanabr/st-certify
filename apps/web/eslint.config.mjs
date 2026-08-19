@@ -25,6 +25,18 @@ const RESTRICTED_SUPABASE = {
   name: "@supabase/supabase-js",
   message: "Import @supabase/supabase-js only under lib/db/**.",
 };
+const RESTRICTED_BUBBLEGUM = {
+  name: "@metaplex-foundation/mpl-bubblegum",
+  message: "Import mpl-bubblegum only under lib/chain/**.",
+};
+const RESTRICTED_ACCOUNT_COMPRESSION = {
+  name: "@metaplex-foundation/mpl-account-compression",
+  message: "Import mpl-account-compression only under lib/chain/**.",
+};
+const RESTRICTED_WALLET_STANDARD = {
+  group: ["@wallet-standard/*"],
+  message: "Import @wallet-standard/* only under lib/wallet/**.",
+};
 
 const eslintConfig = [
   ...compat.extends("next/core-web-vitals", "next/typescript"),
@@ -42,14 +54,26 @@ const eslintConfig = [
     rules: {
       "no-restricted-imports": [
         "error",
-        { paths: [RESTRICTED_KIT, RESTRICTED_CLIENT, RESTRICTED_SUPABASE] },
+        {
+          paths: [
+            RESTRICTED_KIT,
+            RESTRICTED_CLIENT,
+            RESTRICTED_SUPABASE,
+            RESTRICTED_BUBBLEGUM,
+            RESTRICTED_ACCOUNT_COMPRESSION,
+          ],
+          patterns: [RESTRICTED_WALLET_STANDARD],
+        },
       ],
     },
   },
   {
     files: ["lib/chain/**/*.{ts,tsx}"],
     rules: {
-      "no-restricted-imports": ["error", { paths: [RESTRICTED_SUPABASE] }],
+      "no-restricted-imports": [
+        "error",
+        { paths: [RESTRICTED_SUPABASE], patterns: [RESTRICTED_WALLET_STANDARD] },
+      ],
     },
   },
   {
@@ -57,7 +81,27 @@ const eslintConfig = [
     rules: {
       "no-restricted-imports": [
         "error",
-        { paths: [RESTRICTED_KIT, RESTRICTED_CLIENT] },
+        {
+          paths: [RESTRICTED_KIT, RESTRICTED_CLIENT, RESTRICTED_BUBBLEGUM, RESTRICTED_ACCOUNT_COMPRESSION],
+          patterns: [RESTRICTED_WALLET_STANDARD],
+        },
+      ],
+    },
+  },
+  {
+    files: ["lib/wallet/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            RESTRICTED_KIT,
+            RESTRICTED_CLIENT,
+            RESTRICTED_SUPABASE,
+            RESTRICTED_BUBBLEGUM,
+            RESTRICTED_ACCOUNT_COMPRESSION,
+          ],
+        },
       ],
     },
   },

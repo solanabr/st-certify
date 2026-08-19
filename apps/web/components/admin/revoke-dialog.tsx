@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useRevoke } from "@/hooks/useRevoke";
+import { useT } from "@/lib/i18n";
 import { revokeSchema } from "@/lib/schemas";
 
 /**
@@ -35,11 +36,14 @@ export function RevokeCell({
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
   const revoke = useRevoke();
+  const { t } = useT();
 
   function onConfirm(): void {
     const parsed = revokeSchema.safeParse({ reason });
     if (!parsed.success) {
-      setError(parsed.error.issues[0]?.message ?? "Motivo inválido.");
+      setError(
+        parsed.error.issues[0]?.message ?? t("admin.revoke.invalidReason"),
+      );
       return;
     }
     setError(null);
@@ -71,22 +75,21 @@ export function RevokeCell({
           {revoke.isPending && (
             <Loader2 className="animate-spin" aria-hidden="true" />
           )}
-          Revogar
+          {t("admin.revoke.action")}
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>
-            Revogar certificado de {studentName}?
+            {t("admin.revoke.title", { name: studentName })}
           </AlertDialogTitle>
           <AlertDialogDescription>
-            Esta ação é permanente: o certificado passa a REVOGADO na
-            verificação pública e o NFT é queimado quando possível.
+            {t("admin.revoke.description")}
           </AlertDialogDescription>
         </AlertDialogHeader>
 
         <div className="space-y-2">
-          <Label htmlFor="revoke-reason">Motivo</Label>
+          <Label htmlFor="revoke-reason">{t("admin.revoke.reasonLabel")}</Label>
           <Textarea
             id="revoke-reason"
             value={reason}
@@ -94,7 +97,7 @@ export function RevokeCell({
               setReason(e.target.value);
               if (error) setError(null);
             }}
-            placeholder="Ex.: emitido por engano; dados incorretos."
+            placeholder={t("admin.revoke.reasonPlaceholder")}
             disabled={revoke.isPending}
             aria-invalid={error ? true : undefined}
             aria-describedby={error ? "revoke-reason-error" : undefined}
@@ -112,7 +115,7 @@ export function RevokeCell({
 
         <AlertDialogFooter>
           <AlertDialogCancel disabled={revoke.isPending}>
-            Cancelar
+            {t("admin.cancel")}
           </AlertDialogCancel>
           <Button
             variant="destructive"
@@ -122,7 +125,7 @@ export function RevokeCell({
             {revoke.isPending && (
               <Loader2 className="animate-spin" aria-hidden="true" />
             )}
-            Revogar certificado
+            {t("admin.revoke.confirm")}
           </Button>
         </AlertDialogFooter>
       </AlertDialogContent>

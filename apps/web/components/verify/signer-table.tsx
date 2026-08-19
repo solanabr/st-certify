@@ -8,14 +8,15 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { VerifySignerView } from "@/lib/db/claim-verify-queries";
+import { getT } from "@/lib/i18n/server";
 
 function shortSig(sig: string): string {
   return `${sig.slice(0, 6)}…${sig.slice(-6)}`;
 }
 
-function formatSignedAt(iso: string | null): string {
+function formatSignedAt(iso: string | null, locale: string): string {
   if (!iso) return "—";
-  return new Intl.DateTimeFormat("pt-BR", {
+  return new Intl.DateTimeFormat(locale, {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
@@ -25,17 +26,24 @@ function formatSignedAt(iso: string | null): string {
 }
 
 /** Signer roster with chain-truthful status, sign time, and tx link (plan §Verify). */
-export function SignerTable({ signers }: { signers: VerifySignerView[] }) {
+export async function SignerTable({
+  signers,
+}: {
+  signers: VerifySignerView[];
+}) {
   if (signers.length === 0) return null;
+  const { locale, t } = await getT();
   return (
     <div className="overflow-x-auto">
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Signatário</TableHead>
-            <TableHead>Cargo</TableHead>
-            <TableHead>Assinado em</TableHead>
-            <TableHead className="text-right">Transação</TableHead>
+            <TableHead>{t("verify.signers.name")}</TableHead>
+            <TableHead>{t("verify.signers.role")}</TableHead>
+            <TableHead>{t("verify.signers.signedAt")}</TableHead>
+            <TableHead className="text-right">
+              {t("verify.signers.tx")}
+            </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -55,7 +63,9 @@ export function SignerTable({ signers }: { signers: VerifySignerView[] }) {
                   </span>
                   {s.name}
                   <span className="sr-only">
-                    {s.signed ? "assinado" : "aguardando assinatura"}
+                    {s.signed
+                      ? t("verify.signers.signed")
+                      : t("verify.signers.awaiting")}
                   </span>
                 </span>
               </TableCell>
@@ -63,7 +73,7 @@ export function SignerTable({ signers }: { signers: VerifySignerView[] }) {
                 {s.role ?? "—"}
               </TableCell>
               <TableCell className="tabular-nums text-muted-foreground">
-                {formatSignedAt(s.signedAt)}
+                {formatSignedAt(s.signedAt, locale)}
               </TableCell>
               <TableCell className="text-right">
                 {s.txSig ? (

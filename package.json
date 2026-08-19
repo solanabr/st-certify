@@ -16,7 +16,9 @@
     "deploy": "bash scripts/deploy.sh",
     "seed:onchain": "tsx scripts/seed.ts",
     "e2e": "tsx scripts/e2e-devnet.ts",
-    "rls-probe": "tsx scripts/rls-probe.ts"
+    "rls-probe": "tsx scripts/rls-probe.ts",
+    "tree:attendance": "tsx scripts/create-attendance-tree.ts",
+    "e2e:attendance": "tsx scripts/e2e-attendance-devnet.ts"
   },
   "devDependencies": {
     "@types/pg": "^8.20.4",

@@ -24,14 +24,15 @@ import {
 } from "@/components/ui/table";
 import { useAdminCertificates } from "@/hooks/useAdminCertificates";
 import { useAdminEditions } from "@/hooks/useAdminEditions";
+import { useT, type TranslationKey } from "@/lib/i18n";
 import type { CertificateStatusValue } from "@/lib/db/types";
 
-const STATUS_LABEL: Record<CertificateStatusValue, string> = {
-  Requested: "Solicitado",
-  FullySigned: "Pronto",
-  Claimed: "Resgatado",
-  Revoked: "Revogado",
-  Rejected: "Rejeitado",
+const STATUS_LABEL_KEY: Record<CertificateStatusValue, TranslationKey> = {
+  Requested: "admin.certStatus.requested",
+  FullySigned: "admin.certStatus.fullySigned",
+  Claimed: "admin.certStatus.claimed",
+  Revoked: "admin.certStatus.revoked",
+  Rejected: "admin.certStatus.rejected",
 };
 
 const STATUS_VARIANT: Record<
@@ -49,6 +50,7 @@ export function CertificatesTable() {
   const [editionFilter, setEditionFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [nameQuery, setNameQuery] = useState("");
+  const { t } = useT();
 
   const { data: editions } = useAdminEditions();
   const {
@@ -73,10 +75,10 @@ export function CertificatesTable() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <Select value={editionFilter} onValueChange={setEditionFilter}>
           <SelectTrigger className="w-full sm:w-56">
-            <SelectValue placeholder="Todas as edições" />
+            <SelectValue placeholder={t("admin.allEditions")} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Todas as edições</SelectItem>
+            <SelectItem value="all">{t("admin.allEditions")}</SelectItem>
             {editions?.map((e) => (
               <SelectItem key={e.address} value={e.address}>
                 {e.name}
@@ -87,14 +89,14 @@ export function CertificatesTable() {
 
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-full sm:w-48">
-            <SelectValue placeholder="Todos os status" />
+            <SelectValue placeholder={t("admin.allStatuses")} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Todos os status</SelectItem>
-            {(Object.keys(STATUS_LABEL) as CertificateStatusValue[]).map(
+            <SelectItem value="all">{t("admin.allStatuses")}</SelectItem>
+            {(Object.keys(STATUS_LABEL_KEY) as CertificateStatusValue[]).map(
               (s) => (
                 <SelectItem key={s} value={s}>
-                  {STATUS_LABEL[s]}
+                  {t(STATUS_LABEL_KEY[s])}
                 </SelectItem>
               ),
             )}
@@ -102,11 +104,11 @@ export function CertificatesTable() {
         </Select>
 
         <Input
-          placeholder="Buscar por nome"
+          placeholder={t("admin.searchByName")}
           value={nameQuery}
           onChange={(e) => setNameQuery(e.target.value)}
           className="sm:max-w-xs"
-          aria-label="Buscar certificado por nome do aluno"
+          aria-label={t("admin.searchByNameAria")}
         />
       </div>
 
@@ -119,27 +121,29 @@ export function CertificatesTable() {
       ) : isError ? (
         <div className="flex flex-col items-start gap-3 rounded-lg border border-border p-6">
           <p className="text-sm text-muted-foreground">
-            Falha ao carregar certificados.
+            {t("admin.certificatesError")}
           </p>
           <Button size="sm" variant="outline" onClick={() => void refetch()}>
-            Tentar novamente
+            {t("admin.retry")}
           </Button>
         </div>
       ) : filtered.length === 0 ? (
         <div className="rounded-lg border border-border p-6">
           <p className="text-sm text-muted-foreground">
-            Nenhum certificado encontrado.
+            {t("admin.noCertificates")}
           </p>
         </div>
       ) : (
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Aluno</TableHead>
-              <TableHead>Edição</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Nº</TableHead>
-              <TableHead className="text-right">Ações</TableHead>
+              <TableHead>{t("admin.colStudent")}</TableHead>
+              <TableHead>{t("admin.colEdition")}</TableHead>
+              <TableHead>{t("admin.colStatus")}</TableHead>
+              <TableHead>{t("admin.colNumber")}</TableHead>
+              <TableHead className="text-right">
+                {t("admin.colActions")}
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -153,7 +157,7 @@ export function CertificatesTable() {
                 </TableCell>
                 <TableCell>
                   <Badge variant={STATUS_VARIANT[cert.status]}>
-                    {STATUS_LABEL[cert.status]}
+                    {t(STATUS_LABEL_KEY[cert.status])}
                   </Badge>
                 </TableCell>
                 <TableCell className="tabular-nums">
@@ -167,7 +171,7 @@ export function CertificatesTable() {
                         target="_blank"
                         rel="noopener noreferrer"
                       >
-                        Verificar
+                        {t("verify.check")}
                       </Link>
                     </Button>
                     {cert.status === "Claimed" && (
@@ -178,7 +182,7 @@ export function CertificatesTable() {
                     )}
                     {cert.status === "Revoked" && (
                       <span className="px-2 text-xs text-muted-foreground">
-                        Revogado
+                        {t("admin.certStatus.revoked")}
                       </span>
                     )}
                   </div>

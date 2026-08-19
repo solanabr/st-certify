@@ -14,6 +14,7 @@ import {
   type OnChainVerdict,
 } from "@/lib/chain/verify";
 import type { CertificateStatusValue } from "@/lib/db/types";
+import { useT } from "@/lib/i18n";
 
 type State =
   | { phase: "loading" }
@@ -34,6 +35,7 @@ export function VerifyChainStamp({
   certAddress: string;
   mirrorStatus: CertificateStatusValue;
 }) {
+  const { t } = useT();
   const [state, setState] = useState<State>({ phase: "loading" });
 
   useEffect(() => {
@@ -57,7 +59,7 @@ export function VerifyChainStamp({
         aria-live="polite"
       >
         <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-        Verificando on-chain…
+        {t("verify.stamp.checking")}
       </p>
     );
   }
@@ -69,7 +71,7 @@ export function VerifyChainStamp({
         aria-live="polite"
       >
         <TriangleAlert className="size-4" aria-hidden="true" />
-        Não foi possível confirmar este certificado on-chain no momento.
+        {t("verify.stamp.unconfirmed")}
       </p>
     );
   }
@@ -91,7 +93,7 @@ export function VerifyChainStamp({
         aria-live="polite"
       >
         <ShieldX className="size-4" aria-hidden="true" />
-        Revogado on-chain — este certificado não é mais válido.
+        {t("verify.stamp.revoked")}
         <span className="tabular-nums font-normal text-muted-foreground">
           · slot {verdict.slot}
         </span>
@@ -113,7 +115,7 @@ export function VerifyChainStamp({
             paddingBottom: "2px",
           }}
         >
-          verificado onchain
+          {t("verify.stamp.verified")}
         </span>
         <span className="tabular-nums text-muted-foreground">
           · slot {verdict.slot}
@@ -128,14 +130,14 @@ export function VerifyChainStamp({
           className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
         >
           <ExternalLink className="size-3.5" aria-hidden="true" />
-          Ver NFT (intransferível) no Explorer
+          {t("verify.stamp.viewNft")}
         </a>
       )}
 
       {reconcile.drifted && (
         <p className="flex items-center gap-2 text-sm text-warning">
-          <TriangleAlert className="size-4" aria-hidden="true" />A rede tem uma
-          atualização mais recente — exibindo o estado on-chain.
+          <TriangleAlert className="size-4" aria-hidden="true" />
+          {t("verify.stamp.drift")}
         </p>
       )}
     </div>

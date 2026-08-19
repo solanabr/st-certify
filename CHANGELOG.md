@@ -5,6 +5,24 @@ gate-verified (build/test/review) before the next started; full briefs,
 reports, and reviews are in
 `.superpowers/sdd/you-are-going-to-foamy-stallman/`.
 
+## 2026-08-19 — Attendance NFTs
+
+- feat(attendance): attendance NFT events — creator dashboard, secret claim
+  links, subsidized Bubblegum v2 mints.
+- Whitelisted wallets create events at `/events`; each event mints its own
+  per-event Metaplex Core collection carrying the BubblegumV2 plugin.
+  Participants claim at a secret `/attend/<token>` link — a wallet-standard
+  signature or an existing Privy session proves ownership, then the server
+  mints a Bubblegum v2 compressed NFT straight to them, fully
+  operator-subsidized (measured 95,000 lamports per mint on devnet).
+- Creator controls: supply cap, claim deadline, pause/resume, and link
+  rotation (invalidates the old link immediately).
+- `pnpm tree:attendance` (one-time shared Merkle tree bootstrap, depth 14 /
+  buffer 64 / canopy 8) and `pnpm e2e:attendance` (devnet
+  createCollection + mintV2 + parseLeaf round trip).
+- New env vars: `ATTENDANCE_MERKLE_TREE`, `ATTENDANCE_CREATOR_WALLETS`,
+  `ATTENDANCE_SESSION_SECRET`.
+
 ## M7 — Hardening, seed data, docs, wake-up runbook
 
 - Name-sanitization hardening: `studentNameSchema` now rejects Latin/

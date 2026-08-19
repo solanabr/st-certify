@@ -23,6 +23,7 @@ import {
 } from "@/components/certificator/reject-dialog";
 import { onAppError } from "@/lib/on-app-error";
 import { callerSignerWallet } from "@/lib/db/certificator-queries";
+import { useT } from "@/lib/i18n";
 import { useMassSign } from "@/hooks/useMassSign";
 import { usePendingInbox } from "@/hooks/usePendingInbox";
 import { useReject } from "@/hooks/useReject";
@@ -30,6 +31,7 @@ import { useReject } from "@/hooks/useReject";
 const MAX_PER_TX = 20;
 
 export default function CertificatorPage() {
+  const { t } = useT();
   const massSign = useMassSign();
   const reject = useReject();
   const { data, isLoading, isError, refetch } = usePendingInbox(
@@ -85,6 +87,10 @@ export default function CertificatorPage() {
   const selectedNames = selectedByEdition.flatMap((x) =>
     x.certs.map((c) => c.studentName),
   );
+  const txPhrase = t(
+    txCount === 1 ? "certificator.txCountOne" : "certificator.txCountMany",
+    { count: txCount },
+  );
 
   // Each edition can register the caller under a different wallet — resolve
   // per group (mirrors the reject path's per-row resolution), never reuse a
@@ -118,7 +124,7 @@ export default function CertificatorPage() {
         reason: reason.trim() || undefined,
         signerWallet: rejectTarget.signerWallet,
       });
-      toast.success("Solicitação rejeitada e aluguel devolvido ao estudante.");
+      toast.success(t("certificator.rejectSuccess"));
       setRejectTarget(null);
     } catch (err) {
       onAppError(err);
@@ -128,17 +134,16 @@ export default function CertificatorPage() {
   return (
     <div className="mx-auto max-w-6xl px-4 py-12 pb-28">
       <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-2xl font-semibold tracking-tight">Certificador</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">
+          {t("nav.certificator")}
+        </h1>
         {totalPending > 0 && (
           <Badge variant="secondary" className="tabular-nums">
-            {totalPending} aguardando você
+            {t("certificator.awaitingYou", { count: totalPending })}
           </Badge>
         )}
       </div>
-      <p className="mt-2 text-muted-foreground">
-        Confira o nome de cada aluno antes de assinar — sua assinatura fica
-        registrada permanentemente na blockchain.
-      </p>
+      <p className="mt-2 text-muted-foreground">{t("certificator.subtitle")}</p>
 
       {/* Truthful batch progress, announced politely. */}
       {massSign.progress.running && massSign.progress.totalChunks > 0 && (
@@ -146,8 +151,10 @@ export default function CertificatorPage() {
           aria-live="polite"
           className="mt-6 rounded-lg border border-border bg-card px-4 py-3 text-sm"
         >
-          Assinando… transação {massSign.progress.confirmedChunks}/
-          {massSign.progress.totalChunks} confirmada
+          {t("certificator.signingProgress", {
+            done: massSign.progress.confirmedChunks,
+            total: massSign.progress.totalChunks,
+          })}
         </div>
       )}
 
@@ -156,25 +163,25 @@ export default function CertificatorPage() {
           <InboxSkeleton />
         ) : isError ? (
           <Alert variant="destructive">
-            <AlertTitle>Falha ao carregar a fila de assinaturas</AlertTitle>
+            <AlertTitle>{t("certificator.loadError")}</AlertTitle>
             <AlertDescription className="flex flex-col items-start gap-3">
-              <span>Tente novamente em instantes.</span>
+              <span>{t("certificator.loadErrorHint")}</span>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => void refetch()}
               >
-                Tentar novamente
+                {t("certificator.retry")}
               </Button>
             </AlertDescription>
           </Alert>
         ) : groups.length === 0 ? (
           <div className="rounded-xl border border-dashed border-border px-6 py-16 text-center">
             <p className="text-base font-medium">
-              Nenhum certificado aguardando sua assinatura.
+              {t("certificator.emptyTitle")}
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
-              Novas solicitações aparecem aqui automaticamente.
+              {t("certificator.emptyHint")}
             </p>
             <Button
               variant="outline"
@@ -182,7 +189,7 @@ export default function CertificatorPage() {
               className="mt-4"
               onClick={() => void refetch()}
             >
-              Atualizar
+              {t("certificator.refresh")}
             </Button>
           </div>
         ) : (
@@ -212,9 +219,13 @@ export default function CertificatorPage() {
         <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
           <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-4">
             <span className="text-sm tabular-nums">
-              <strong>{selectedCount}</strong> selecionado
-              {selectedCount === 1 ? "" : "s"} · {txCount} transaç
-              {txCount === 1 ? "ão" : "ões"}
+              <strong>{selectedCount}</strong>{" "}
+              {t(
+                selectedCount === 1
+                  ? "certificator.selectionSummaryOne"
+                  : "certificator.selectionSummaryMany",
+                { txs: txPhrase },
+              )}
             </span>
             <div className="flex items-center gap-3">
               <Button
@@ -222,15 +233,20 @@ export default function CertificatorPage() {
                 onClick={() => setSelected(new Set())}
                 disabled={massSign.progress.running}
               >
-                Limpar
+                {t("certificator.clear")}
               </Button>
               <Button
                 onClick={() => setConfirmOpen(true)}
                 disabled={massSign.progress.running || hasUnresolvedSigner}
               >
                 {massSign.progress.running
-                  ? "Assinando…"
-                  : `Assinar ${selectedCount} certificado${selectedCount === 1 ? "" : "s"}`}
+                  ? t("certificator.signing")
+                  : t(
+                      selectedCount === 1
+                        ? "certificator.signCountOne"
+                        : "certificator.signCountMany",
+                      { count: selectedCount },
+                    )}
               </Button>
             </div>
           </div>
@@ -241,18 +257,30 @@ export default function CertificatorPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              Assinar {selectedCount} certificado
-              {selectedCount === 1 ? "" : "s"}?
+              {t(
+                selectedCount === 1
+                  ? "certificator.confirmTitleOne"
+                  : "certificator.confirmTitleMany",
+                { count: selectedCount },
+              )}
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div>
-                Sua assinatura vale para {selectedCount} aluno
-                {selectedCount === 1 ? "" : "s"} em {txCount} transaç
-                {txCount === 1 ? "ão" : "ões"} —{" "}
-                {distinctSignerCount === 1
-                  ? "uma única aprovação na carteira"
-                  : `${distinctSignerCount} aprovações na carteira (uma por carteira usada)`}
-                . Confira os nomes:
+                {t(
+                  selectedCount === 1
+                    ? "certificator.confirmBodyOne"
+                    : "certificator.confirmBodyMany",
+                  {
+                    count: selectedCount,
+                    txs: txPhrase,
+                    approvals: t(
+                      distinctSignerCount === 1
+                        ? "certificator.approvalsOne"
+                        : "certificator.approvalsMany",
+                      { count: distinctSignerCount },
+                    ),
+                  },
+                )}
                 <ul className="mt-3 list-disc space-y-1 pl-5 text-foreground">
                   {selectedNames.slice(0, 5).map((name, i) => (
                     <li key={i} className="font-medium">
@@ -261,15 +289,19 @@ export default function CertificatorPage() {
                   ))}
                 </ul>
                 {selectedNames.length > 5 && (
-                  <p className="mt-2">e mais {selectedNames.length - 5}…</p>
+                  <p className="mt-2">
+                    {t("certificator.andMore", {
+                      count: selectedNames.length - 5,
+                    })}
+                  </p>
                 )}
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel>{t("certificator.cancel")}</AlertDialogCancel>
             <AlertDialogAction onClick={() => void runSign()}>
-              Assinar
+              {t("certificator.sign")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

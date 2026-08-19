@@ -145,3 +145,46 @@ collected here):
   renders in production — the double-render byte-identity proof was only
   ever run on this dev machine (see README "Known limitations" ->
   "Cross-platform render determinism").
+
+## 7. Attendance NFTs — on Supabase unpause
+
+The attendance-NFT flow (`/events` create, `/attend/<token>` claim) shares
+the same Supabase project as the certificate flow and was built the same
+way: everything that doesn't need `NEXT_PUBLIC_SUPABASE_URL` is done,
+everything that does is written and waiting. Once step 1 above is complete:
+
+1. `pnpm setup:supabase` already covers this migration too — it applies
+   every file under `supabase/migrations/` in order, so `0002_attendance.sql`
+   (the `attendance_events`/`attendance_claims`/`attendance_nonces` tables,
+   RLS, and the `attendance_reserve_claim`/`attendance_release_claim`
+   functions) lands alongside `0001_init.sql`. It also creates the fourth
+   storage bucket, `attendance`. No separate command needed.
+2. Verify the migration actually landed — via the Supabase SQL editor, or
+   `psql "$SUPABASE_DB_URL"`:
+   ```sql
+   select count(*) from attendance_events;
+   select proname from pg_proc where proname like 'attendance_%';
+   ```
+   The first should run without error (0 rows is fine, pre-launch). The
+   second should list `attendance_reserve_claim` and
+   `attendance_release_claim`.
+3. Confirm RLS is actually locked down on the three new tables — same
+   anon-key-must-be-denied pattern `scripts/rls-probe.ts` uses for the M7
+   tables (seed a row with the service-role client, then attempt
+   `select`/`insert`/`update` with the anon client and confirm every
+   attempt is denied — an explicit error or 0 rows affected, never a
+   visible change). The three attendance tables aren't wired into that
+   script yet, so run the equivalent by hand (Supabase SQL editor's "test
+   as anon role", or a throwaway script using `NEXT_PUBLIC_SUPABASE_ANON_KEY`)
+   against `attendance_events`, `attendance_claims`, and `attendance_nonces`
+   before trusting this in front of real participants.
+4. The three attendance env vars are already set in this machine's `.env`
+   (`ATTENDANCE_MERKLE_TREE=4aUhooMis8VtCaAKNyo2NHLmmENHhYu1nNHPNpQcF2hp`,
+   `ATTENDANCE_CREATOR_WALLETS`, `ATTENDANCE_SESSION_SECRET`) — nothing to
+   regenerate. Vercel's project env needs the same three added by hand;
+   they don't ride along with a git push.
+5. Live smoke test: create an event at `/events` (sign in with a wallet
+   from `ATTENDANCE_CREATOR_WALLETS`), open the printed `/attend/<token>`
+   link in a different browser profile, connect a wallet, claim — confirm
+   the mint succeeds and reloading the claim page still shows the claimed
+   state (not a re-claimable one).

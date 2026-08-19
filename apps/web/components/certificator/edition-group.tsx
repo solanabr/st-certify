@@ -19,6 +19,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { callerSignerWallet } from "@/lib/db/certificator-queries";
+import { useT } from "@/lib/i18n";
 import type { PendingEditionGroup } from "@/hooks/usePendingInbox";
 import type { CertSignState } from "@/hooks/useMassSign";
 import type { RejectTarget } from "./reject-dialog";
@@ -31,10 +32,11 @@ const timeFmt = new Intl.DateTimeFormat("pt-BR", {
 });
 
 function StateBadge({ state }: { state: CertSignState | undefined }) {
+  const { t } = useT();
   if (state === "signing") {
     return (
       <Badge variant="secondary" aria-live="polite">
-        Assinando…
+        {t("certificator.signing")}
       </Badge>
     );
   }
@@ -42,7 +44,7 @@ function StateBadge({ state }: { state: CertSignState | undefined }) {
     return (
       <Badge variant="outline" className="gap-1 text-[#14F195]">
         <Check className="size-3" aria-hidden="true" />
-        Assinado
+        {t("certificator.signed")}
       </Badge>
     );
   }
@@ -50,7 +52,7 @@ function StateBadge({ state }: { state: CertSignState | undefined }) {
     return (
       <Badge variant="destructive" className="gap-1">
         <X className="size-3" aria-hidden="true" />
-        Falhou
+        {t("certificator.failed")}
       </Badge>
     );
   }
@@ -73,6 +75,7 @@ export function EditionGroupTable({
   onToggleAll: (checked: boolean) => void;
   onReject: (target: RejectTarget) => void;
 }) {
+  const { t } = useT();
   const signerWallet = callerSignerWallet(group);
   const selectedInGroup = group.certificates.filter((c) =>
     selected.has(c.address),
@@ -89,14 +92,20 @@ export function EditionGroupTable({
           className="size-6"
           checked={allSelected ? true : someSelected ? "indeterminate" : false}
           onCheckedChange={(c) => onToggleAll(c === true)}
-          aria-label={`Selecionar todos de ${group.editionName}`}
+          aria-label={t("certificator.selectAllIn", {
+            edition: group.editionName,
+          })}
         />
         <h2 className="text-lg font-semibold tracking-tight">
           {group.editionName}
         </h2>
         <Badge variant="secondary" className="tabular-nums">
-          {group.certificates.length} pendente
-          {group.certificates.length === 1 ? "" : "s"}
+          {t(
+            group.certificates.length === 1
+              ? "certificator.pendingCountOne"
+              : "certificator.pendingCountMany",
+            { count: group.certificates.length },
+          )}
         </Badge>
       </div>
 
@@ -105,9 +114,13 @@ export function EditionGroupTable({
           <TableHeader>
             <TableRow>
               <TableHead className="w-10" />
-              <TableHead>Aluno</TableHead>
-              <TableHead className="whitespace-nowrap">Solicitado</TableHead>
-              <TableHead className="whitespace-nowrap">Assinaturas</TableHead>
+              <TableHead>{t("certificator.colStudent")}</TableHead>
+              <TableHead className="whitespace-nowrap">
+                {t("certificator.colRequested")}
+              </TableHead>
+              <TableHead className="whitespace-nowrap">
+                {t("certificator.colSignatures")}
+              </TableHead>
               <TableHead />
               <TableHead className="w-10" />
             </TableRow>
@@ -125,7 +138,9 @@ export function EditionGroupTable({
                       className="size-6"
                       checked={selected.has(cert.address)}
                       onCheckedChange={() => onToggleCert(cert.address)}
-                      aria-label={`Selecionar certificado de ${cert.studentName}`}
+                      aria-label={t("certificator.selectCertOf", {
+                        name: cert.studentName,
+                      })}
                     />
                   </TableCell>
                   {/* The anti-impersonation surface — deliberately the loudest cell. */}
@@ -152,7 +167,9 @@ export function EditionGroupTable({
                         <Button
                           variant="ghost"
                           size="icon"
-                          aria-label={`Ações para ${cert.studentName}`}
+                          aria-label={t("certificator.actionsFor", {
+                            name: cert.studentName,
+                          })}
                         >
                           <MoreHorizontal
                             className="size-4"
@@ -173,7 +190,7 @@ export function EditionGroupTable({
                             })
                           }
                         >
-                          Rejeitar…
+                          {t("certificator.rejectEllipsis")}
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>

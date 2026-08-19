@@ -5,6 +5,7 @@ import { Loader2 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api-client";
+import { useT } from "@/lib/i18n";
 import type { CertificateForOwner } from "@/lib/db/types";
 
 // Fire the first resume only after a settle delay so we don't race the original
@@ -26,6 +27,7 @@ const MAX_AUTO_ATTEMPTS = 3;
  */
 export function MintingStatus({ cert }: { cert: CertificateForOwner }) {
   const queryClient = useQueryClient();
+  const { t } = useT();
   const [failed, setFailed] = useState(false);
   const [running, setRunning] = useState(false);
   const attemptsRef = useRef(0);
@@ -83,7 +85,7 @@ export function MintingStatus({ cert }: { cert: CertificateForOwner }) {
     return (
       <div className="space-y-2" aria-live="polite">
         <p className="text-sm text-muted-foreground">
-          A emissão do NFT não concluiu automaticamente.
+          {t("student.mintFailed")}
         </p>
         <Button
           size="sm"
@@ -92,7 +94,7 @@ export function MintingStatus({ cert }: { cert: CertificateForOwner }) {
           disabled={running}
         >
           {running && <Loader2 className="animate-spin" aria-hidden="true" />}
-          Tentar emitir novamente
+          {t("student.mintRetry")}
         </Button>
       </div>
     );
@@ -104,7 +106,7 @@ export function MintingStatus({ cert }: { cert: CertificateForOwner }) {
       aria-live="polite"
     >
       <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-      Emitindo NFT…
+      {t("claim.minting")}
     </p>
   );
 }

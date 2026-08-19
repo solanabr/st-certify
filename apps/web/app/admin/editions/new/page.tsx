@@ -17,6 +17,7 @@ import type {
   SelectedBox,
 } from "@/components/designer/types";
 import { editionWizardSchema, type EditionWizardInput } from "@/lib/schemas";
+import { useT } from "@/lib/i18n";
 
 const DRAFT_STORAGE_KEY = "certify-edition-wizard-draft";
 
@@ -48,6 +49,7 @@ function loadDraft(): EditionWizardInput | null {
 }
 
 export default function NewEditionWizardPage() {
+  const { t } = useT();
   const [step, setStep] = useState(1);
   const form = useForm<EditionWizardInput>({
     resolver: zodResolver(editionWizardSchema),
@@ -98,7 +100,9 @@ export default function NewEditionWizardPage() {
         step === 4 ? "max-w-5xl" : "max-w-2xl",
       )}
     >
-      <h1 className="text-2xl font-semibold tracking-tight">Nova edição</h1>
+      <h1 className="text-2xl font-semibold tracking-tight">
+        {t("admin.newEditionTitle")}
+      </h1>
 
       <div className="mt-8">
         <WizardStepper

@@ -1,5 +1,8 @@
+"use client";
+
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useT } from "@/lib/i18n";
 import type { CertificateForOwner, EditionSignerSummary } from "@/lib/db/types";
 
 type StepState = "done" | "current" | "pending";
@@ -19,6 +22,7 @@ function isSignerDone(
  * chain reads), so a reload always reconstructs the true progress.
  */
 export function StatusTimeline({ cert }: { cert: CertificateForOwner }) {
+  const { t } = useT();
   const allSigned =
     cert.editionSigners.length > 0 &&
     cert.editionSigners.every((s) => isSignerDone(cert, s));
@@ -29,32 +33,32 @@ export function StatusTimeline({ cert }: { cert: CertificateForOwner }) {
   const isDone = isClaimed && Boolean(cert.asset);
 
   const steps: Array<{ key: string; label: string; state: StepState }> = [
-    { key: "requested", label: "Solicitado", state: "done" },
+    { key: "requested", label: t("student.timeline.requested"), state: "done" },
     {
       key: "signatures",
-      label: "Assinaturas",
+      label: t("student.timeline.signatures"),
       state: allSigned || isFullySigned ? "done" : "current",
     },
     {
       key: "ready",
-      label: "Pronto",
+      label: t("student.timeline.ready"),
       state: isFullySigned ? "done" : "pending",
     },
     {
       key: "issuance",
-      label: "Emissão",
+      label: t("student.timeline.issuance"),
       state: isDone ? "done" : isMinting ? "current" : "pending",
     },
     {
       key: "complete",
-      label: "Concluído",
+      label: t("student.timeline.complete"),
       state: isDone ? "done" : "pending",
     },
   ];
 
   return (
     <div>
-      <ol className="flex items-start" aria-label="Progresso do certificado">
+      <ol className="flex items-start" aria-label={t("student.timeline.aria")}>
         {steps.map((step, i) => (
           <li
             key={step.key}
@@ -117,7 +121,9 @@ export function StatusTimeline({ cert }: { cert: CertificateForOwner }) {
                   {signer.name}
                 </span>
                 <span className="sr-only">
-                  {done ? "assinado" : "aguardando assinatura"}
+                  {done
+                    ? t("student.timeline.signed")
+                    : t("student.timeline.awaitingSignature")}
                 </span>
               </li>
             );

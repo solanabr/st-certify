@@ -3,10 +3,13 @@ import { SignerTable } from "@/components/verify/signer-table";
 import { VerifyStatusBanner } from "@/components/verify/verify-status-banner";
 import { VerifyMediaPanel } from "@/components/verify/verify-media-panel";
 import type { VerifyCertView } from "@/lib/db/claim-verify-queries";
+import { getT } from "@/lib/i18n/server";
 
-function formatDate(iso: string | null): string {
+type Translate = Awaited<ReturnType<typeof getT>>["t"];
+
+function formatDate(iso: string | null, locale: string): string {
   if (!iso) return "—";
-  return new Intl.DateTimeFormat("pt-BR", {
+  return new Intl.DateTimeFormat(locale, {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
@@ -14,40 +17,44 @@ function formatDate(iso: string | null): string {
   }).format(new Date(iso));
 }
 
-function certNumberLabel(view: VerifyCertView): string {
+function certNumberLabel(view: VerifyCertView, t: Translate): string {
   if (view.certNumber === null) return "—";
   return view.maxSupply
-    ? `#${view.certNumber} de ${view.maxSupply}`
+    ? t("verify.detail.numberOf", {
+        number: view.certNumber,
+        max: view.maxSupply,
+      })
     : `#${view.certNumber}`;
 }
 
-function DetailGrid({ view }: { view: VerifyCertView }) {
+async function DetailGrid({ view }: { view: VerifyCertView }) {
+  const { locale, t } = await getT();
   return (
     <dl className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-4">
       <div className="col-span-2">
         <dt className="text-xs uppercase tracking-wide text-muted-foreground">
-          Aluno
+          {t("verify.detail.student")}
         </dt>
         {/* Loudest cell — the human trust anchor (plan §Security #2). */}
         <dd className="text-lg font-semibold">{view.studentName}</dd>
       </div>
       <div>
         <dt className="text-xs uppercase tracking-wide text-muted-foreground">
-          Nº
+          {t("verify.detail.number")}
         </dt>
-        <dd className="tabular-nums">{certNumberLabel(view)}</dd>
+        <dd className="tabular-nums">{certNumberLabel(view, t)}</dd>
       </div>
       <div>
         <dt className="text-xs uppercase tracking-wide text-muted-foreground">
-          Data
+          {t("verify.detail.date")}
         </dt>
         <dd className="tabular-nums">
-          {formatDate(view.completionDate ?? view.completedAt)}
+          {formatDate(view.completionDate ?? view.completedAt, locale)}
         </dd>
       </div>
       <div className="col-span-2 sm:col-span-4">
         <dt className="text-xs uppercase tracking-wide text-muted-foreground">
-          Edição
+          {t("verify.detail.edition")}
         </dt>
         <dd>{view.editionName}</dd>
       </div>
@@ -62,13 +69,14 @@ function DetailGrid({ view }: { view: VerifyCertView }) {
  * client island so the certificate's authoritative on-chain state is what the
  * viewer ultimately trusts.
  */
-export function VerifyResult({
+export async function VerifyResult({
   view,
   reencode = false,
 }: {
   view: VerifyCertView;
   reencode?: boolean;
 }) {
+  const { t } = await getT();
   const isRejected = view.status === "Rejected";
 
   return (
@@ -97,7 +105,7 @@ export function VerifyResult({
       {view.signers.length > 0 && (
         <div className="space-y-3">
           <h2 className="text-sm font-medium text-muted-foreground">
-            Assinaturas
+            {t("verify.detail.signatures")}
           </h2>
           <SignerTable signers={view.signers} />
         </div>

@@ -9,11 +9,12 @@ import type {
   TextField,
 } from "@/lib/render/layout";
 import { cn } from "@/lib/utils";
+import { useT } from "@/lib/i18n";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { clamp, clampRect, clampSquare, round4 } from "./geometry";
+import { TEXT_FIELD_LABEL_KEYS } from "./designer-canvas";
 import {
-  TEXT_FIELD_LABELS,
   type DesignerLayoutDraft,
   type SelectedBox,
   type TextFieldKey,
@@ -97,10 +98,11 @@ function AlignToggle({
   value: Align;
   onChange: (align: Align) => void;
 }): React.JSX.Element {
+  const { t } = useT();
   const options: { value: Align; label: string }[] = [
-    { value: "left", label: "Esquerda" },
-    { value: "center", label: "Centro" },
-    { value: "right", label: "Direita" },
+    { value: "left", label: t("designer.panel.alignLeft") },
+    { value: "center", label: t("designer.panel.alignCenter") },
+    { value: "right", label: t("designer.panel.alignRight") },
   ];
   return (
     <div className="space-y-1">
@@ -139,6 +141,8 @@ function FontToggle({
   value: FieldFont;
   onChange: (font: FieldFont) => void;
 }): React.JSX.Element {
+  const { t } = useT();
+  // Font names are proper nouns — same in every locale.
   const options: { value: FieldFont; label: string }[] = [
     { value: "inter", label: "Inter" },
     { value: "great-vibes", label: "Great Vibes" },
@@ -146,7 +150,7 @@ function FontToggle({
   return (
     <div className="space-y-1">
       <span id={id} className="text-sm font-medium">
-        Fonte
+        {t("designer.panel.font")}
       </span>
       <div role="radiogroup" aria-labelledby={id} className="flex gap-1">
         {options.map((opt) => (
@@ -179,10 +183,11 @@ function WeightToggle({
   value: 400 | 600;
   onChange: (weight: 400 | 600) => void;
 }): React.JSX.Element {
+  const { t } = useT();
   return (
     <div className="space-y-1">
       <span id="weight-toggle-label" className="text-sm font-medium">
-        Peso
+        {t("designer.panel.weight")}
       </span>
       <div
         role="radiogroup"
@@ -203,7 +208,9 @@ function WeightToggle({
                 : "border-border text-muted-foreground hover:text-foreground",
             )}
           >
-            {w === 400 ? "Normal" : "Negrito"}
+            {w === 400
+              ? t("designer.panel.weightNormal")
+              : t("designer.panel.weightBold")}
           </button>
         ))}
       </div>
@@ -224,6 +231,7 @@ function ColorField({
   value: string;
   onCommit: (hex: string) => void;
 }): React.JSX.Element {
+  const { t } = useT();
   const [text, setText] = useState(value);
 
   useEffect(() => {
@@ -236,7 +244,7 @@ function ColorField({
       <div className="flex gap-2">
         <input
           type="color"
-          aria-label={`${label} — seletor visual`}
+          aria-label={t("designer.panel.colorPicker", { label })}
           className="h-9 w-10 shrink-0 cursor-pointer rounded-md border border-input bg-transparent p-1"
           value={/^#[0-9a-fA-F]{6}$/.test(text) ? text : "#ffffff"}
           onChange={(e) => {
@@ -268,14 +276,20 @@ function PositionGrid({
   fields,
 }: {
   idPrefix: string;
-  fields: { label: string; fraction: number; onCommit: (f: number) => void }[];
+  /** `id` keeps the DOM id stable across locales — `label` is already translated. */
+  fields: {
+    id: string;
+    label: string;
+    fraction: number;
+    onCommit: (f: number) => void;
+  }[];
 }): React.JSX.Element {
   return (
     <div className="grid grid-cols-2 gap-3">
       {fields.map((f) => (
         <PercentInput
-          key={f.label}
-          id={`${idPrefix}-${f.label}`}
+          key={f.id}
+          id={`${idPrefix}-${f.id}`}
           label={f.label}
           fraction={f.fraction}
           onCommit={f.onCommit}
@@ -302,12 +316,12 @@ export function FieldEditorPanel({
   onChangeQr,
   onChangeSignature,
 }: FieldEditorPanelProps): React.JSX.Element {
+  const { t } = useT();
+
   if (!selected) {
     return (
       <div className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">
-        Selecione um campo no modelo (clique ou use Tab) para editar sua
-        posição, tamanho e estilo. Cada campo também pode ser movido com as
-        setas do teclado (Shift+seta move mais rápido).
+        {t("designer.panel.empty")}
       </div>
     );
   }
@@ -324,19 +338,31 @@ export function FieldEditorPanel({
     };
     return (
       <div className="space-y-4">
-        <h3 className="font-medium">{TEXT_FIELD_LABELS[key]}</h3>
+        <h3 className="font-medium">{t(TEXT_FIELD_LABEL_KEYS[key])}</h3>
         <PositionGrid
           idPrefix={`panel-${key}`}
           fields={[
-            { label: "X", fraction: field.x, onCommit: (x) => patch({ x }) },
-            { label: "Y", fraction: field.y, onCommit: (y) => patch({ y }) },
             {
-              label: "Largura",
+              id: "x",
+              label: t("designer.panel.x"),
+              fraction: field.x,
+              onCommit: (x) => patch({ x }),
+            },
+            {
+              id: "y",
+              label: t("designer.panel.y"),
+              fraction: field.y,
+              onCommit: (y) => patch({ y }),
+            },
+            {
+              id: "w",
+              label: t("designer.panel.width"),
               fraction: field.w,
               onCommit: (w) => patch({ w }),
             },
             {
-              label: "Altura",
+              id: "h",
+              label: t("designer.panel.height"),
               fraction: field.h,
               onCommit: (h) => patch({ h }),
             },
@@ -344,19 +370,19 @@ export function FieldEditorPanel({
         />
         <PercentInput
           id={`panel-${key}-size`}
-          label="Tamanho da fonte"
+          label={t("designer.panel.fontSize")}
           fraction={field.size}
           onCommit={(size) => onChangeField(key, { size: clamp(size, 0, 1) })}
         />
         <ColorField
           id={`panel-${key}-color`}
-          label="Cor"
+          label={t("designer.panel.color")}
           value={field.color}
           onCommit={(color) => onChangeField(key, { color })}
         />
         <AlignToggle
           id={`panel-${key}-align`}
-          label="Alinhamento"
+          label={t("designer.panel.align")}
           value={field.align}
           onChange={(align) => onChangeField(key, { align })}
         />
@@ -391,22 +417,32 @@ export function FieldEditorPanel({
     };
     return (
       <div className="space-y-4">
-        <h3 className="font-medium">QR code</h3>
+        <h3 className="font-medium">{t("designer.qr.label")}</h3>
         <PositionGrid
           idPrefix="panel-qr"
           fields={[
-            { label: "X", fraction: qr.x, onCommit: (x) => patch({ x }) },
-            { label: "Y", fraction: qr.y, onCommit: (y) => patch({ y }) },
             {
-              label: "Tamanho",
+              id: "x",
+              label: t("designer.panel.x"),
+              fraction: qr.x,
+              onCommit: (x) => patch({ x }),
+            },
+            {
+              id: "y",
+              label: t("designer.panel.y"),
+              fraction: qr.y,
+              onCommit: (y) => patch({ y }),
+            },
+            {
+              id: "size",
+              label: t("designer.panel.size"),
               fraction: qr.size,
               onCommit: (size) => patch({ size }),
             },
           ]}
         />
         <p className="text-xs text-muted-foreground">
-          O QR aponta para a página de verificação do certificado — gerado no
-          servidor, sempre quadrado.
+          {t("designer.panel.qrHint")}
         </p>
       </div>
     );
@@ -417,7 +453,7 @@ export function FieldEditorPanel({
   if (!box) {
     return (
       <div className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">
-        Esta caixa de assinatura não existe mais.
+        {t("designer.panel.signatureMissing")}
       </div>
     );
   }
@@ -429,25 +465,46 @@ export function FieldEditorPanel({
   };
   return (
     <div className="space-y-4">
-      <h3 className="font-medium">Assinatura {index + 1}</h3>
+      <h3 className="font-medium">
+        {t("designer.signature.label", { index: index + 1 })}
+      </h3>
       <PositionGrid
         idPrefix={`panel-sig-${index}`}
         fields={[
-          { label: "X", fraction: box.x, onCommit: (x) => patch({ x }) },
-          { label: "Y", fraction: box.y, onCommit: (y) => patch({ y }) },
-          { label: "Largura", fraction: box.w, onCommit: (w) => patch({ w }) },
-          { label: "Altura", fraction: box.h, onCommit: (h) => patch({ h }) },
+          {
+            id: "x",
+            label: t("designer.panel.x"),
+            fraction: box.x,
+            onCommit: (x) => patch({ x }),
+          },
+          {
+            id: "y",
+            label: t("designer.panel.y"),
+            fraction: box.y,
+            onCommit: (y) => patch({ y }),
+          },
+          {
+            id: "w",
+            label: t("designer.panel.width"),
+            fraction: box.w,
+            onCommit: (w) => patch({ w }),
+          },
+          {
+            id: "h",
+            label: t("designer.panel.height"),
+            fraction: box.h,
+            onCommit: (h) => patch({ h }),
+          },
         ]}
       />
       <AlignToggle
         id={`panel-sig-${index}-align`}
-        label="Alinhamento"
+        label={t("designer.panel.align")}
         value={box.align}
         onChange={(align) => onChangeSignature(index, { align })}
       />
       <p className="text-xs text-muted-foreground">
-        Nome e cargo usam fonte e cores fixas do certificado — apenas posição,
-        tamanho e alinhamento são ajustáveis.
+        {t("designer.panel.signatureHint")}
       </p>
     </div>
   );

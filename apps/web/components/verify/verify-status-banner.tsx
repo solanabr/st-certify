@@ -5,6 +5,7 @@ import { BadgeCheck, ShieldX, TriangleAlert } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { checkCertificateOnChain } from "@/lib/chain/verify";
 import type { CertificateStatusValue } from "@/lib/db/types";
+import { useT } from "@/lib/i18n";
 
 /**
  * The hero verdict banner. Paints instantly from the mirror (RSC), then layers
@@ -32,6 +33,7 @@ export function VerifyStatusBanner({
   revokeReason: string | null;
   reencode: boolean;
 }) {
+  const { t } = useT();
   const [chainRevoked, setChainRevoked] = useState(false);
 
   useEffect(() => {
@@ -63,10 +65,9 @@ export function VerifyStatusBanner({
       {isRevoked && (
         <Alert variant="destructive">
           <ShieldX />
-          <AlertTitle>Certificado revogado</AlertTitle>
+          <AlertTitle>{t("verify.banner.revokedTitle")}</AlertTitle>
           <AlertDescription>
-            {revokeReason ||
-              "Este certificado foi revogado e não é mais válido."}
+            {revokeReason || t("verify.banner.revokedBody")}
           </AlertDescription>
         </Alert>
       )}
@@ -74,10 +75,9 @@ export function VerifyStatusBanner({
       {isClaimed && (
         <Alert className="border-success text-success [&>svg]:text-success">
           <BadgeCheck />
-          <AlertTitle>Certificado válido</AlertTitle>
+          <AlertTitle>{t("verify.banner.validTitle")}</AlertTitle>
           <AlertDescription className="text-foreground">
-            Este certificado foi emitido pela Superteam Brasil e registrado
-            on-chain.
+            {t("verify.banner.validBody")}
           </AlertDescription>
         </Alert>
       )}
@@ -85,10 +85,9 @@ export function VerifyStatusBanner({
       {isClaimed && reencode && (
         <Alert className="border-warning text-warning [&>svg]:text-warning">
           <TriangleAlert />
-          <AlertTitle>Arquivo é uma recodificação</AlertTitle>
+          <AlertTitle>{t("verify.banner.reencodeTitle")}</AlertTitle>
           <AlertDescription className="text-foreground">
-            Válido — mas este arquivo é uma recodificação (ex.: captura de
-            tela). O original verificável está abaixo.
+            {t("verify.banner.reencodeBody")}
           </AlertDescription>
         </Alert>
       )}
@@ -96,10 +95,9 @@ export function VerifyStatusBanner({
       {isPending && (
         <Alert className="border-warning text-warning [&>svg]:text-warning">
           <TriangleAlert />
-          <AlertTitle>Certificado em andamento</AlertTitle>
+          <AlertTitle>{t("verify.banner.pendingTitle")}</AlertTitle>
           <AlertDescription className="text-foreground">
-            As assinaturas ainda estão sendo coletadas — este certificado ainda
-            não foi resgatado.
+            {t("verify.banner.pendingBody")}
           </AlertDescription>
         </Alert>
       )}
@@ -107,11 +105,8 @@ export function VerifyStatusBanner({
       {isRejected && (
         <Alert>
           <TriangleAlert />
-          <AlertTitle>Certificado não válido</AlertTitle>
-          <AlertDescription>
-            Esta solicitação foi encerrada e não corresponde a um certificado
-            emitido.
-          </AlertDescription>
+          <AlertTitle>{t("verify.banner.invalidTitle")}</AlertTitle>
+          <AlertDescription>{t("verify.banner.invalidBody")}</AlertDescription>
         </Alert>
       )}
     </>
