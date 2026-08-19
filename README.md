@@ -187,8 +187,8 @@ is covered by the automated gates below.
   `tests/*.rs` (batch, bug-class, claim/reject backfill matrices, CU gates,
   edition/supply boundaries, golden-vector decode equality, full lifecycle,
   smoke, threshold/aliasing).
-- **App**: `pnpm --filter web test` (vitest) — 131/131 passing. `tsc
-  --noEmit` clean. `eslint` clean. `next build` — 28/28 routes compile.
+- **App**: `pnpm --filter web test` (vitest) — 159/159 passing. `tsc
+  --noEmit` clean. `eslint` clean. `next build` — 31/31 routes compile.
 - **RLS**: `pnpm rls-probe` — not runnable tonight (Supabase URL pending);
   see `WAKEUP.md` step 1.5. The migration's policies were read closely (only
   `editions`/`edition_signers`/`certificates` have an anon SELECT policy;
@@ -351,6 +351,20 @@ report for the reasoning behind each):**
   (brief-permitted shortcut, M4).
 - The app hardcodes the devnet cluster in a few places rather than reading
   it everywhere from `NEXT_PUBLIC_CLUSTER` (M4).
+
+**Attendance NFTs (see `.superpowers/sdd/2026-08-19-attendance-nft/`):**
+
+- **Mint idempotency is best-effort, not exact-once.** A chain mint that
+  succeeds followed by a failed `markClaimMinted` DB write leaves the claim
+  row `pending`; the next retry re-mints, so that specific interleaving can
+  double-mint. Separately, a `pending` reservation older than 90 seconds is
+  treated as a crashed attempt and re-mintable (the `'retry'` outcome from
+  `attendance_reserve_claim`, `supabase/migrations/0002_attendance.sql`)
+  even if the original request is merely slow rather than dead. Consequences
+  are bounded to duplicate collectibles (~0.0001 SOL of Bubblegum mint fees
+  each, paid by the operator, never the participant) — never fund loss or a
+  wrong owner. The certificate flow's event-sourced idempotency is the
+  structural upgrade path if this ever needs to be exact-once.
 
 **Deliberately out of scope tonight (per the plan's stretch/later list, not
 regressions):**
