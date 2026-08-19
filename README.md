@@ -243,6 +243,39 @@ condensed, "what actually shipped" version.
   `WAKEUP.md` "Custody"); becomes operator+a-real-human's-wallet the moment
   an allowlisted admin logs in once.
 
+## Attendance NFTs
+
+A second, self-contained flow living alongside the certificate system:
+whitelisted wallets create attendance **events** at `/events`
+(wallet-standard sign-in, Privy email as a no-wallet fallback); each event
+mints its own per-event Metaplex Core collection with the BubblegumV2
+plugin. Participants open a secret per-event link at `/attend/<token>`,
+connect any wallet-standard wallet (or Privy email), prove ownership with a
+signed message (or their existing Privy session), and the server mints a
+Bubblegum v2 **compressed NFT** straight to them — the operator pays every
+fee, participants pay nothing. Creators get supply caps, claim deadlines,
+pause/resume, and link rotation (invalidates the old link immediately).
+Copy says "attendance NFT" (pt: "NFT de presença") throughout, deliberately
+avoiding the more common but trademarked term for this pattern.
+
+Three env vars, all server-only:
+
+| Var | What |
+|---|---|
+| `ATTENDANCE_MERKLE_TREE` | Shared Bubblegum v2 tree address, created once by `pnpm tree:attendance` (depth 14 / buffer 64 / canopy 8) |
+| `ATTENDANCE_CREATOR_WALLETS` | Comma-separated, exact-case base58 allowlist of wallets that may create events |
+| `ATTENDANCE_SESSION_SECRET` | HMAC secret for the creator session cookie (32+ random bytes, e.g. `openssl rand -base64 32`) |
+
+```bash
+pnpm tree:attendance   # one-time: creates the shared Merkle tree, prints
+                        # the ATTENDANCE_MERKLE_TREE line to add to .env
+pnpm e2e:attendance    # devnet: createCollection + mintV2 + parseLeaf round trip
+```
+
+Measured cost per `mintV2` on devnet (`pnpm e2e:attendance`, 2026-08-19):
+**95,000 lamports** (~0.000095 SOL) — Bubblegum protocol fee + base tx fee,
+paid entirely by the operator.
+
 ## Known limitations / tomorrow
 
 Ledger-triage dispositions (every `deferred minor` / `parked` line from the
