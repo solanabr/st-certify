@@ -1,6 +1,8 @@
 import "server-only";
 
-// The ONLY module importing mpl-bubblegum. Server-custodial attendance mints:
+// The only module invoking mpl-bubblegum's instruction-building API (mintV2,
+// parseLeafFromMintV2Transaction); umi.ts registers the plugin. The enforced
+// boundary is ESLint's lib/chain/** fence. Server-custodial attendance mints:
 // OPERATOR is tree creator, collection authority, and fee payer — participants
 // pay nothing. Per-event MPL-Core collections carry the BubblegumV2 plugin
 // (required by mintV2). Asset ids parse only after finalization, so

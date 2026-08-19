@@ -12,7 +12,10 @@ const RPC_URL = process.env.NEXT_PUBLIC_RPC_URL;
 
 let umiSingleton: Umi | null = null;
 
-/** Umi with OPERATOR as identity + payer (funded; pays every attendance mint). */
+/**
+ * Umi with OPERATOR as identity + payer (funded). Shared singleton behind the
+ * certificate mint/burn flows (mint.ts) and attendance mints (attendance.ts).
+ */
 export function getOperatorUmi(): Umi {
   if (!RPC_URL) {
     fail("CHAIN_RPC_UNAVAILABLE", "NEXT_PUBLIC_RPC_URL não configurado.");
@@ -29,7 +32,7 @@ export function getOperatorUmi(): Umi {
     const operatorKp = umi.eddsa.createKeypairFromSecretKey(
       loadKeypairBytes(operatorEnv),
     );
-    umi.use(keypairIdentity(operatorKp));
+    umi.use(keypairIdentity(operatorKp)); // setPayer: true — identity == payer
     umiSingleton = umi;
   }
   return umiSingleton;
