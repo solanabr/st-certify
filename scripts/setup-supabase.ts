@@ -15,7 +15,7 @@ const MIGRATIONS_DIR = join(
   "supabase",
   "migrations",
 );
-const BUCKETS = ["templates", "certs", "metadata"] as const;
+const BUCKETS = ["templates", "certs", "metadata", "attendance"] as const;
 
 async function applyMigrations(): Promise<void> {
   const dbUrl = process.env.SUPABASE_DB_URL;
