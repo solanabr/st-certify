@@ -8,50 +8,20 @@ import "server-only";
 // 0x19 trap); retry-with-backoff on read-after-write (public devnet RPC lags
 // ~10s); mint idempotency via a persisted `certificate_asset_minted` event.
 
-import { createUmi } from "@metaplex-foundation/umi-bundle-defaults";
-import {
-  generateSigner,
-  keypairIdentity,
-  publicKey,
-  type Umi,
-} from "@metaplex-foundation/umi";
+import { generateSigner, publicKey } from "@metaplex-foundation/umi";
 import { base58 } from "@metaplex-foundation/umi/serializers";
 import {
   burn,
   create,
   fetchAsset,
   fetchCollection,
-  mplCore,
 } from "@metaplex-foundation/mpl-core";
 import { fail } from "@/lib/errors";
 import { dbConfigured, logEvent } from "@/lib/db/mutations";
-import { loadKeypairBytes } from "@/lib/chain/server-tx";
 import { getMintedAssetFromEvents } from "@/lib/db/claim-verify-mutations";
+import { getOperatorUmi, retryFetch } from "@/lib/chain/umi";
 
-const RPC_URL = process.env.NEXT_PUBLIC_RPC_URL;
 const COLLECTION = process.env.CORE_COLLECTION_ADDRESS;
-
-let umiSingleton: Umi | null = null;
-
-/** Umi with OPERATOR as identity + payer (funded; holds the PermanentBurnDelegate). */
-function getUmi(): Umi {
-  if (!RPC_URL) {
-    fail("CHAIN_RPC_UNAVAILABLE", "NEXT_PUBLIC_RPC_URL não configurado.");
-  }
-  const operatorEnv = process.env.OPERATOR_SECRET_KEY;
-  if (!operatorEnv) {
-    fail("INTERNAL", "OPERATOR_SECRET_KEY não configurado.");
-  }
-  if (!umiSingleton) {
-    const umi = createUmi(RPC_URL).use(mplCore());
-    const operatorKp = umi.eddsa.createKeypairFromSecretKey(
-      loadKeypairBytes(operatorEnv),
-    );
-    umi.use(keypairIdentity(operatorKp)); // setPayer: true — identity == payer
-    umiSingleton = umi;
-  }
-  return umiSingleton;
-}
 
 function assertCollectionConfigured(): string {
   if (!COLLECTION) {
@@ -62,27 +32,6 @@ function assertCollectionConfigured(): string {
     );
   }
   return COLLECTION;
-}
-
-const sleep = (ms: number): Promise<void> =>
-  new Promise((r) => setTimeout(r, ms));
-
-/** Spike-A read-after-write backoff: the public devnet RPC needs ~7 tries at 1.5s. */
-async function retryFetch<T>(
-  fn: () => Promise<T>,
-  attempts = 8,
-  delayMs = 1500,
-): Promise<T> {
-  let last: unknown;
-  for (let i = 0; i < attempts; i++) {
-    try {
-      return await fn();
-    } catch (err) {
-      last = err;
-      if (i < attempts - 1) await sleep(delayMs);
-    }
-  }
-  throw last instanceof Error ? last : new Error(String(last));
 }
 
 export interface MintCertificateAssetInput {
@@ -113,7 +62,7 @@ export async function mintCertificateAsset(
   if (existing) return existing;
 
   const collectionAddress = assertCollectionConfigured();
-  const umi = getUmi();
+  const umi = getOperatorUmi();
 
   const collection = await retryFetch(() =>
     fetchCollection(umi, publicKey(collectionAddress)),
@@ -182,7 +131,7 @@ export async function burnCertificateAsset(
   input: BurnCertificateAssetInput,
 ): Promise<string> {
   const collectionAddress = assertCollectionConfigured();
-  const umi = getUmi();
+  const umi = getOperatorUmi();
 
   const [collection, asset] = await Promise.all([
     retryFetch(() => fetchCollection(umi, publicKey(collectionAddress))),
