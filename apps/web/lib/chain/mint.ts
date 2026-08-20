@@ -34,6 +34,42 @@ function assertCollectionConfigured(): string {
   return COLLECTION;
 }
 
+const EVENT_ATTEMPTS = 3;
+const EVENT_BACKOFF_MS = [300, 900];
+
+const sleep = (ms: number): Promise<void> =>
+  new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Writes the `certificate_asset_minted` idempotency record, retrying transient
+ * insert failures. Deliberately never throws: the mint has already landed by the
+ * time this runs, so aborting would strand a paid asset with no record at all,
+ * while returning lets the caller's `record_asset` still land the durable
+ * on-chain guard. Exhausting the retries prints a reconciliation line — the only
+ * remaining trace of the asset address.
+ */
+async function recordMintEvent(
+  certificateAddress: string,
+  asset: string,
+): Promise<void> {
+  for (let attempt = 0; attempt < EVENT_ATTEMPTS; attempt++) {
+    try {
+      await logEvent({
+        type: "certificate_asset_minted",
+        certAddress: certificateAddress,
+        payload: { asset },
+      });
+      return;
+    } catch {
+      const delay = EVENT_BACKOFF_MS[attempt];
+      if (delay !== undefined) await sleep(delay);
+    }
+  }
+  console.error(
+    `[mint:reconcile] cert=${certificateAddress} asset=${asset} — asset minted but idempotency event not persisted`,
+  );
+}
+
 export interface MintCertificateAssetInput {
   certificateAddress: string;
   editionId: string;
@@ -101,16 +137,20 @@ export async function mintCertificateAsset(
 
   const assetAddress = assetSigner.publicKey.toString();
 
-  // Confirm visibility before recording — the record_asset ix that follows
-  // fetches the cert, and downstream /me reads expect the asset resolvable.
-  await retryFetch(() => fetchAsset(umi, assetSigner.publicKey));
+  // Record FIRST, before anything else that can throw. The operator has already
+  // paid for this asset and the guard at the top of this function is the only
+  // thing standing between a re-POSTed claim-submit and a second mint, so the
+  // address has to reach the events table the instant it exists.
+  await recordMintEvent(input.certificateAddress, assetAddress);
 
-  if (dbConfigured) {
-    await logEvent({
-      type: "certificate_asset_minted",
-      certAddress: input.certificateAddress,
-      payload: { asset: assetAddress },
-    });
+  // Then wait for visibility — the record_asset ix that follows expects the
+  // asset resolvable, and public devnet RPC lags ~10s. Best-effort: the record
+  // above already survives a failure here, and record_asset's own error is
+  // retryable and now idempotent.
+  try {
+    await retryFetch(() => fetchAsset(umi, assetSigner.publicKey));
+  } catch {
+    // Falls through — a slow RPC must not cost us the recorded address.
   }
 
   return assetAddress;

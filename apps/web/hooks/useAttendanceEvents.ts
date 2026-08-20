@@ -11,6 +11,7 @@ import { api } from "@/lib/api-client";
 import { onAppError } from "@/lib/on-app-error";
 import type { ProofPayload } from "@/hooks/useWalletProof";
 import type { AttendanceEventView } from "@/app/api/attendance/events/route";
+import type { AttendanceClaimListRow } from "@/lib/db/attendance-queries";
 import type { CreateEventInput } from "@/lib/attendance/schemas";
 
 /** Creator dashboard's event list. */
@@ -18,6 +19,22 @@ export function useAttendanceEvents(): UseQueryResult<AttendanceEventView[]> {
   return useQuery({
     queryKey: ["attendance", "events"],
     queryFn: () => api<AttendanceEventView[]>("/api/attendance/events"),
+    retry: false,
+  });
+}
+
+/**
+ * Attendee list for one event — backs the dashboard's attendee drawer and CSV
+ * export (P1-4). Fetches only while a drawer is open (`eventId` non-null).
+ */
+export function useEventClaims(
+  eventId: string | null,
+): UseQueryResult<AttendanceClaimListRow[]> {
+  return useQuery({
+    queryKey: ["attendance", "events", eventId, "claims"],
+    queryFn: () =>
+      api<AttendanceClaimListRow[]>(`/api/attendance/events/${eventId}/claims`),
+    enabled: eventId !== null,
     retry: false,
   });
 }

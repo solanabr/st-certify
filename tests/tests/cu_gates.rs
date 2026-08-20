@@ -35,6 +35,8 @@ fn cu_init_config() {
         (payer.pubkey(), sol_account(1_000_000_000)),
         (config_pda().0, sol_account(0)),
         sys_program(),
+        // Genesis signer (is_signer set by the ix meta; Mollusk needs no secret).
+        (constants::BOOTSTRAP_ADMIN, sol_account(1_000_000_000)),
     ];
     ok_cu(&m, &ix, &accts, "init_config", cu::INIT_CONFIG);
 }

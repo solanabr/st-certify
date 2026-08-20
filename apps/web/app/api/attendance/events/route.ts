@@ -1,3 +1,5 @@
+export const maxDuration = 60;
+
 import { randomUUID } from "node:crypto";
 import type { NextResponse } from "next/server";
 import { apiRoute } from "@/lib/api";

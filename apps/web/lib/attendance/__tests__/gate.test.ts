@@ -30,4 +30,32 @@ describe("checkClaimGate", () => {
       ).ok,
     ).toBe(true);
   });
+
+  it("exactly-at-deadline (now == deadline) still passes", () => {
+    // strictly-greater comparison: the deadline instant itself is not yet past
+    expect(
+      checkClaimGate(
+        { claim_open: true, claim_deadline: "2026-08-19T12:00:00Z" },
+        NOW,
+      ).ok,
+    ).toBe(true);
+  });
+
+  it("unparseable deadline fails CLOSED (no fail-open)", () => {
+    const r = checkClaimGate(
+      { claim_open: true, claim_deadline: "not-a-date" },
+      NOW,
+    );
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.code).toBe("ATTENDANCE_CLOSED");
+  });
+
+  it("paused takes precedence over an otherwise-open deadline", () => {
+    // both conditions bad → still ATTENDANCE_CLOSED, paused checked first
+    const r = checkClaimGate(
+      { claim_open: false, claim_deadline: "2026-08-19T11:00:00Z" },
+      NOW,
+    );
+    expect(r.ok).toBe(false);
+  });
 });

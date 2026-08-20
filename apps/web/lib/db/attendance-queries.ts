@@ -13,7 +13,11 @@ import "server-only";
 
 import { fail } from "@/lib/errors";
 import { dbConfigured, getServiceClient } from "./mutations";
-import type { AttendanceClaimRow, AttendanceEventRow } from "./types";
+import type {
+  AttendanceClaimRow,
+  AttendanceClaimStatus,
+  AttendanceEventRow,
+} from "./types";
 
 /** All attendance events for the creator dashboard, newest first. */
 export async function listAttendanceEvents(): Promise<AttendanceEventRow[]> {
@@ -92,4 +96,119 @@ export async function getClaimByEventWallet(
     });
   }
   return data as AttendanceClaimRow | null;
+}
+
+/** Composed shape for the public `/nft/[assetId]` share page — event artwork + who claimed it. */
+export interface AttendanceClaimPublicView {
+  eventName: string;
+  eventImageUrl: string;
+  eventDate: string;
+  wallet: string;
+  claimedAt: string;
+  txSig: string | null;
+  assetId: string;
+}
+
+/**
+ * EXPLICIT column allowlist for the public claim lookup, joined to the parent
+ * event. `claim_token` is deliberately absent: exposing it would leak the
+ * creator's still-live claim link to anyone with the public NFT URL. Kept as a
+ * named constant so the allowlist is asserted directly in the unit test. Never
+ * replace this with `select('*')`.
+ */
+export const ATTENDANCE_CLAIM_PUBLIC_COLUMNS =
+  "wallet, tx_sig, asset_id, created_at, attendance_events(name, image_url, event_date)";
+
+interface ClaimPublicJoinRow {
+  wallet: string;
+  tx_sig: string | null;
+  asset_id: string;
+  created_at: string;
+  attendance_events:
+    | { name: string; image_url: string; event_date: string }
+    | { name: string; image_url: string; event_date: string }[]
+    | null;
+}
+
+/** Public share-page lookup by minted asset id (`/nft/[assetId]`). */
+export async function getClaimByAssetId(
+  assetId: string,
+): Promise<AttendanceClaimPublicView | null> {
+  if (!dbConfigured) return null;
+  const supabase = getServiceClient();
+  const { data, error } = await supabase
+    .from("attendance_claims")
+    .select(ATTENDANCE_CLAIM_PUBLIC_COLUMNS)
+    .eq("asset_id", assetId)
+    .eq("status", "minted")
+    .maybeSingle();
+  if (error) {
+    fail("INTERNAL", "Falha ao buscar o NFT.", {
+      detail: error.message,
+      retryable: true,
+    });
+  }
+  if (!data) return null;
+
+  const row = data as unknown as ClaimPublicJoinRow;
+  // Supabase returns a to-one FK embed as an object, but the generic typing
+  // allows an array — normalize either way.
+  const event = Array.isArray(row.attendance_events)
+    ? row.attendance_events[0]
+    : row.attendance_events;
+  if (!event) return null;
+
+  return {
+    eventName: event.name,
+    eventImageUrl: event.image_url,
+    eventDate: event.event_date,
+    wallet: row.wallet,
+    claimedAt: row.created_at,
+    txSig: row.tx_sig,
+    assetId: row.asset_id,
+  };
+}
+
+/** One row per claim for the creator's attendee drawer (P1-4). */
+export interface AttendanceClaimListRow {
+  wallet: string;
+  status: AttendanceClaimStatus;
+  claimedAt: string;
+  txSig: string | null;
+  assetId: string | null;
+}
+
+/** All claims for an event, newest first — creator-only (attendee drawer + CSV export). */
+export async function listClaimsForEvent(
+  eventId: string,
+): Promise<AttendanceClaimListRow[]> {
+  if (!dbConfigured) return [];
+  const supabase = getServiceClient();
+  const { data, error } = await supabase
+    .from("attendance_claims")
+    .select("wallet, status, created_at, tx_sig, asset_id")
+    .eq("event_id", eventId)
+    .order("created_at", { ascending: false });
+  if (error) {
+    fail("INTERNAL", "Falha ao buscar participantes.", {
+      detail: error.message,
+      retryable: true,
+    });
+  }
+  return (data ?? []).map((r) => {
+    const row = r as unknown as {
+      wallet: string;
+      status: AttendanceClaimStatus;
+      created_at: string;
+      tx_sig: string | null;
+      asset_id: string | null;
+    };
+    return {
+      wallet: row.wallet,
+      status: row.status,
+      claimedAt: row.created_at,
+      txSig: row.tx_sig,
+      assetId: row.asset_id,
+    };
+  });
 }

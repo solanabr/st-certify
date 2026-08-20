@@ -276,6 +276,27 @@ Measured cost per `mintV2` on devnet (`pnpm e2e:attendance`, 2026-08-19):
 **95,000 lamports** (~0.000095 SOL) — Bubblegum protocol fee + base tx fee,
 paid entirely by the operator.
 
+**Admin / incident scripts** (`scripts/admin/`, run with `npx tsx`; mutating
+ones default to dry-run and need `--execute`; see
+`docs/runbooks/attendance-incident-playbook.md`):
+
+```bash
+npx tsx scripts/admin/preflight.ts        # run before every event: Supabase, operator balance, RPC, tree capacity
+npx tsx scripts/admin/operator-balance.ts # operator SOL vs a mint-floor
+npx tsx scripts/admin/integrity-report.ts # reconcile minted_count vs claims; flag double-mints/desync
+npx tsx scripts/admin/reserve-sweep.ts    # release stale pending reservations (--execute)
+npx tsx scripts/admin/event-control.ts    # pause/resume/rotate/invalidate an event from the CLI (--execute)
+npx tsx scripts/admin/tree-capacity.ts    # on-chain leaf usage vs the 16,384 cap
+npx tsx scripts/admin/nonce-sweep.ts      # delete expired nonces (--execute)
+```
+
+**Security migration `supabase/migrations/0003_hardening.sql` must be applied**
+(`pnpm setup:supabase`, or paste into the Supabase SQL editor to see the
+NOTICEs). It closes a verified-live anon read of `name_salt`/`owner_did`/
+`owner_wallet` on every certificate, revokes anon EXECUTE on the attendance
+RPCs, and adds idempotency indexes/constraints. Apply it before relying on the
+RLS boundary.
+
 ## Known limitations / tomorrow
 
 Ledger-triage dispositions (every `deferred minor` / `parked` line from the
@@ -354,17 +375,22 @@ report for the reasoning behind each):**
 
 **Attendance NFTs (see `.superpowers/sdd/2026-08-19-attendance-nft/`):**
 
-- **Mint idempotency is best-effort, not exact-once.** A chain mint that
-  succeeds followed by a failed `markClaimMinted` DB write leaves the claim
-  row `pending`; the next retry re-mints, so that specific interleaving can
-  double-mint. Separately, a `pending` reservation older than 90 seconds is
-  treated as a crashed attempt and re-mintable (the `'retry'` outcome from
-  `attendance_reserve_claim`, `supabase/migrations/0002_attendance.sql`)
-  even if the original request is merely slow rather than dead. Consequences
-  are bounded to duplicate collectibles (~0.0001 SOL of Bubblegum mint fees
-  each, paid by the operator, never the participant) — never fund loss or a
-  wrong owner. The certificate flow's event-sourced idempotency is the
-  structural upgrade path if this ever needs to be exact-once.
+- **Mint idempotency (hardened 2026-08-20).** The mint-succeeds-then-DB-write-fails
+  interleaving no longer double-mints: `app/api/attendance/claim` splits its
+  catch so `releaseClaim` runs only when the on-chain mint itself throws, and
+  `markClaimMintedWithRetry` retries the DB write with backoff (logging a
+  greppable `[attendance:reconcile]` line with claimId/txSig/wallet on
+  exhaustion instead of releasing). Migration `0003` adds a `failed -> minted`
+  slot-retake trigger so even a released claim whose mint later lands keeps the
+  counter honest. The certificate flow got the parallel fix: `mintCertificateAsset`
+  writes its idempotency event before the visibility wait, and
+  `getMintedAssetFromEvents` now fails closed (throws retryable) instead of
+  reading a DB error as "never minted". **Still accepted:** a `pending`
+  reservation older than 90 seconds is treated as a crashed attempt and
+  re-mintable even if merely slow — bounded to a duplicate collectible
+  (~0.0001 SOL of operator-paid fees, never fund loss or wrong owner);
+  `scripts/admin/reserve-sweep.ts` + `integrity-report.ts` detect and
+  reconcile it.
 
 **Deliberately out of scope tonight (per the plan's stretch/later list, not
 regressions):**

@@ -79,7 +79,20 @@ export function fail(
   });
 }
 
-/** Normalizes any caught value into an AppError, for use at catch boundaries (API routes, actions). */
+/** True when `error` came from `fail()`, i.e. its message and detail were written for a human to read. */
+export function isAppError(error: unknown): error is AppError & Error {
+  return error instanceof AppErrorException;
+}
+
+/**
+ * Normalizes any caught value into an AppError, for use at catch boundaries (API routes, actions).
+ *
+ * Only errors thrown through `fail()` keep their `detail`. Anything else is an
+ * unexpected exception whose message routinely carries internals — Postgres
+ * error text, RPC endpoints with keys in the query string, filesystem paths —
+ * so it collapses to the generic INTERNAL error with no `detail` at all. The
+ * raw text is not lost: `apiError` logs it server-side before responding.
+ */
 export function toAppError(error: unknown): AppError {
   if (error instanceof AppErrorException) {
     return {
@@ -89,15 +102,6 @@ export function toAppError(error: unknown): AppError {
       field: error.field,
       retryable: error.retryable,
       action: error.action,
-    };
-  }
-
-  if (error instanceof Error) {
-    return {
-      code: "INTERNAL",
-      message: "Ocorreu um erro inesperado. Tente novamente.",
-      detail: error.message,
-      retryable: true,
     };
   }
 

@@ -24,6 +24,7 @@ import {
 import { LocaleSwitcher } from "@/components/locale-switcher";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useMe } from "@/hooks/useMe";
+import { explorerAddressUrl } from "@/lib/chain/explorer-url";
 import { useT } from "@/lib/i18n";
 
 const NAV_LINK_CLASS =
@@ -125,7 +126,7 @@ function AccountMenu() {
         {wallet && (
           <DropdownMenuItem asChild>
             <a
-              href={`https://explorer.solana.com/address/${wallet}?cluster=devnet`}
+              href={explorerAddressUrl(wallet)}
               target="_blank"
               rel="noopener noreferrer"
             >

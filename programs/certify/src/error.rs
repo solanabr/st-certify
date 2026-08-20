@@ -27,6 +27,7 @@ pub enum CertifyError {
     InvalidStatusValue = 17,
     AccountAlreadyInitialized = 18,
     WrongStudent = 19,
+    CannotRemoveBootstrap = 20,
 }
 
 impl From<CertifyError> for ProgramError {

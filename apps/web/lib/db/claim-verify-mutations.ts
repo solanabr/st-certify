@@ -7,6 +7,7 @@ import "server-only";
 // source of truth; these keep the off-chain mirror consistent for /me + /verify.
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { fail } from "@/lib/errors";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -86,12 +87,22 @@ export async function markCertificateRevoked(
  * re-POSTed after a partial failure (mint succeeded, record_asset didn't)
  * without minting a second asset. Uses the service client because `events` has
  * no anon SELECT policy.
+ *
+ * Unlike the writes above this one is FAIL-CLOSED — it is the sole pre-mint
+ * guard, so "cannot tell" (unconfigured client or a query error) must never
+ * read as "never minted": that answer mints a second operator-paid soulbound
+ * asset. Only a clean empty result returns null.
  */
 export async function getMintedAssetFromEvents(
   certificateAddress: string,
 ): Promise<string | null> {
   const supabase = service();
-  if (!supabase) return null;
+  if (!supabase) {
+    fail("INTERNAL", "Registro de emissão indisponível. Tente novamente.", {
+      detail: "Supabase service role não configurado.",
+      retryable: true,
+    });
+  }
   const { data, error } = await supabase
     .from("events")
     .select("payload")
@@ -100,7 +111,13 @@ export async function getMintedAssetFromEvents(
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
-  if (error || !data) return null;
+  if (error) {
+    fail("INTERNAL", "Não foi possível verificar a emissão. Tente novamente.", {
+      detail: error.message,
+      retryable: true,
+    });
+  }
+  if (!data) return null;
   const payload = (data as { payload?: { asset?: unknown } }).payload;
   return typeof payload?.asset === "string" ? payload.asset : null;
 }

@@ -3,15 +3,17 @@
 import { useState } from "react";
 import { Check, Link as LinkIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useT } from "@/lib/i18n";
 
 /** Copies an absolute verify link to the clipboard with a brief confirmed state. */
 export function CopyLinkButton({
   path,
-  label = "Copiar link",
+  label,
 }: {
   path: string;
   label?: string;
 }) {
+  const { t } = useT();
   const [copied, setCopied] = useState(false);
 
   async function copy(): Promise<void> {
@@ -29,7 +31,7 @@ export function CopyLinkButton({
   return (
     <Button variant="outline" size="sm" onClick={() => void copy()}>
       {copied ? <Check /> : <LinkIcon />}
-      {copied ? "Link copiado" : label}
+      {copied ? t("claim.copied") : (label ?? t("claim.copyLink"))}
     </Button>
   );
 }

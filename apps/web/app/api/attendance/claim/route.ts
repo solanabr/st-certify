@@ -1,3 +1,5 @@
+export const maxDuration = 60;
+
 import { after, NextResponse, type NextRequest } from "next/server";
 import { apiRoute } from "@/lib/api";
 import { fail } from "@/lib/errors";
@@ -8,7 +10,7 @@ import { resolveProvedWallet } from "@/lib/attendance/proof";
 import { getEventByToken } from "@/lib/db/attendance-queries";
 import {
   consumeNonce,
-  markClaimMinted,
+  markClaimMintedWithRetry,
   releaseClaim,
   reserveClaim,
   updateClaimAsset,
@@ -29,7 +31,8 @@ export interface ClaimResult {
  * Claims one attendance NFT for the caller's wallet: validates the claim
  * window, proves wallet ownership, atomically reserves a slot, then mints
  * (operator-subsidized) and records the result. A mint failure releases the
- * reserved slot so a retry can take it.
+ * reserved slot so a retry can take it; a failure to record a mint that did
+ * happen never does.
  */
 export async function POST(request: NextRequest): Promise<NextResponse> {
   return apiRoute(async (): Promise<ClaimResult> => {
@@ -87,23 +90,22 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    // Outcome is 'reserved' or 'retry': we now hold the slot, so mint the
-    // asset below, or release the slot again on failure.
+    // Outcome is 'reserved' or 'retry': we now hold the slot.
     const claimId = reserved.claimId;
     if (!claimId) fail("INTERNAL", "Reserva inconsistente.");
+
+    // This try wraps the mint and nothing else. Releasing the slot is only
+    // correct while nothing has been minted — doing it after a successful
+    // mint would hand the slot back and let the participant's retry mint a
+    // second asset at the operator's expense.
+    let txSig: string;
     try {
-      const { txSig } = await mintAttendanceAsset({
+      ({ txSig } = await mintAttendanceAsset({
         coreCollection: event.collection_address,
         owner: wallet,
         name: event.name,
         metadataUri: event.metadata_uri,
-      });
-      await markClaimMinted(claimId, txSig);
-      after(async () => {
-        const assetId = await resolveAttendanceAssetId(txSig);
-        if (assetId) await updateClaimAsset(claimId, assetId);
-      });
-      return { status: "minted" as const, txSig, assetId: null };
+      }));
     } catch (err) {
       await releaseClaim(claimId).catch(() => {
         // Release must never mask the mint error; a stuck 'pending' row
@@ -118,5 +120,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         },
       );
     }
+
+    // Past this point the asset is the participant's whatever happens next,
+    // so the response reports the mint. markClaimMintedWithRetry absorbs and
+    // logs its own failure rather than throwing an error that would invite a
+    // duplicate claim; the row is then repaired from the reconcile log.
+    await markClaimMintedWithRetry({ claimId, txSig, wallet });
+    after(async () => {
+      const assetId = await resolveAttendanceAssetId(txSig);
+      if (assetId) await updateClaimAsset(claimId, assetId);
+    });
+    return { status: "minted" as const, txSig, assetId: null };
   });
 }

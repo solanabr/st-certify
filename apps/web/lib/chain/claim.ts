@@ -51,7 +51,6 @@ import {
 } from "@/lib/db/claim-verify-mutations";
 import { syncCertificateMirrorFromChain } from "@/lib/db/mutations";
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const TEMPLATE_PATH = path.join(
   process.cwd(),
@@ -65,6 +64,24 @@ const toHex = (b: Uint8Array): string => Buffer.from(b).toString("hex");
 /** Supabase public object URL, computed without importing @supabase (kept behind the lib/db fence). */
 function publicStorageUrl(bucket: string, objectPath: string): string {
   return `${SUPABASE_URL}/storage/v1/object/public/${bucket}/${objectPath}`;
+}
+
+/**
+ * Base URL for the verify link. That link is permanent — it is rendered into
+ * the certificate PNG whose hash is committed on-chain, and written into the
+ * NFT's metadata — so falling back to localhost in production would mint dead
+ * links that can never be corrected. Fail there instead; keep the fallback
+ * for local dev, where it is the right answer.
+ */
+function appUrl(): string {
+  const url = process.env.NEXT_PUBLIC_APP_URL;
+  if (url) {
+    return url;
+  }
+  if (process.env.NODE_ENV === "production") {
+    fail("STORAGE_FAILED", "NEXT_PUBLIC_APP_URL não configurado.");
+  }
+  return "http://localhost:3000";
 }
 
 function assertClaimReady(): void {
@@ -168,7 +185,7 @@ async function buildClaimArtifact(input: {
     );
   }
 
-  const verifyUrl = `${APP_URL}/verify/${certificateAddress}`;
+  const verifyUrl = `${appUrl()}/verify/${certificateAddress}`;
   const dateText = certDateText(edition, cert);
 
   const txByWallet = new Map((cert.signer_txs ?? []).map((t) => [t.wallet, t]));
@@ -486,7 +503,7 @@ export async function submitClaim(
     certNumber,
     owner: onchainCert.student,
     artifactSha256Hex: artifactShaHex,
-    verifyUrl: `${APP_URL}/verify/${input.certificateAddress}`,
+    verifyUrl: `${appUrl()}/verify/${input.certificateAddress}`,
     metadataUri,
   });
 

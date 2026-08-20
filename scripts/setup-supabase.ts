@@ -33,6 +33,11 @@ async function applyMigrations(): Promise<void> {
     .sort();
 
   const client = new Client({ connectionString: dbUrl });
+  // Surface RAISE NOTICE output: 0003_hardening.sql degrades to a NOTICE (naming
+  // a reconcile query) when a unique index or CHECK can't be installed against
+  // existing rows, instead of aborting the batch. Without this handler those are
+  // silent and the operator never learns a constraint landed only partially.
+  client.on("notice", (msg) => console.log(`  NOTICE: ${msg.message ?? msg}`));
   await client.connect();
 
   try {

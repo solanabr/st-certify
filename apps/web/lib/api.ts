@@ -35,13 +35,28 @@ const STATUS_BY_CODE: Record<AppErrorCode, number> = {
   INTERNAL: 500,
 };
 
-/** The `{ error }` half of the envelope, for routes that can't return JSON on success (e.g. an inline PNG). */
+/**
+ * The `{ error }` half of the envelope, for routes that can't return JSON on success (e.g. an inline PNG).
+ *
+ * Anything mapping to 5xx is logged first. `toAppError` strips the raw
+ * exception text out of the response (see lib/errors.ts), so this is the only
+ * place it survives — without it a failing route is silent. 4xx is the client
+ * misusing a working route, not an incident, so it stays out of the log.
+ */
 export function apiError(err: unknown): NextResponse {
   const appError = toAppError(err);
-  return NextResponse.json(
-    { error: appError },
-    { status: STATUS_BY_CODE[appError.code] },
-  );
+  const status = STATUS_BY_CODE[appError.code];
+
+  if (status >= 500) {
+    // The stack names the route file and frame, which is what an on-call
+    // reader actually needs — apiRoute has no access to the request path.
+    console.error(
+      `[api:error] ${appError.code} ${status}:`,
+      err instanceof Error ? (err.stack ?? err.message) : String(err),
+    );
+  }
+
+  return NextResponse.json({ error: appError }, { status });
 }
 
 /**

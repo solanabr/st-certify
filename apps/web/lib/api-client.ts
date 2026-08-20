@@ -1,4 +1,5 @@
 import { fail, type AppError } from "@/lib/errors";
+import { tc } from "@/lib/i18n/client-locale";
 
 function isErrorEnvelope(body: unknown): body is { error: AppError } {
   return (
@@ -34,9 +35,7 @@ export async function api<T>(
       body: json !== undefined ? JSON.stringify(json) : rest.body,
     });
   } catch {
-    fail("CHAIN_RPC_UNAVAILABLE", "Falha de rede. Verifique sua conexão.", {
-      retryable: true,
-    });
+    fail("CHAIN_RPC_UNAVAILABLE", tc("error.network"), { retryable: true });
   }
 
   const body: unknown = await response.json().catch(() => null);
@@ -46,9 +45,7 @@ export async function api<T>(
       const { code, message, detail, field, retryable, action } = body.error;
       fail(code, message, { detail, field, retryable, action });
     }
-    fail("INTERNAL", "Ocorreu um erro inesperado. Tente novamente.", {
-      retryable: true,
-    });
+    fail("INTERNAL", tc("error.unexpected"), { retryable: true });
   }
 
   return body as T;

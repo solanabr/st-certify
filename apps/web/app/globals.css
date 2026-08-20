@@ -200,6 +200,157 @@ body {
   }
 }
 
+/* ───────────────────────────────────────────────────────────────────────────
+   Enter / exit animation utilities
+
+   Hand-rolled stand-in for tw-animate-css, which is deliberately NOT a
+   dependency. Same composable shape as upstream: `animate-in` / `animate-out`
+   each run one shared keyframe, and every modifier utility below only sets the
+   `--tw-enter-*` / `--tw-exit-*` custom properties that keyframe reads. A new
+   offset is one more var-setting line, never a new keyframe.
+
+   Scope is exactly the classes this app uses — the Radix overlays in
+   components/ui (dialog, sheet, tooltip, dropdown-menu, select, alert-dialog)
+   plus cert-card. `duration-*` and `ease-*` stay core Tailwind and steer these
+   through --tw-duration / --tw-ease.
+
+   Animating `transform` is intentional: Tailwind v4 compiles `translate-x-*`
+   to the standalone `translate` property, so the dialog's -50%/-50% centering
+   survives underneath these keyframes instead of fighting them.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* inherits:false is load-bearing — without it a tooltip opened inside a
+   sliding sheet inherits the sheet's translate offset and flies in from
+   off-screen. */
+@property --tw-enter-opacity {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-enter-scale {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-enter-translate-x {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-enter-translate-y {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-exit-opacity {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-exit-scale {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-exit-translate-x {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-exit-translate-y {
+  syntax: "*";
+  inherits: false;
+}
+
+@keyframes enter {
+  from {
+    opacity: var(--tw-enter-opacity, 1);
+    transform: translate3d(var(--tw-enter-translate-x, 0), var(--tw-enter-translate-y, 0), 0)
+      scale3d(var(--tw-enter-scale, 1), var(--tw-enter-scale, 1), 1);
+  }
+}
+
+@keyframes exit {
+  to {
+    opacity: var(--tw-exit-opacity, 1);
+    transform: translate3d(var(--tw-exit-translate-x, 0), var(--tw-exit-translate-y, 0), 0)
+      scale3d(var(--tw-exit-scale, 1), var(--tw-exit-scale, 1), 1);
+  }
+}
+
+@utility animate-in {
+  animation-name: enter;
+  animation-duration: var(--tw-duration, 150ms);
+  animation-timing-function: var(--tw-ease, ease);
+
+  /* Radix Presence unmounts synchronously when animation-name computes to
+     none, so closing an overlay still tears down with motion off. */
+  @media (prefers-reduced-motion: reduce) {
+    animation-name: none;
+  }
+}
+
+@utility animate-out {
+  animation-name: exit;
+  animation-duration: var(--tw-duration, 150ms);
+  animation-timing-function: var(--tw-ease, ease);
+
+  @media (prefers-reduced-motion: reduce) {
+    animation-name: none;
+  }
+}
+
+@utility fade-in {
+  --tw-enter-opacity: 0;
+}
+@utility fade-in-0 {
+  --tw-enter-opacity: 0;
+}
+@utility fade-out-0 {
+  --tw-exit-opacity: 0;
+}
+
+@utility zoom-in-95 {
+  --tw-enter-scale: 0.95;
+}
+@utility zoom-out-95 {
+  --tw-exit-scale: 0.95;
+}
+
+/* Unsuffixed slides travel a full edge (sheets); the -2 step is a 0.5rem
+   nudge for popovers, menus and tooltips. */
+@utility slide-in-from-top {
+  --tw-enter-translate-y: -100%;
+}
+@utility slide-in-from-bottom {
+  --tw-enter-translate-y: 100%;
+}
+@utility slide-in-from-left {
+  --tw-enter-translate-x: -100%;
+}
+@utility slide-in-from-right {
+  --tw-enter-translate-x: 100%;
+}
+
+@utility slide-in-from-top-2 {
+  --tw-enter-translate-y: calc(var(--spacing) * -2);
+}
+@utility slide-in-from-bottom-2 {
+  --tw-enter-translate-y: calc(var(--spacing) * 2);
+}
+@utility slide-in-from-left-2 {
+  --tw-enter-translate-x: calc(var(--spacing) * -2);
+}
+@utility slide-in-from-right-2 {
+  --tw-enter-translate-x: calc(var(--spacing) * 2);
+}
+
+@utility slide-out-to-top {
+  --tw-exit-translate-y: -100%;
+}
+@utility slide-out-to-bottom {
+  --tw-exit-translate-y: 100%;
+}
+@utility slide-out-to-left {
+  --tw-exit-translate-x: -100%;
+}
+@utility slide-out-to-right {
+  --tw-exit-translate-x: 100%;
+}
+
 @layer utilities {
   /*
    * Brand accent gradient (emerald -> yellow) — decorative only.

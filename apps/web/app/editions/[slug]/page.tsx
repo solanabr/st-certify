@@ -9,6 +9,11 @@ import { getT } from "@/lib/i18n/server";
 import type { TranslationKey } from "@/lib/i18n";
 import type { EditionStatusValue } from "@/lib/db/types";
 
+// Reads the editions mirror on every request, same as its sibling DB-backed
+// pages — pin it explicitly rather than relying on getT() to opt this route
+// out of static rendering as a side effect.
+export const dynamic = "force-dynamic";
+
 const STATUS_LABEL_KEY: Record<EditionStatusValue, TranslationKey> = {
   Open: "editions.status.open",
   Paused: "editions.status.paused",

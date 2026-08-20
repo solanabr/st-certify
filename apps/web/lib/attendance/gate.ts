@@ -18,15 +18,16 @@ export function checkClaimGate(
       message: "As reivindicações deste evento estão pausadas.",
     };
   }
-  if (
-    event.claim_deadline !== null &&
-    now.getTime() > Date.parse(event.claim_deadline)
-  ) {
-    return {
-      ok: false,
-      code: "ATTENDANCE_CLOSED",
-      message: "O período de reivindicação deste evento terminou.",
-    };
+  if (event.claim_deadline !== null) {
+    const deadlineMs = Date.parse(event.claim_deadline);
+    // An unparseable deadline fails CLOSED — never mint against a corrupt event.
+    if (Number.isNaN(deadlineMs) || now.getTime() > deadlineMs) {
+      return {
+        ok: false,
+        code: "ATTENDANCE_CLOSED",
+        message: "O período de reivindicação deste evento terminou.",
+      };
+    }
   }
   return { ok: true };
 }

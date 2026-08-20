@@ -109,7 +109,14 @@ export async function logEvent(input: LogEventInput): Promise<void> {
     payload: input.payload ?? {},
   });
 
-  if (error) {
+  // 23505 = the event is already logged: migration 0003 adds partial unique
+  // indexes on events.tx_sig and on (cert_address) for certificate_asset_minted,
+  // making this ledger idempotent. The tx/mint has already landed on-chain by
+  // the time this row is written, so a duplicate carries no new information —
+  // absorb it as success instead of raising a 500 that would make the caller
+  // retry a completed operation. (onConflict upsert can't be used: the indexes
+  // are partial and supabase-js can't express the WHERE predicate as an arbiter.)
+  if (error && error.code !== "23505") {
     fail("INTERNAL", "Falha ao registrar evento.", {
       detail: error.message,
       retryable: true,

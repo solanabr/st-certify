@@ -17,6 +17,7 @@ import { useAdminEditions } from "@/hooks/useAdminEditions";
 import { useSetEditionStatus } from "@/hooks/useSetEditionStatus";
 import { onAppError } from "@/lib/on-app-error";
 import { useT, type TranslationKey } from "@/lib/i18n";
+import { formatDate } from "@/lib/i18n/format";
 import type { EditionStatusValue } from "@/lib/db/types";
 
 const STATUS_LABEL_KEY: Record<EditionStatusValue, TranslationKey> = {
@@ -34,21 +35,21 @@ const STATUS_VARIANT: Record<
   Closed: "outline",
 };
 
-function formatDate(iso: string): string {
-  return new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium" }).format(
-    new Date(iso),
-  );
-}
-
 export function EditionsTable() {
   const { data: editions, isLoading, isError, refetch } = useAdminEditions();
   const setStatus = useSetEditionStatus();
-  const { t } = useT();
+  const { t, locale } = useT();
 
   async function copyLink(slug: string): Promise<void> {
     const url = `${window.location.origin}/editions/${slug}`;
-    await navigator.clipboard.writeText(url);
-    toast.success(t("claim.copied"));
+    // Denied clipboard permission and non-secure origins both reject here;
+    // surface the URL so the admin can still copy it by hand.
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success(t("claim.copied"));
+    } catch {
+      toast.error(t("admin.copyLinkFailed"), { description: url });
+    }
   }
 
   function toggleStatus(address: string, current: EditionStatusValue): void {
@@ -119,7 +120,7 @@ export function EditionsTable() {
               {edition.minted}/{edition.maxSupply}
             </TableCell>
             <TableCell className="text-muted-foreground">
-              {formatDate(edition.createdAt)}
+              {formatDate(edition.createdAt, locale)}
             </TableCell>
             <TableCell className="text-right">
               <div className="flex justify-end gap-2">

@@ -69,6 +69,7 @@ export function EventForm() {
   const { t } = useT();
   const [open, setOpen] = useState(false);
   const [deadlineLocal, setDeadlineLocal] = useState("");
+  const [fileName, setFileName] = useState("");
   const createEvent = useCreateEvent();
 
   const form = useForm<CreateEventFormValues, unknown, CreateEventInput>({
@@ -79,17 +80,22 @@ export function EventForm() {
   function resetForm(): void {
     form.reset(DEFAULT_VALUES);
     setDeadlineLocal("");
+    setFileName("");
   }
 
   async function handleImageChange(
     e: React.ChangeEvent<HTMLInputElement>,
   ): Promise<void> {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file) {
+      setFileName("");
+      return;
+    }
 
     if (file.size > MAX_IMAGE_BYTES) {
       form.setError("imageDataUrl", { message: t("attendance.form.image") });
       e.target.value = "";
+      setFileName("");
       return;
     }
 
@@ -97,8 +103,10 @@ export function EventForm() {
       const dataUrl = await readFileAsDataUrl(file);
       form.clearErrors("imageDataUrl");
       form.setValue("imageDataUrl", dataUrl, { shouldValidate: true });
+      setFileName(file.name);
     } catch {
       form.setError("imageDataUrl", { message: t("attendance.form.image") });
+      setFileName("");
     }
   }
 
@@ -185,11 +193,36 @@ export function EventForm() {
                 <FormItem>
                   <FormLabel>{t("attendance.form.image")}</FormLabel>
                   <FormControl>
-                    <Input
-                      type="file"
-                      accept="image/png,image/jpeg,image/webp"
-                      onChange={(e) => void handleImageChange(e)}
-                    />
+                    {/* Styled trigger over a visually-hidden native input: the
+                        browser's default "Choose File/No file chosen" text
+                        can't be localized, so we render our own pt/en/es copy
+                        while keeping the real <input> for keyboard + SR (UI-F1).
+                        The input is `peer` first so focusing it (keyboard) draws
+                        a visible ring on the label — asChild renders the label
+                        as the input's direct sibling, so `peer-*` resolves. */}
+                    <div className="flex items-center gap-3">
+                      <input
+                        id="event-image-input"
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp"
+                        className="peer sr-only"
+                        onChange={(e) => void handleImageChange(e)}
+                      />
+                      <Button asChild variant="outline" size="sm">
+                        <label
+                          htmlFor="event-image-input"
+                          className="cursor-pointer peer-focus-visible:border-ring peer-focus-visible:ring-[3px] peer-focus-visible:ring-ring/50"
+                        >
+                          {t("attendance.form.imageChoose")}
+                        </label>
+                      </Button>
+                      <span
+                        className="truncate text-sm text-muted-foreground"
+                        title={fileName || undefined}
+                      >
+                        {fileName || t("attendance.form.imageNone")}
+                      </span>
+                    </div>
                   </FormControl>
                   {imagePreview && (
                     // eslint-disable-next-line @next/next/no-img-element -- data: URI preview of the just-selected file, not a local/Next-optimizable asset

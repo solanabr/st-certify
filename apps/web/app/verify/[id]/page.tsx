@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -11,6 +12,7 @@ import {
   getVerifyViewByAsset,
   type VerifyCertView,
 } from "@/lib/db/claim-verify-queries";
+import { getClaimByAssetId } from "@/lib/db/attendance-queries";
 import { getT } from "@/lib/i18n/server";
 
 // Verify is inherently dynamic (chain-truthful; a cert can be claimed/revoked
@@ -94,6 +96,14 @@ export default async function VerifyIdPage({
   const { id } = await params;
   const { reencode } = await searchParams;
   const view = await resolveView(id);
+
+  // Certificate miss: the id may instead be an attendance NFT's asset id, whose
+  // public surface is /nft/[assetId]. Only checked on the miss path so the
+  // certificate lookups stay the fast path.
+  if (!view && BASE58.test(id) && (await getClaimByAssetId(id))) {
+    redirect(`/nft/${id}`);
+  }
+
   const { t } = await getT();
 
   return (

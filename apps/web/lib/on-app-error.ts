@@ -1,6 +1,7 @@
 import { toast } from "sonner";
 import type { FieldValues, Path, UseFormReturn } from "react-hook-form";
 import { toAppError } from "@/lib/errors";
+import { tc } from "@/lib/i18n/client-locale";
 
 export interface OnAppErrorOptions {
   /** Wallet to airdrop to, when the error's action is "airdrop". */
@@ -21,12 +22,12 @@ async function triggerAirdrop(wallet: string): Promise<void> {
         : undefined;
 
     if (!res.ok || errorMessage) {
-      toast.error(errorMessage ?? "Falha no airdrop.");
+      toast.error(errorMessage ?? tc("wallet.airdropFailed"));
       return;
     }
-    toast.success("Airdrop enviado! Tente novamente em alguns segundos.");
+    toast.success(tc("wallet.airdropSent"));
   } catch {
-    toast.error("Falha no airdrop.");
+    toast.error(tc("wallet.airdropFailed"));
   }
 }
 
@@ -58,7 +59,7 @@ export function onAppError<T extends FieldValues>(
     const wallet = options.airdropWallet;
     toast.error(appError.message, {
       action: {
-        label: "Airdrop 1 SOL",
+        label: tc("wallet.airdrop"),
         onClick: () => void triggerAirdrop(wallet),
       },
     });
@@ -68,7 +69,7 @@ export function onAppError<T extends FieldValues>(
   if (appError.action === "goto-me") {
     toast.error(appError.message, {
       action: {
-        label: "Ver meus certificados",
+        label: tc("error.viewMyCertificates"),
         onClick: () => {
           window.location.href = "/me";
         },
@@ -78,7 +79,7 @@ export function onAppError<T extends FieldValues>(
   }
 
   if (appError.retryable) {
-    toast.error(appError.message, { description: "Tente novamente." });
+    toast.error(appError.message, { description: tc("error.tryAgain") });
     return;
   }
 

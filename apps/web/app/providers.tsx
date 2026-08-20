@@ -9,6 +9,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthSync } from "@/components/auth-sync";
 import { getRpc, getRpcSubscriptions, rpcConfigured } from "@/lib/chain";
+import { explorerBaseUrl } from "@/lib/chain/explorer-url";
 import { useT } from "@/lib/i18n";
 
 const PRIVY_APP_ID = process.env.NEXT_PUBLIC_PRIVY_APP_ID;
@@ -26,7 +27,7 @@ function buildSolanaRpcs() {
     "solana:devnet": {
       rpc: getRpc(),
       rpcSubscriptions: getRpcSubscriptions(),
-      blockExplorerUrl: "https://explorer.solana.com?cluster=devnet",
+      blockExplorerUrl: explorerBaseUrl(),
     },
   } as const;
 }

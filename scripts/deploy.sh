@@ -13,6 +13,26 @@ PROGRAM_KEYPAIR="programs/certify/certify-keypair.json"
 RPC="${NEXT_PUBLIC_RPC_URL:-https://api.devnet.solana.com}"
 SO="target/deploy/certify.so"
 
+# Cluster guard: refuse an accidental mainnet deploy (CLAUDE.md "Security
+# Principles" — never deploy to mainnet without explicit confirmation).
+# Devnet/testnet/unrecognized URLs proceed as before; mainnet requires
+# `--yes` or CONFIRM_MAINNET=1.
+CLUSTER="unknown ($RPC)"
+case "$RPC" in
+  *mainnet*) CLUSTER="mainnet" ;;
+  *devnet*) CLUSTER="devnet" ;;
+  *testnet*) CLUSTER="testnet" ;;
+esac
+echo "== Cluster: $CLUSTER (NEXT_PUBLIC_RPC_URL=$RPC) =="
+if [ "$CLUSTER" = "mainnet" ]; then
+  if [ "${1:-}" != "--yes" ] && [ "${CONFIRM_MAINNET:-}" != "1" ]; then
+    echo "ERROR: NEXT_PUBLIC_RPC_URL points at mainnet. Refusing to deploy without explicit confirmation." >&2
+    echo "       Re-run as: scripts/deploy.sh --yes   (or set CONFIRM_MAINNET=1)" >&2
+    exit 1
+  fi
+  echo "   mainnet deploy CONFIRMED"
+fi
+
 echo "== [1/3] Build (cargo build-sbf) =="
 # Scope to the program crate — a workspace-wide build-sbf would try to SBF-compile
 # the certify-tests crate (litesvm/agave deps pull getrandom, unsupported on SBF).
