@@ -38,7 +38,7 @@ const pt = {
   "admin.copyLink": "Copiar link",
   "admin.copyLinkFailed": "Não foi possível copiar o link.",
   "admin.revoked": "Certificado revogado",
-  "admin.revokedAndBurned": "Certificado revogado · NFT queimado",
+  "admin.revokedAndBurned": "Certificado revogado · registro on-chain queimado",
   "admin.edit": "Editar",
   "admin.editDisabledTitle":
     "Duplicar como nova edição (em breve) — edições são imutáveis após criadas",
@@ -66,7 +66,7 @@ const pt = {
   "admin.revoke.action": "Revogar",
   "admin.revoke.title": "Revogar certificado de {name}?",
   "admin.revoke.description":
-    "Esta ação é permanente: o certificado passa a REVOGADO na verificação pública e o NFT é queimado quando possível.",
+    "Esta ação é permanente: o certificado passa a REVOGADO na verificação pública e o registro on-chain é queimado quando possível.",
   "admin.revoke.reasonLabel": "Motivo",
   "admin.revoke.reasonPlaceholder":
     "Ex.: emitido por engano; dados incorretos.",
@@ -178,7 +178,7 @@ export const adminDict: Record<Locale, Record<adminKey, string>> = {
     "admin.copyLink": "Copy link",
     "admin.copyLinkFailed": "Couldn't copy the link.",
     "admin.revoked": "Certificate revoked",
-    "admin.revokedAndBurned": "Certificate revoked · NFT burned",
+    "admin.revokedAndBurned": "Certificate revoked · on-chain record burned",
     "admin.edit": "Edit",
     "admin.editDisabledTitle":
       "Duplicate as a new edition (coming soon) — editions are immutable once created",
@@ -206,7 +206,7 @@ export const adminDict: Record<Locale, Record<adminKey, string>> = {
     "admin.revoke.action": "Revoke",
     "admin.revoke.title": "Revoke {name}'s certificate?",
     "admin.revoke.description":
-      "This action is permanent: the certificate becomes REVOKED on public verification and the NFT is burned when possible.",
+      "This action is permanent: the certificate becomes REVOKED on public verification and the on-chain record is burned when possible.",
     "admin.revoke.reasonLabel": "Reason",
     "admin.revoke.reasonPlaceholder":
       "E.g.: issued by mistake; incorrect details.",
@@ -313,7 +313,8 @@ export const adminDict: Record<Locale, Record<adminKey, string>> = {
     "admin.copyLink": "Copiar enlace",
     "admin.copyLinkFailed": "No se pudo copiar el enlace.",
     "admin.revoked": "Certificado revocado",
-    "admin.revokedAndBurned": "Certificado revocado · NFT quemado",
+    "admin.revokedAndBurned":
+      "Certificado revocado · registro on-chain quemado",
     "admin.edit": "Editar",
     "admin.editDisabledTitle":
       "Duplicar como nueva edición (próximamente) — las ediciones son inmutables una vez creadas",
@@ -341,7 +342,7 @@ export const adminDict: Record<Locale, Record<adminKey, string>> = {
     "admin.revoke.action": "Revocar",
     "admin.revoke.title": "¿Revocar el certificado de {name}?",
     "admin.revoke.description":
-      "Esta acción es permanente: el certificado pasa a REVOCADO en la verificación pública y el NFT se quema cuando es posible.",
+      "Esta acción es permanente: el certificado pasa a REVOCADO en la verificación pública y el registro on-chain se quema cuando es posible.",
     "admin.revoke.reasonLabel": "Motivo",
     "admin.revoke.reasonPlaceholder":
       "Ej.: emitido por error; datos incorrectos.",

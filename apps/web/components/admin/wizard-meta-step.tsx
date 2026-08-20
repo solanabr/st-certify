@@ -108,7 +108,7 @@ export function WizardMetaStep({ form, onNext }: Props) {
             <FormLabel>{t("admin.meta.slugLabel")}</FormLabel>
             <FormControl>
               <Input
-                placeholder="solana-bootcamp-2026"
+                placeholder={t("admin.meta.slugPlaceholder")}
                 {...field}
                 onChange={(e) => {
                   setSlugEdited(true);

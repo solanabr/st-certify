@@ -12,7 +12,7 @@ const pt = {
   "editions.notFoundMetaTitle": "Edição não encontrada",
   "editions.title": "Edições",
   "editions.subtitle":
-    "Escolha a edição do seu curso ou evento para solicitar seu certificado.",
+    "Escolha a turma do seu curso para solicitar seu certificado.",
   "editions.dbUnconfiguredTitle": "Supabase não configurado",
   "editions.dbUnconfiguredDesc":
     "As edições ainda não podem ser carregadas. Configure o Supabase e recarregue esta página.",
@@ -82,7 +82,8 @@ const pt = {
   "student.timeline.aria": "Progresso do certificado",
   "student.timeline.signed": "assinado",
   "student.timeline.awaitingSignature": "aguardando assinatura",
-  "student.mintFailed": "A emissão do NFT não concluiu automaticamente.",
+  "student.mintFailed":
+    "A emissão do certificado não concluiu automaticamente.",
   "student.mintRetry": "Tentar emitir novamente",
 } as const;
 
@@ -96,7 +97,7 @@ export const studentDict: Record<Locale, Record<studentKey, string>> = {
     "editions.notFoundMetaTitle": "Edition not found",
     "editions.title": "Editions",
     "editions.subtitle":
-      "Pick your course or event edition to request your certificate.",
+      "Pick your course's class to request your certificate.",
     "editions.dbUnconfiguredTitle": "Supabase not configured",
     "editions.dbUnconfiguredDesc":
       "Editions can't be loaded yet. Configure Supabase and reload this page.",
@@ -166,7 +167,8 @@ export const studentDict: Record<Locale, Record<studentKey, string>> = {
     "student.timeline.aria": "Certificate progress",
     "student.timeline.signed": "signed",
     "student.timeline.awaitingSignature": "awaiting signature",
-    "student.mintFailed": "The NFT issuance didn't complete automatically.",
+    "student.mintFailed":
+      "The certificate issuance didn't complete automatically.",
     "student.mintRetry": "Try issuing again",
   },
   es: {
@@ -175,7 +177,7 @@ export const studentDict: Record<Locale, Record<studentKey, string>> = {
     "editions.notFoundMetaTitle": "Edición no encontrada",
     "editions.title": "Ediciones",
     "editions.subtitle":
-      "Elige la edición de tu curso o evento para solicitar tu certificado.",
+      "Elige la clase de tu curso para solicitar tu certificado.",
     "editions.dbUnconfiguredTitle": "Supabase no configurado",
     "editions.dbUnconfiguredDesc":
       "Las ediciones aún no pueden cargarse. Configura Supabase y recarga esta página.",
@@ -246,7 +248,8 @@ export const studentDict: Record<Locale, Record<studentKey, string>> = {
     "student.timeline.aria": "Progreso del certificado",
     "student.timeline.signed": "firmado",
     "student.timeline.awaitingSignature": "esperando firma",
-    "student.mintFailed": "La emisión del NFT no se completó automáticamente.",
+    "student.mintFailed":
+      "La emisión del certificado no se completó automáticamente.",
     "student.mintRetry": "Intentar emitir de nuevo",
   },
 };

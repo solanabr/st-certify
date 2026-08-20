@@ -241,7 +241,7 @@ export function EventForm() {
                     <Input
                       type="url"
                       inputMode="url"
-                      placeholder="https://"
+                      placeholder={t("attendance.form.eventUrlPlaceholder")}
                       name={field.name}
                       ref={field.ref}
                       onBlur={field.onBlur}
