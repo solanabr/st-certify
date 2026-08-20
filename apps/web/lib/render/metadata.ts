@@ -127,7 +127,13 @@ export function buildMetadataJson(
     external_url: input.externalUrl,
     attributes: [
       { trait_type: "Artifact SHA-256", value: input.artifactSha256Hex },
+      // Composed string for humans; the raw numbers below let indexers and
+      // marketplaces sort/range-filter, which a "#7 of 50" string cannot.
       { trait_type: "Cert Number", value: numbering },
+      { trait_type: "Serial", value: input.certNumber },
+      ...(input.maxSupply
+        ? [{ trait_type: "Edition Size", value: input.maxSupply }]
+        : []),
     ],
     properties: {
       files: [{ uri: input.imageUrl, type: "image/png" }],

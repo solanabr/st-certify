@@ -31,9 +31,11 @@ production** (43/43 `rls-probe` checks pass); the devnet program was
   **event URL** (form + zod + DB, migration `0004`); the shared metadata
   JSON follows POAP's attribute conventions in this platform's Title-Case
   style — `Location`, `Event Date`, `End Date`, `Year`, `Event URL`,
-  `Issuer`, `Event ID` — plus `symbol: "STB"`, `external_url`, and
-  `properties.files`/`category` for wallet display. Claim page shows the
-  location and date range.
+  `Issuer`, `Event ID` — plus `symbol: "ATTEND"` (type-named like `CERT`),
+  `external_url`, and `properties.files`/`category` for wallet display.
+  Certificates additionally gain numeric `Serial`/`Edition Size` attributes
+  (machine-sortable) alongside the human `Cert Number` string. Claim page
+  shows the location and date range.
 - feat(attendance): per-attendee **mint serial in the cNFT leaf name**
   ("Meetup SP #42") — `attendance_reserve_claim` now assigns and returns
   `mint_serial` atomically with the capacity slot (no extra write on the

@@ -94,6 +94,14 @@ describe("buildMetadataJson", () => {
       trait_type: "Cert Number",
       value: "#7 of 50",
     });
+    expect(metadata.attributes).toContainEqual({
+      trait_type: "Serial",
+      value: 7,
+    });
+    expect(metadata.attributes).toContainEqual({
+      trait_type: "Edition Size",
+      value: 50,
+    });
 
     expect(metadata.render_spec.version).toBe(1);
     expect(metadata.render_spec.template).toEqual({
@@ -158,6 +166,9 @@ describe("buildMetadataJson", () => {
       trait_type: "Cert Number",
       value: "#3",
     });
+    expect(
+      metadata.attributes.some((a) => a.trait_type === "Edition Size"),
+    ).toBe(false);
     expect(metadata.name).toBe("Workshop #3");
   });
 

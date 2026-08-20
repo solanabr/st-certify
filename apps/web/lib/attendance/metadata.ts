@@ -17,7 +17,8 @@ export interface AttendanceMetadataInput {
 
 export interface AttendanceMetadataJson {
   name: string;
-  symbol: "STB";
+  /** Type-named like the certificate flow's "CERT" — groups the asset class in wallets/explorers. */
+  symbol: "ATTEND";
   description: string;
   image: string;
   external_url?: string;
@@ -57,7 +58,7 @@ export function buildAttendanceMetadata(
 
   return {
     name: i.name,
-    symbol: "STB",
+    symbol: "ATTEND",
     description: i.description,
     image: i.imageUrl,
     ...(i.eventUrl ? { external_url: i.eventUrl } : {}),

@@ -19,7 +19,7 @@ describe("buildAttendanceMetadata", () => {
     });
     expect(json).toEqual({
       name: "Meetup SP",
-      symbol: "STB",
+      symbol: "ATTEND",
       description: "Encontro mensal",
       image: "https://x/img.png",
       attributes: [
