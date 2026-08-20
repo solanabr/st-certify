@@ -3,7 +3,7 @@ import { EventsDashboard } from "@/components/attendance/events-dashboard";
 import { getT } from "@/lib/i18n/server";
 
 // Creator-gated + live data — rendering at request time (like /verify/[id],
-// /editions) keeps `next build` from depending on a reachable DB.
+// /certificates) keeps `next build` from depending on a reachable DB.
 export const dynamic = "force-dynamic";
 
 export async function generateMetadata(): Promise<Metadata> {

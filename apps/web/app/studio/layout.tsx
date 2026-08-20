@@ -6,7 +6,7 @@ import { requireSysadmin } from "@/lib/auth";
  * 404, not redirect/403, so an unauthorized direct hit can't distinguish
  * "you're not allowed" from "this route doesn't exist".
  */
-export default async function AdminLayout({
+export default async function StudioLayout({
   children,
 }: {
   children: React.ReactNode;

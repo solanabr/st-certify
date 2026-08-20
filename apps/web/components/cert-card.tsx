@@ -50,7 +50,7 @@ function RejectedContent({ cert }: { cert: CertificateForOwner }) {
       </Alert>
       {cert.editionSlug && (
         <Button asChild variant="outline">
-          <Link href={`/editions/${cert.editionSlug}`}>
+          <Link href={`/certificates/${cert.editionSlug}`}>
             {t("student.requestAgain")}
           </Link>
         </Button>

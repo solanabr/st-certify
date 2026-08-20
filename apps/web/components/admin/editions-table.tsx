@@ -88,7 +88,7 @@ export function EditionsTable() {
       <div className="flex flex-col items-start gap-3 rounded-lg border border-border p-6">
         <p className="text-sm text-muted-foreground">{t("admin.noEditions")}</p>
         <Button asChild size="sm">
-          <Link href="/admin/editions/new">{t("admin.createEdition")}</Link>
+          <Link href="/studio/editions/new">{t("admin.createEdition")}</Link>
         </Button>
       </div>
     );

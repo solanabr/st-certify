@@ -99,7 +99,7 @@ export async function Footer() {
                 </li>
                 <li>
                   <Link
-                    href="/editions"
+                    href="/certificates"
                     className="text-inverse-foreground/80 transition-colors hover:text-inverse-foreground focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     {t("footer.browseEditions")}

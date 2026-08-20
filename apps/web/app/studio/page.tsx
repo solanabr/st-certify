@@ -22,7 +22,7 @@ export default function AdminPage() {
           {t("nav.admin")}
         </h1>
         <Button asChild>
-          <Link href="/admin/editions/new">{t("admin.createEdition")}</Link>
+          <Link href="/studio/editions/new">{t("admin.createEdition")}</Link>
         </Button>
       </div>
 

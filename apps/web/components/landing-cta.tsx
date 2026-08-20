@@ -16,8 +16,8 @@ const DASHBOARD_LABEL_KEY: Record<
 };
 
 const DASHBOARD_HREF: Record<"sysadmin" | "certifier" | "student", string> = {
-  sysadmin: "/admin",
-  certifier: "/certificator",
+  sysadmin: "/studio",
+  certifier: "/sign",
   student: "/me",
 };
 
