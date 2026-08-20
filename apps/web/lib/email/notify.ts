@@ -1,17 +1,15 @@
 import "server-only";
 
 import { dbConfigured, getServiceClient } from "@/lib/db/mutations";
+import type { NotificationLogRow } from "@/lib/db/types";
 import type { Locale } from "@/lib/i18n/locales";
 import { sendEmail } from "./send";
 import type { EmailKind, EmailPayloads } from "./templates";
 
-// Insert shape of `notification_log` (migration 0005, lane W1-A) — declared
-// here until lib/db/types.ts ships NotificationLogRow.
-interface NotificationLogInsert {
-  type: string;
-  recipient: string;
-  ref_id: string;
-}
+type NotificationLogInsert = Pick<
+  NotificationLogRow,
+  "type" | "recipient" | "ref_id"
+>;
 
 export interface NotifyArgs<K extends EmailKind> {
   to: string;
