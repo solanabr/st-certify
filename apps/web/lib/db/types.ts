@@ -180,6 +180,9 @@ export interface AttendanceEventRow {
   metadata_uri: string;
   collection_address: string;
   event_date: string; // ISO date
+  end_date: string | null; // ISO date — multi-day events
+  location: string; // freeform "city, country" ('' = unset)
+  event_url: string; // public event link ('' = unset)
   max_supply: number | null;
   claim_deadline: string | null; // ISO timestamptz
   claim_open: boolean;
@@ -197,5 +200,7 @@ export interface AttendanceClaimRow {
   reserved_at: string | null;
   tx_sig: string | null;
   asset_id: string | null;
+  /** Capacity-slot number minted into the leaf name ("#42"); null pre-0004. */
+  mint_serial: number | null;
   created_at: string;
 }

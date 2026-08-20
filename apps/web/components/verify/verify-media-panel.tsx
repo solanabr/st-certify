@@ -1,21 +1,23 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { VerifyChainStamp } from "@/components/verify/verify-chain-stamp";
+import {
+  VerifyChainStamp,
+  useCertificateChainCheck,
+} from "@/components/verify/verify-chain-stamp";
 import { CopyLinkButton } from "@/components/verify/copy-link-button";
-import { checkCertificateOnChain } from "@/lib/chain/verify";
+import { useT } from "@/lib/i18n";
 import type { CertificateStatusValue } from "@/lib/db/types";
 
 /**
  * The certificate image + download/copy actions — chain-aware like
- * VerifyStatusBanner: paints from the mirror instantly, then layers the same
- * one-shot `checkCertificateOnChain` read so a stale-mirror-revoked cert
- * (chain already says Revoked, mirror hasn't synced yet) dims the image and
- * hides the download link too, not just the hero banner above. Wraps
- * VerifyChainStamp so the "verificado onchain" stamp keeps its exact position
- * between the image and the actions row.
+ * VerifyStatusBanner: paints from the mirror instantly, then layers the shared
+ * chain-check (same query as the VerifyChainStamp it wraps — one fetch, not
+ * two) so a stale-mirror-revoked cert (chain already says Revoked, mirror
+ * hasn't synced yet) dims the image and hides the download link too, not just
+ * the hero banner above. Wrapping the stamp keeps the "verificado onchain" line
+ * in its exact position between the image and the actions row.
  */
 export function VerifyMediaPanel({
   certAddress,
@@ -30,25 +32,11 @@ export function VerifyMediaPanel({
   studentName: string;
   isRejected: boolean;
 }) {
-  const [chainRevoked, setChainRevoked] = useState(false);
-
-  useEffect(() => {
-    if (mirrorStatus === "Revoked") return;
-    let active = true;
-    checkCertificateOnChain(certAddress)
-      .then((verdict) => {
-        if (active && verdict.exists && verdict.status === "Revoked") {
-          setChainRevoked(true);
-        }
-      })
-      .catch(() => {
-        // Non-fatal: VerifyChainStamp below surfaces its own failure state.
-      });
-    return () => {
-      active = false;
-    };
-  }, [certAddress, mirrorStatus]);
-
+  const { t } = useT();
+  // A failed check leaves `data` undefined — non-fatal here, since the
+  // VerifyChainStamp below surfaces the failure state itself.
+  const { data: verdict } = useCertificateChainCheck(certAddress);
+  const chainRevoked = verdict?.exists === true && verdict.status === "Revoked";
   const revoked = mirrorStatus === "Revoked" || chainRevoked;
 
   return (
@@ -58,13 +46,13 @@ export function VerifyMediaPanel({
           {/* eslint-disable-next-line @next/next/no-img-element -- content-addressed external asset, not Next-optimizable */}
           <img
             src={imageUrl}
-            alt={`Certificado de ${studentName}`}
+            alt={t("verify.media.imageAlt", { student: studentName })}
             className={revoked ? "w-full opacity-40 grayscale" : "w-full"}
           />
           {revoked && (
             <div className="absolute inset-0 flex items-center justify-center">
               <span className="rounded-md bg-destructive px-4 py-2 text-lg font-bold uppercase tracking-widest text-destructive-foreground">
-                Revogado
+                {t("verify.media.revokedStamp")}
               </span>
             </div>
           )}
@@ -83,7 +71,7 @@ export function VerifyMediaPanel({
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                <Download /> Baixar
+                <Download /> {t("claim.download")}
               </a>
             </Button>
           )}

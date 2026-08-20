@@ -1,9 +1,13 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { CapacityMeter } from "@/components/attendance/capacity-meter";
 import { CreatorSignin } from "@/components/attendance/creator-signin";
 import { EventForm } from "@/components/attendance/event-form";
 import { EventList } from "@/components/attendance/event-list";
 import { useAttendanceEvents } from "@/hooks/useAttendanceEvents";
+import { ATTENDANCE_TREE_CAPACITY } from "@/lib/attendance/constants";
 import { toAppError, type AppErrorCode } from "@/lib/errors";
 import { useT } from "@/lib/i18n";
 
@@ -13,18 +17,62 @@ const CREATOR_GATE_CODES: ReadonlySet<AppErrorCode> = new Set([
 ]);
 
 /**
- * `/events` client shell. `useAttendanceEvents` is called here purely to
- * read the query's error code and hand `refetch` to `CreatorSignin` —
- * `EventList` below calls the same hook independently and shares the cached
- * result (identical query key), so gating doesn't cost a second round-trip.
+ * `/events` client shell. `useAttendanceEvents` is called here and shared with
+ * `EventList` (identical query key, one round-trip). Creator status is only
+ * confirmed once that query succeeds, so the dashboard chrome — including the
+ * working "Novo evento" button — is gated behind the query rather than shown
+ * optimistically and retracted (five-3): an unauthenticated visitor sees the
+ * loading state, then the sign-in, never a usable dashboard.
  */
 export function EventsDashboard() {
   const { t } = useT();
-  const { isError, error, refetch } = useAttendanceEvents();
+  const {
+    data: events,
+    isPending,
+    isError,
+    error,
+    refetch,
+  } = useAttendanceEvents();
 
-  if (isError && CREATOR_GATE_CODES.has(toAppError(error).code)) {
-    return <CreatorSignin onSignedIn={() => void refetch()} />;
+  if (isPending) {
+    return (
+      <div>
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {t("attendance.events.title")}
+          </h1>
+          <p className="mt-2 text-muted-foreground">
+            {t("attendance.events.subtitle")}
+          </p>
+        </div>
+        <div className="mt-8 space-y-2">
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-full" />
+        </div>
+      </div>
+    );
   }
+
+  if (isError) {
+    if (CREATOR_GATE_CODES.has(toAppError(error).code)) {
+      return <CreatorSignin onSignedIn={() => void refetch()} />;
+    }
+    return (
+      <div className="flex flex-col items-center gap-3 py-16 text-center">
+        <p className="text-sm font-medium">{t("system.error.title")}</p>
+        <p className="text-sm text-muted-foreground">
+          {t("system.error.body")}
+        </p>
+        <Button size="sm" variant="outline" onClick={() => void refetch()}>
+          {t("system.error.retry")}
+        </Button>
+      </div>
+    );
+  }
+
+  // Tree usage across every event, from the already-cached list (no new fetch).
+  const totalMinted = events.reduce((sum, event) => sum + event.mintedCount, 0);
 
   return (
     <div>
@@ -39,6 +87,15 @@ export function EventsDashboard() {
         </div>
         <EventForm />
       </div>
+
+      {events.length > 0 && (
+        <CapacityMeter
+          value={totalMinted}
+          max={ATTENDANCE_TREE_CAPACITY}
+          label={t("attendance.events.capacity")}
+          className="mt-6 max-w-md"
+        />
+      )}
 
       <div className="mt-8">
         <EventList />

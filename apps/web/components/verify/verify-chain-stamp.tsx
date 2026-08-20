@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import {
   ExternalLink,
   Loader2,
@@ -13,17 +13,30 @@ import {
   reconcileChainVerdict,
   type OnChainVerdict,
 } from "@/lib/chain/verify";
+import { explorerAddressUrl } from "@/lib/chain/explorer-url";
 import type { CertificateStatusValue } from "@/lib/db/types";
 import { useT } from "@/lib/i18n";
 
-type State =
-  | { phase: "loading" }
-  | { phase: "done"; verdict: OnChainVerdict }
-  | { phase: "error" };
+/**
+ * The verify page's single chain-check. All three consumers (this stamp, the
+ * VerifyMediaPanel around it, and the VerifyStatusBanner above) subscribe to
+ * the same query key, so the page issues ONE `checkCertificateOnChain` instead
+ * of one per component. A confirmed cert only moves on revoke, so a minute of
+ * staleness is generous.
+ */
+export function useCertificateChainCheck(
+  certAddress: string,
+): UseQueryResult<OnChainVerdict, Error> {
+  return useQuery({
+    queryKey: ["verify", "chain-check", certAddress],
+    queryFn: () => checkCertificateOnChain(certAddress),
+    staleTime: 60_000,
+  });
+}
 
 /**
- * The browser chain-check layered over the server-rendered verdict: a one-shot
- * `checkCertificateOnChain` that yields the "verificado onchain · slot N" stamp
+ * The browser chain-check layered over the server-rendered verdict: the shared
+ * read above yields the "verificado onchain · slot N" stamp
  * and — critically — renders the NFT link from `Certificate.asset` read LIVE
  * from chain (the back-reference doctrine: the link is never taken from the
  * possibly-stale mirror). Chain wins on any drift.
@@ -36,23 +49,9 @@ export function VerifyChainStamp({
   mirrorStatus: CertificateStatusValue;
 }) {
   const { t } = useT();
-  const [state, setState] = useState<State>({ phase: "loading" });
+  const chain = useCertificateChainCheck(certAddress);
 
-  useEffect(() => {
-    let active = true;
-    checkCertificateOnChain(certAddress)
-      .then((verdict) => {
-        if (active) setState({ phase: "done", verdict });
-      })
-      .catch(() => {
-        if (active) setState({ phase: "error" });
-      });
-    return () => {
-      active = false;
-    };
-  }, [certAddress]);
-
-  if (state.phase === "loading") {
+  if (chain.isPending) {
     return (
       <p
         className="flex items-center gap-2 text-sm text-muted-foreground"
@@ -64,7 +63,7 @@ export function VerifyChainStamp({
     );
   }
 
-  if (state.phase === "error" || !state.verdict.exists) {
+  if (chain.isError || !chain.data.exists) {
     return (
       <p
         className="flex items-center gap-2 text-sm text-warning"
@@ -76,7 +75,7 @@ export function VerifyChainStamp({
     );
   }
 
-  const { verdict } = state;
+  const verdict = chain.data;
   const reconcile = reconcileChainVerdict({
     exists: verdict.exists,
     chainStatus: verdict.status,
@@ -124,7 +123,7 @@ export function VerifyChainStamp({
 
       {reconcile.showNftLink && reconcile.nftAsset && (
         <a
-          href={`https://explorer.solana.com/address/${reconcile.nftAsset}?cluster=devnet`}
+          href={explorerAddressUrl(reconcile.nftAsset)}
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"

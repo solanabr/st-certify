@@ -13,6 +13,7 @@ import type {
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 /** False until NEXT_PUBLIC_SUPABASE_URL is set (pending, see .env). */
 export const dbConfigured = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
@@ -25,6 +26,28 @@ function getAnonClient(): SupabaseClient {
   }
   anonClient ??= createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   return anonClient;
+}
+
+let serviceClient: SupabaseClient | null = null;
+
+/**
+ * The privileged certificate reads below need columns the anon key is no
+ * longer granted: 0003_hardening.sql revokes anon's table-wide SELECT on
+ * `certificates` and re-grants only the public /verify projection, so
+ * `name_salt`, `owner_did` and `owner_wallet` are unreadable — and, because a
+ * column GRANT also governs WHERE clauses, unfilterable — with the anon key.
+ * Every caller of those reads is a server route that has already authorized
+ * the request (requireUser / requireSysadmin / the claim flow's own checks).
+ * The public edition/stats reads on this file keep using the anon client.
+ */
+function getServiceClient(): SupabaseClient {
+  if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
+    fail("INTERNAL", "Supabase não configurado (service role).");
+  }
+  serviceClient ??= createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
+    auth: { persistSession: false },
+  });
+  return serviceClient;
 }
 
 function groupSignersByEdition(
@@ -192,10 +215,11 @@ export async function isSlugAvailable(slug: string): Promise<boolean> {
   return (count ?? 0) === 0;
 }
 
+/** Full mirror row, including `name_salt` — the claim flow rebuilds the on-chain commitment from it. */
 export async function getCertificateByAddress(
   address: string,
 ): Promise<CertificateRow | null> {
-  const supabase = getAnonClient();
+  const supabase = getServiceClient();
   const { data, error } = await supabase
     .from("certificates")
     .select("*")
@@ -211,32 +235,55 @@ export async function getCertificateByAddress(
   return data as CertificateRow | null;
 }
 
-/** All certificates owned by the given DID and/or any of the given wallets, for /me. */
+/**
+ * All certificates owned by the given DID and/or any of the given wallets, for /me.
+ *
+ * Two `.eq`/`.in` queries merged in memory rather than one `.or()`: PostgREST's
+ * `or=` takes a filter *expression*, so interpolating a DID or wallet into it
+ * lets any comma, dot or parenthesis in those values rewrite the predicate —
+ * and this runs under the service role, where a rewritten predicate would
+ * return other people's certificates. `.eq`/`.in` pass their values as encoded
+ * parameters, which cannot escape into the grammar.
+ */
 export async function listCertificatesForOwner(input: {
   did: string;
   wallets: string[];
 }): Promise<CertificateForOwner[]> {
-  const supabase = getAnonClient();
+  const supabase = getServiceClient();
 
-  const filters: string[] = [`owner_did.eq.${input.did}`];
-  for (const wallet of input.wallets) {
-    filters.push(`owner_wallet.eq.${wallet}`);
+  const results = await Promise.all([
+    supabase.from("certificates").select("*").eq("owner_did", input.did),
+    ...(input.wallets.length > 0
+      ? [
+          supabase
+            .from("certificates")
+            .select("*")
+            .in("owner_wallet", input.wallets),
+        ]
+      : []),
+  ]);
+
+  for (const result of results) {
+    if (result.error) {
+      fail("INTERNAL", "Falha ao buscar seus certificados.", {
+        detail: result.error.message,
+        retryable: true,
+      });
+    }
   }
 
-  const { data, error } = await supabase
-    .from("certificates")
-    .select("*")
-    .or(filters.join(","))
-    .order("created_at", { ascending: false });
-
-  if (error) {
-    fail("INTERNAL", "Falha ao buscar seus certificados.", {
-      detail: error.message,
-      retryable: true,
-    });
+  // A cert matching both the DID and a wallet appears in both result sets.
+  const byAddress = new Map<string, CertificateRow>();
+  for (const row of results.flatMap(
+    (r) => (r.data ?? []) as CertificateRow[],
+  )) {
+    byAddress.set(row.address, row);
   }
+  const certs = [...byAddress.values()].sort(
+    (a, b) =>
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+  );
 
-  const certs = (data ?? []) as CertificateRow[];
   const editionAddresses = Array.from(
     new Set(certs.map((c) => c.edition_address)),
   );
@@ -300,10 +347,16 @@ export async function isEditionSignerWallet(
     .select("wallet", { count: "exact", head: true })
     .in("wallet", wallets);
 
-  // Best-effort: a transient DB error degrades the caller to "not a
-  // certifier" rather than failing auth resolution entirely.
+  // Propagate rather than returning false: a swallowed error is
+  // indistinguishable from "this wallet signs nothing", so a transient DB
+  // outage used to silently strip every certifier of their role — they would
+  // see an empty inbox and a working UI, with nothing to retry. The caller
+  // (getSessionUser) can surface a retryable failure instead.
   if (error) {
-    return false;
+    fail("INTERNAL", "Falha ao verificar papel de certificador.", {
+      detail: error.message,
+      retryable: true,
+    });
   }
   return (count ?? 0) > 0;
 }
@@ -342,7 +395,8 @@ export async function listCertificatesAdmin(filters: {
   edition?: string;
   status?: string;
 }): Promise<CertificateAdminRow[]> {
-  const supabase = getAnonClient();
+  // Service role: the table shows `owner_wallet`, which anon cannot read.
+  const supabase = getServiceClient();
   let query = supabase
     .from("certificates")
     .select("*")

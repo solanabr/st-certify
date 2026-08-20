@@ -11,7 +11,11 @@ import type { Wallet } from "@wallet-standard/base";
 import { useSyncExternalStore } from "react";
 
 const api = typeof window === "undefined" ? null : getWallets();
-let cached: readonly Wallet[] = api ? api.get() : [];
+// Stable reference for the SSR/empty case — useSyncExternalStore requires
+// getServerSnapshot to return a cached value, or React throws an infinite-loop
+// warning and re-renders every commit.
+const NO_WALLETS: readonly Wallet[] = [];
+let cached: readonly Wallet[] = api ? api.get() : NO_WALLETS;
 
 function subscribe(onChange: () => void): () => void {
   if (!api) return () => {};
@@ -29,7 +33,7 @@ function subscribe(onChange: () => void): () => void {
 }
 
 const getSnapshot = (): readonly Wallet[] => cached;
-const getServerSnapshot = (): readonly Wallet[] => [];
+const getServerSnapshot = (): readonly Wallet[] => NO_WALLETS;
 
 export function useRegistryWallets(): readonly Wallet[] {
   return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);

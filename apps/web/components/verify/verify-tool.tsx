@@ -13,9 +13,14 @@ import {
   classifyVerifyInput,
   resolveHashToCert,
   sha256HexOf,
+  type VerifyInput,
 } from "@/lib/chain/verify";
-
-type Status = "idle" | "busy" | "notfound";
+import {
+  attemptResolve,
+  statusForOutcome,
+  type ResolveOutcome,
+  type VerifyStatus,
+} from "@/components/verify/verify-outcome";
 
 function imageDataAtWidth(
   bitmap: ImageBitmap,
@@ -48,6 +53,38 @@ async function decodeQrFromFile(file: File): Promise<string | null> {
   return null;
 }
 
+async function resolveQuery(
+  parsed: Extract<VerifyInput, { kind: "hash" } | { kind: "base58" }>,
+): Promise<ResolveOutcome> {
+  if (parsed.kind === "hash") {
+    const cert = await resolveHashToCert(parsed.value);
+    return cert ? { kind: "hit", certId: cert } : { kind: "miss" };
+  }
+  // base58 — could be a cert PDA or an asset; the [id] page resolves both.
+  return { kind: "hit", certId: parsed.value };
+}
+
+async function resolveFile(file: File): Promise<ResolveOutcome> {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const hash = await sha256HexOf(bytes);
+  const exact = await resolveHashToCert(hash);
+  if (exact) return { kind: "hit", certId: exact };
+
+  // Hash miss — try the embedded QR (the file is likely a re-encode).
+  const qr = await decodeQrFromFile(file);
+  if (qr) {
+    const parsed = classifyVerifyInput(qr);
+    if (parsed.kind === "base58") {
+      return { kind: "hit", certId: parsed.value, reencode: true };
+    }
+    if (parsed.kind === "hash") {
+      const cert = await resolveHashToCert(parsed.value);
+      if (cert) return { kind: "hit", certId: cert, reencode: true };
+    }
+  }
+  return { kind: "miss" };
+}
+
 /**
  * The public verify tool (plan §Verify): a smart text input (URL / cert PDA /
  * asset / 64-hex hash) and a PNG drop zone. A dropped file is hashed IN THE
@@ -59,57 +96,30 @@ export function VerifyTool() {
   const router = useRouter();
   const { t } = useT();
   const [query, setQuery] = useState("");
-  const [status, setStatus] = useState<Status>("idle");
+  const [status, setStatus] = useState<VerifyStatus>("idle");
   const [dragging, setDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const lastAttemptRef = useRef<(() => Promise<ResolveOutcome>) | null>(null);
 
   function goToCert(certId: string, reencode = false): void {
     router.push(`/verify/${certId}${reencode ? "?reencode=1" : ""}`);
   }
 
-  async function submitQuery(): Promise<void> {
+  async function run(resolve: () => Promise<ResolveOutcome>): Promise<void> {
+    lastAttemptRef.current = resolve;
+    setStatus("busy");
+    const outcome = await attemptResolve(resolve);
+    setStatus(statusForOutcome(outcome));
+    if (outcome.kind === "hit") goToCert(outcome.certId, outcome.reencode);
+  }
+
+  function submitQuery(): void {
     const parsed = classifyVerifyInput(query);
     if (parsed.kind === "empty" || parsed.kind === "unknown") {
       setStatus("notfound");
       return;
     }
-    setStatus("busy");
-    try {
-      if (parsed.kind === "hash") {
-        const cert = await resolveHashToCert(parsed.value);
-        if (cert) return goToCert(cert);
-        setStatus("notfound");
-        return;
-      }
-      // base58 — could be a cert PDA or an asset; the [id] page resolves both.
-      goToCert(parsed.value);
-    } catch {
-      setStatus("notfound");
-    }
-  }
-
-  async function handleFile(file: File): Promise<void> {
-    setStatus("busy");
-    try {
-      const bytes = new Uint8Array(await file.arrayBuffer());
-      const hash = await sha256HexOf(bytes);
-      const exact = await resolveHashToCert(hash);
-      if (exact) return goToCert(exact);
-
-      // Hash miss — try the embedded QR (the file is likely a re-encode).
-      const qr = await decodeQrFromFile(file);
-      if (qr) {
-        const parsed = classifyVerifyInput(qr);
-        if (parsed.kind === "base58") return goToCert(parsed.value, true);
-        if (parsed.kind === "hash") {
-          const cert = await resolveHashToCert(parsed.value);
-          if (cert) return goToCert(cert, true);
-        }
-      }
-      setStatus("notfound");
-    } catch {
-      setStatus("notfound");
-    }
+    void run(() => resolveQuery(parsed));
   }
 
   const busy = status === "busy";
@@ -119,7 +129,7 @@ export function VerifyTool() {
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          void submitQuery();
+          submitQuery();
         }}
         className="flex flex-col gap-2 sm:flex-row sm:items-end"
       >
@@ -130,7 +140,8 @@ export function VerifyTool() {
             value={query}
             onChange={(e) => {
               setQuery(e.target.value);
-              if (status === "notfound") setStatus("idle");
+              if (status === "notfound" || status === "error")
+                setStatus("idle");
             }}
             placeholder={t("verify.inputPlaceholder")}
             disabled={busy}
@@ -153,7 +164,7 @@ export function VerifyTool() {
           e.preventDefault();
           setDragging(false);
           const file = e.dataTransfer.files?.[0];
-          if (file) void handleFile(file);
+          if (file) void run(() => resolveFile(file));
         }}
         className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed p-8 text-center transition-colors focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background ${
           dragging ? "border-primary bg-primary/5" : "border-border"
@@ -173,7 +184,7 @@ export function VerifyTool() {
           disabled={busy}
           onChange={(e) => {
             const file = e.target.files?.[0];
-            if (file) void handleFile(file);
+            if (file) void run(() => resolveFile(file));
             e.target.value = "";
           }}
         />
@@ -193,6 +204,27 @@ export function VerifyTool() {
         <Alert aria-live="polite">
           <AlertTitle>{t("verify.notFound")}</AlertTitle>
           <AlertDescription>{t("verify.notFoundHint")}</AlertDescription>
+        </Alert>
+      )}
+
+      {/* Distinct from "notfound": we could not check, so we say nothing about
+          whether the certificate exists. */}
+      {status === "error" && (
+        <Alert aria-live="polite">
+          <AlertTitle>{t("system.error.title")}</AlertTitle>
+          <AlertDescription className="flex flex-col items-start gap-3">
+            {t("system.error.body")}
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                const retry = lastAttemptRef.current;
+                if (retry) void run(retry);
+              }}
+            >
+              {t("system.error.retry")}
+            </Button>
+          </AlertDescription>
         </Alert>
       )}
     </div>

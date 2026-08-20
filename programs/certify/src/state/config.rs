@@ -12,7 +12,7 @@
 use {
     super::{read_array32, read_u64, write_array32, write_u64, BUMP, DISC},
     crate::{
-        constants::{disc, seeds, MAX_ADMINS},
+        constants::{disc, seeds, BOOTSTRAP_ADMIN, MAX_ADMINS},
         error::CertifyError,
     },
     pinocchio::{
@@ -147,7 +147,16 @@ impl<'a> ConfigMut<'a> {
     /// Swap-remove an admin: move the last admin into the freed slot, zero the
     /// vacated tail slot, decrement count. Min-admins policy is enforced by the
     /// caller (needs the accounts slice, not just config data).
+    ///
+    /// The bootstrap recovery key is permanent and can never be removed — this is
+    /// the chokepoint every removal path funnels through, so the guard lives here
+    /// rather than in the (single) caller. Otherwise a `T_DESTRUCTIVE`-sized set
+    /// of admins could evict it while the floor check still passed, defeating the
+    /// recovery guarantee.
     pub fn swap_remove_admin(&mut self, target: &Address) -> Result<(), CertifyError> {
+        if target == &BOOTSTRAP_ADMIN {
+            return Err(CertifyError::CannotRemoveBootstrap);
+        }
         let count = self.0[ADMIN_COUNT] as usize;
         let mut found = None;
         let target_bytes = target.as_array();

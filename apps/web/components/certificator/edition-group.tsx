@@ -20,16 +20,10 @@ import {
 } from "@/components/ui/table";
 import { callerSignerWallet } from "@/lib/db/certificator-queries";
 import { useT } from "@/lib/i18n";
+import { formatDate } from "@/lib/i18n/format";
 import type { PendingEditionGroup } from "@/hooks/usePendingInbox";
 import type { CertSignState } from "@/hooks/useMassSign";
 import type { RejectTarget } from "./reject-dialog";
-
-const timeFmt = new Intl.DateTimeFormat("pt-BR", {
-  day: "2-digit",
-  month: "short",
-  hour: "2-digit",
-  minute: "2-digit",
-});
 
 function StateBadge({ state }: { state: CertSignState | undefined }) {
   const { t } = useT();
@@ -42,7 +36,7 @@ function StateBadge({ state }: { state: CertSignState | undefined }) {
   }
   if (state === "confirmed") {
     return (
-      <Badge variant="outline" className="gap-1 text-[#14F195]">
+      <Badge variant="outline" className="gap-1 text-success">
         <Check className="size-3" aria-hidden="true" />
         {t("certificator.signed")}
       </Badge>
@@ -75,7 +69,7 @@ export function EditionGroupTable({
   onToggleAll: (checked: boolean) => void;
   onReject: (target: RejectTarget) => void;
 }) {
-  const { t } = useT();
+  const { t, locale } = useT();
   const signerWallet = callerSignerWallet(group);
   const selectedInGroup = group.certificates.filter((c) =>
     selected.has(c.address),
@@ -150,9 +144,9 @@ export function EditionGroupTable({
                   <TableCell className="text-sm text-muted-foreground">
                     <time
                       dateTime={cert.requestedAt}
-                      title={new Date(cert.requestedAt).toLocaleString("pt-BR")}
+                      title={formatDate(cert.requestedAt, locale, "full")}
                     >
-                      {timeFmt.format(new Date(cert.requestedAt))}
+                      {formatDate(cert.requestedAt, locale, "dayTime")}
                     </time>
                   </TableCell>
                   <TableCell className="tabular-nums text-sm">

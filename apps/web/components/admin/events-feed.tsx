@@ -3,6 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useT, type TranslationKey } from "@/lib/i18n";
+import { formatDate } from "@/lib/i18n/format";
 import type { AdminEvent } from "@/app/api/admin/stats/route";
 
 const EVENT_LABEL_KEY: Record<string, TranslationKey> = {
@@ -15,13 +16,6 @@ const EVENT_LABEL_KEY: Record<string, TranslationKey> = {
   certificate_revoked: "admin.event.certificateRevoked",
 };
 
-function formatTimestamp(iso: string): string {
-  return new Intl.DateTimeFormat("pt-BR", {
-    dateStyle: "short",
-    timeStyle: "short",
-  }).format(new Date(iso));
-}
-
 export function EventsFeed({
   events,
   isLoading,
@@ -29,7 +23,7 @@ export function EventsFeed({
   events: AdminEvent[] | undefined;
   isLoading: boolean;
 }) {
-  const { t } = useT();
+  const { t, locale } = useT();
 
   function eventLabel(type: string): string {
     const key = EVENT_LABEL_KEY[type];
@@ -59,7 +53,7 @@ export function EventsFeed({
               >
                 <span>{eventLabel(event.type)}</span>
                 <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
-                  {formatTimestamp(event.createdAt)}
+                  {formatDate(event.createdAt, locale, "dateTime")}
                 </span>
               </li>
             ))}

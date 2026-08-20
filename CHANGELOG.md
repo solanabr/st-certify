@@ -5,6 +5,111 @@ gate-verified (build/test/review) before the next started; full briefs,
 reports, and reviews are in
 `.superpowers/sdd/you-are-going-to-foamy-stallman/`.
 
+## 2026-08-20 — Attendance metadata (POAP-informed) + published-salt removal
+
+Second wave of the day, after the hardening pass below landed. Gates green:
+production build, typecheck + lint clean, 269 vitest tests (37 files).
+`0003_hardening.sql` and `0004_attendance_metadata.sql` are **applied to
+production** (43/43 `rls-probe` checks pass); the devnet program was
+**upgraded in place** (same program id, `solana program deploy` +
+`ExtendProgram`) with the `init_config` takeover guard.
+
+**Privacy**
+
+- fix(certificates): the published metadata JSON no longer contains
+  `render_spec.values.name_salt` — an archived salt+name pair would
+  permanently prove the on-chain `sha256(salt‖name)` commitment binding,
+  defeating post-erasure unlinkability (LGPD). The PNG stays reproducible
+  from `render_spec`; commitment verification is served by `/verify`, which
+  holds the salt server-side. `scripts/admin/scrub-metadata-salt.ts` rewrites
+  any pre-fix JSONs in place (production scan 2026-08-20: zero published, so
+  nothing to scrub).
+
+**Attendance metadata**
+
+- feat(attendance): events gain optional **location**, **end date** and
+  **event URL** (form + zod + DB, migration `0004`); the shared metadata
+  JSON follows POAP's attribute conventions in this platform's Title-Case
+  style — `Location`, `Event Date`, `End Date`, `Year`, `Event URL`,
+  `Issuer`, `Event ID` — plus `symbol: "ATTEND"` (type-named like `CERT`),
+  `external_url`, and `properties.files`/`category` for wallet display.
+  Certificates additionally gain numeric `Serial`/`Edition Size` attributes
+  (machine-sortable) alongside the human `Cert Number` string. Claim page
+  shows the location and date range.
+- feat(attendance): per-attendee **mint serial in the cNFT leaf name**
+  ("Meetup SP #42") — `attendance_reserve_claim` now assigns and returns
+  `mint_serial` atomically with the capacity slot (no extra write on the
+  mint path); `attendanceLeafName` truncates byte-aware to Bubblegum's
+  32-byte cap (multibyte pt-BR names never split mid-character).
+
+**Build / ops**
+
+- fix(web): the production build was failing on two latent issues — the
+  sha256 spec-hash helpers moved out of `lib/render/layout.ts` (imported by
+  client components; `node:crypto` breaks the client webpack bundle) into
+  `lib/render/spec-hash.ts`, and `toEventView` moved out of the events route
+  file (route modules may only export handlers) into
+  `lib/attendance/event-view.ts`.
+- fix(deploy): `deploy.sh` pre-extends the program allocation
+  (`solana program extend`, ≥10240-byte floor) when the new `.so` outgrows
+  the on-chain account — the CLI's own auto-extend requests the exact
+  deficit and the runtime rejects it.
+
+## 2026-08-20 — Security hardening + attendance UX
+
+Adjudicated from a parallel, adversarially-verified audit (9 domains, 96
+confirmed findings) plus a Chrome UX pass. Full suite green afterward:
+typecheck + lint clean, 263 vitest tests (37 files), 47 program tests.
+
+**Security / correctness**
+
+- fix(attendance): split the claim route's catch so `releaseClaim` runs only
+  on an on-chain mint failure; `markClaimMintedWithRetry` retries the DB write
+  and logs `[attendance:reconcile]` on exhaustion instead of freeing the slot
+  (closes the mint-success + DB-write-fail double-mint).
+- fix(certificates): `getMintedAssetFromEvents` now fails closed (throws
+  retryable) instead of reading a DB error as "never minted";
+  `mintCertificateAsset` persists its idempotency event before the visibility
+  wait (closes the parallel certificate double-mint window).
+- fix(db): **`0003_hardening.sql`** — column-restrict anon SELECT on
+  `certificates` (was leaking `name_salt`/`owner_did`/`owner_wallet` for every
+  row to the public anon key — verified live-exploitable), pin `search_path` +
+  revoke anon EXECUTE on the attendance RPCs, `failed -> minted` slot-retake
+  trigger, partial-unique idempotency indexes, counter CHECK constraints.
+  **Must be applied** (`pnpm setup:supabase`).
+- fix(certificator): `certificator-queries.ts` reads via the service-role
+  client (needs `owner_wallet`, now withheld from anon).
+- fix(program): gate `init_config` on a `BOOTSTRAP_ADMIN` signer and block
+  removal of the bootstrap admin — closes a permissionless-init takeover.
+  Source + tests only; **not redeployed** (devnet config already initialized;
+  a pre-mainnet cutover item).
+- fix(api): redact raw internal exception messages from the client error
+  envelope and log them server-side (`[api:error]`); prefer a server-side
+  Helius RPC URL over the public one with `server-only` on `rpc.ts`; wallet-
+  keyed rate limit on the nonce route; security headers + Report-Only CSP;
+  `checkClaimGate` fails closed on an unparseable deadline.
+
+**Attendance UX**
+
+- feat(attendance): claim-card v2 — asset reveal + "view your NFT", signing-
+  stage copy, wallet-switch, inline (not toast) mint errors; instant SSR paint
+  for the QR-scan path.
+- feat(attendance): public `/nft/[assetId]` share page (indexable, OG preview,
+  `claim_token` never exposed); `/verify` miss falls back to it.
+- feat(attendance): mobile creator dashboard (card layout — actions were
+  clipped off-screen), tree-capacity meters, attendee drawer + CSV export,
+  Phantom deep-link for wallet-less mobile, i18n'd file input, richer QR
+  dialog.
+
+**Ops**
+
+- feat(ops): `scripts/admin/*` incident tools (preflight, operator-balance,
+  integrity-report, reserve-sweep, event-control, tree-capacity, nonce-sweep)
+  + `docs/runbooks/attendance-incident-playbook.md`; `deploy.sh` cluster guard.
+- fix(chore): dead-animation CSS utilities restored; `getServerSnapshot`
+  stability fix; explorer URLs derive their cluster; a11y (Progress value,
+  contrast, radiogroup keyboard nav); i18n gaps closed.
+
 ## 2026-08-19 — Attendance NFTs
 
 - feat(attendance): attendance NFT events — creator dashboard, secret claim

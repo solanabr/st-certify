@@ -34,9 +34,3 @@ export interface DesignerLayoutDraft {
   qr: QrField;
   signatures: SignatureBox[];
 }
-
-export const TEXT_FIELD_LABELS: Record<TextFieldKey, string> = {
-  student_name: "Nome do aluno",
-  date: "Data",
-  cert_id: "ID do certificado",
-};

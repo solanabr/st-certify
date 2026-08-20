@@ -3,7 +3,8 @@
 //!
 //! §11: (1) exact 290 len (2) [C] virgin-check on config = reinit protection
 //! (3) canonical bump found in-program (4) system-program CPI target checked
-//! (7) payer signer (9) checked count math. First-caller-wins singleton.
+//! (7) payer signer + BOOTSTRAP_ADMIN genesis signer (9) checked count math.
+//! First-caller-wins singleton, but the caller must hold the bootstrap key.
 
 use {
     super::addr_at,
@@ -22,6 +23,19 @@ pub fn process(program_id: &Address, accounts: &mut [AccountView], data: &[u8]) 
     if data.len() != DATA_LEN {
         return Err(ProgramError::InvalidInstructionData);
     }
+
+    // Genesis gate: the hardcoded recovery key must authorize this one-shot init.
+    // Without it the singleton is permissionless — a race winner could seed an
+    // attacker-controlled notary + admin set (the forced bootstrap admin alone is
+    // defeatable: 7 attacker admins can co-sign it out via remove_admin). The
+    // bootstrap key may be any signer in the tx (typically also the payer).
+    if !accounts
+        .iter()
+        .any(|a| a.is_signer() && a.address() == &crate::constants::BOOTSTRAP_ADMIN)
+    {
+        return Err(ProgramError::MissingRequiredSignature);
+    }
+
     let [payer, config_acc, system, ..] = accounts else {
         return Err(ProgramError::NotEnoughAccountKeys);
     };

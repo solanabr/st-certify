@@ -7,7 +7,10 @@ import { generateClaimToken } from "@/lib/attendance/token";
 import { setClaimOpen, rotateClaimToken } from "@/lib/db/attendance-mutations";
 import { getEventById } from "@/lib/db/attendance-queries";
 import type { AttendanceEventRow } from "@/lib/db/types";
-import { toEventView, type AttendanceEventView } from "../route";
+import {
+  toEventView,
+  type AttendanceEventView,
+} from "@/lib/attendance/event-view";
 
 /** Creator dashboard row actions: pause/resume the claim window, or rotate the public claim link. */
 export async function POST(

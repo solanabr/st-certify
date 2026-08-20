@@ -7,6 +7,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { explorerTxUrl } from "@/lib/chain/explorer-url";
 import type { VerifySignerView } from "@/lib/db/claim-verify-queries";
 import { getT } from "@/lib/i18n/server";
 
@@ -78,7 +79,7 @@ export async function SignerTable({
               <TableCell className="text-right">
                 {s.txSig ? (
                   <a
-                    href={`https://explorer.solana.com/tx/${s.txSig}?cluster=devnet`}
+                    href={explorerTxUrl(s.txSig)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-1 text-primary hover:underline"

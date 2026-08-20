@@ -10,6 +10,7 @@ import { StatusTimeline } from "@/components/status-timeline";
 import { ClaimAction } from "@/components/claim/claim-action";
 import { MintingStatus } from "@/components/claim/minting-status";
 import { CopyLinkButton } from "@/components/verify/copy-link-button";
+import { explorerAddressUrl } from "@/lib/chain/explorer-url";
 import { useT, type TranslationKey } from "@/lib/i18n";
 import type {
   CertificateForOwner,
@@ -113,7 +114,7 @@ function ActionZone({ cert }: { cert: CertificateForOwner }) {
           {cert.asset && (
             <Button asChild variant="outline" size="sm">
               <a
-                href={`https://explorer.solana.com/address/${cert.asset}?cluster=devnet`}
+                href={explorerAddressUrl(cert.asset)}
                 target="_blank"
                 rel="noopener noreferrer"
               >

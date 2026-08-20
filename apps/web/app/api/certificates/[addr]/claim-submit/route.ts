@@ -1,4 +1,5 @@
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 import type { NextResponse } from "next/server";
 import { apiRoute } from "@/lib/api";

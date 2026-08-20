@@ -2,30 +2,42 @@
  * RLS negative probe (M7 hardening, plan §Security #10 "Supabase RLS: all
  * client writes denied; only service-role writes the mirror"). This is a
  * security GATE, not a smoke test: it proves, against the live Supabase
- * project, that the anon key genuinely cannot write anywhere and genuinely
- * cannot read profiles/events — the same guarantee supabase/migrations/
- * 0001_init.sql declares in SQL, exercised end-to-end through PostgREST the
- * way a real attacker (or a client-side bug) would hit it.
+ * project, that the anon key genuinely cannot write anywhere, genuinely
+ * cannot read profiles/events/attendance_*, genuinely cannot read the
+ * withheld columns of `certificates`, and genuinely cannot call the
+ * attendance RPCs or write to storage — the same guarantees
+ * supabase/migrations/0001_init.sql, 0002_attendance.sql and
+ * 0003_hardening.sql declare in SQL, exercised end-to-end through PostgREST
+ * the way a real attacker (or a client-side bug) would hit it.
  *
  * Design: seed known probe rows with the SERVICE-ROLE client (bypasses RLS),
  * then attempt every operation with the ANON client, then clean up with the
  * service-role client again. Seed-then-probe (rather than trusting an empty
  * table) is deliberate: for SELECT, RLS-with-no-policy doesn't error, it
  * silently returns zero rows — indistinguishable from "table is empty"
- * unless we first prove a row that SHOULD be denied actually exists.
+ * unless we first prove a row that SHOULD be denied actually exists. The
+ * seeded certificate carries non-null name_salt/owner_did/owner_wallet for
+ * the same reason: a null column reads the same as a denied one.
  *
  * For UPDATE/DELETE, Postgres RLS-with-no-policy also doesn't error — the
  * row is invisible to the command, so it just affects zero rows. For INSERT,
  * a missing WITH CHECK policy does throw. This script treats "an explicit
  * error" OR "zero rows affected" as PASS (denied) and "the mutation visibly
  * took effect" as the only FAIL — covering both manifestations without
- * hard-coding which one PostgREST will produce for a given case.
+ * hard-coding which one PostgREST will produce for a given case. RPCs are the
+ * exception: a void-returning function that runs successfully also yields no
+ * rows, so `attemptRpc` treats *any* absence of error as NOT BLOCKED.
+ *
+ * Missing env is a hard failure, not a skip: this script is the gate that
+ * stands between the anon key and every student's PII, and a gate that passes
+ * when it was never actually run is worse than no gate at all.
  *
  * Idempotent + non-destructive to real data: every probe row's PK is
  * prefixed with a run-scoped marker and is deleted in a `finally` block,
  * including any row that leaked through an unexpected INSERT success.
  */
 
+import { randomUUID } from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 try {
@@ -40,11 +52,32 @@ const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 const RUN_ID = `rlsprobe_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
+/**
+ * The columns 0003_hardening.sql grants anon on `certificates`. Kept in sync
+ * by hand with CERT_PUBLIC_COLUMNS in apps/web/lib/db/claim-verify-queries.ts
+ * (scripts/ can't import across the app's `@/` path alias).
+ */
+const CERT_PUBLIC_COLUMNS =
+  "address, edition_address, student_name, status, signer_bitmap, sha256, image_url, metadata_url, asset, cert_number, signer_txs, revoke_reason, completed_at, created_at";
+
+/** Columns the same migration deliberately withholds from anon. */
+const CERT_WITHHELD_COLUMNS = ["name_salt", "owner_did", "owner_wallet"];
+
+const STORAGE_BUCKETS = ["templates", "certs", "metadata", "attendance"];
+
 type Verdict = "PASS" | "FAIL" | "ERROR";
 
 interface ProbeResult {
   table: string;
-  op: "select-allowed" | "select-denied" | "insert" | "update" | "delete";
+  op:
+    | "select-allowed"
+    | "select-denied"
+    | "select-columns"
+    | "insert"
+    | "update"
+    | "delete"
+    | "rpc-denied"
+    | "storage-write";
   verdict: Verdict;
   detail: string;
 }
@@ -77,16 +110,69 @@ async function attempt(
   return { blocked: false, detail: `${count} row(s) affected — NOT BLOCKED` };
 }
 
-async function main(): Promise<void> {
-  if (!URL || !ANON_KEY || !SERVICE_KEY) {
-    console.log("skipped — set NEXT_PUBLIC_SUPABASE_URL");
+/** Unlike `attempt`, an RPC that returns no rows still RAN — only an explicit
+ * error proves EXECUTE was denied. */
+async function attemptRpc(
+  promise: PromiseLike<{ error: { message: string } | null }>,
+): Promise<{ blocked: boolean; detail: string }> {
+  const { error } = await promise;
+  if (error) return { blocked: true, detail: `error: ${error.message}` };
+  return { blocked: false, detail: "function executed — NOT BLOCKED" };
+}
+
+/** A read is "denied" only via an explicit error — a column the anon role
+ * lacks SELECT on makes PostgREST return a 42501, not an empty result. */
+async function expectReadDenied(
+  table: string,
+  op: ProbeResult["op"],
+  what: string,
+  promise: PromiseLike<{ data: unknown; error: { message: string } | null }>,
+): Promise<void> {
+  const { data, error } = await promise;
+  if (error) {
+    record(table, op, "PASS", `${what} denied: ${error.message}`);
     return;
   }
+  record(
+    table,
+    op,
+    "FAIL",
+    `${what} returned ${JSON.stringify(data)} — NOT DENIED`,
+  );
+}
 
-  const admin: SupabaseClient = createClient(URL, SERVICE_KEY, {
+function requireEnv(): { url: string; anonKey: string; serviceKey: string } {
+  const missing = (
+    [
+      ["NEXT_PUBLIC_SUPABASE_URL", URL],
+      ["NEXT_PUBLIC_SUPABASE_ANON_KEY", ANON_KEY],
+      ["SUPABASE_SERVICE_ROLE_KEY", SERVICE_KEY],
+    ] as const
+  )
+    .filter(([, value]) => !value)
+    .map(([name]) => name);
+
+  if (missing.length > 0) {
+    throw new Error(
+      `missing required env: ${missing.join(", ")}.\n` +
+        "  This probe is a security gate — it cannot pass without running.\n" +
+        "  Set these in .env (Supabase dashboard → Project Settings → API) and re-run.",
+    );
+  }
+  return {
+    url: URL as string,
+    anonKey: ANON_KEY as string,
+    serviceKey: SERVICE_KEY as string,
+  };
+}
+
+async function main(): Promise<void> {
+  const env = requireEnv();
+
+  const admin: SupabaseClient = createClient(env.url, env.serviceKey, {
     auth: { persistSession: false },
   });
-  const anon: SupabaseClient = createClient(URL, ANON_KEY, {
+  const anon: SupabaseClient = createClient(env.url, env.anonKey, {
     auth: { persistSession: false },
   });
 
@@ -96,8 +182,13 @@ async function main(): Promise<void> {
   const certAddressInsertAttempt = `${RUN_ID}_cert_insert`;
   const did = `${RUN_ID}_did`;
   const didInsertAttempt = `${RUN_ID}_did_insert`;
+  const ownerWallet = `${RUN_ID}_owner_wallet`;
+  const nameSalt = `${RUN_ID}_secret_salt`;
+  const attendanceNonce = `${RUN_ID}_nonce`;
+  const attendanceWallet = `${RUN_ID}_attendance_wallet`;
   let eventId: number | null = null;
   let eventInsertAttemptId: number | null = null;
+  let attendanceEventId: string | null = null;
 
   console.log(`== RLS probe (run ${RUN_ID}) ==\n`);
 
@@ -127,11 +218,16 @@ async function main(): Promise<void> {
       throw new Error(`setup: edition_signers insert failed: ${error.message}`);
   }
   {
+    // The withheld columns are seeded non-null on purpose: a null column and a
+    // denied column both read as "nothing came back".
     const { error } = await admin.from("certificates").insert({
       address: certAddress,
       edition_address: editionAddress,
       student_name: "RLS Probe Student",
       status: "Requested",
+      owner_did: did,
+      owner_wallet: ownerWallet,
+      name_salt: nameSalt,
     });
     if (error)
       throw new Error(`setup: certificates insert failed: ${error.message}`);
@@ -154,6 +250,51 @@ async function main(): Promise<void> {
       throw new Error(`setup: events insert failed: ${error?.message}`);
     eventId = (data as { id: number }).id;
   }
+  {
+    const { data, error } = await admin
+      .from("attendance_events")
+      .insert({
+        name: "RLS probe attendance event",
+        image_url: "https://example.invalid/probe.png",
+        metadata_uri: "https://example.invalid/probe.json",
+        collection_address: `${RUN_ID}_collection`,
+        event_date: new Date().toISOString().slice(0, 10),
+        max_supply: 10,
+        claim_token: `${RUN_ID}_claim_token`,
+        created_by_wallet: `${RUN_ID}_creator_wallet`,
+      })
+      .select("id")
+      .single();
+    if (error || !data)
+      throw new Error(
+        `setup: attendance_events insert failed: ${error?.message}`,
+      );
+    attendanceEventId = (data as { id: string }).id;
+  }
+  {
+    const { error } = await admin.from("attendance_claims").insert({
+      event_id: attendanceEventId,
+      wallet: attendanceWallet,
+      status: "pending",
+      reserved_at: new Date().toISOString(),
+    });
+    if (error)
+      throw new Error(
+        `setup: attendance_claims insert failed: ${error.message}`,
+      );
+  }
+  {
+    const { error } = await admin.from("attendance_nonces").insert({
+      nonce: attendanceNonce,
+      wallet: attendanceWallet,
+      purpose: "rls-probe",
+      expires_at: new Date(Date.now() + 60_000).toISOString(),
+    });
+    if (error)
+      throw new Error(
+        `setup: attendance_nonces insert failed: ${error.message}`,
+      );
+  }
   console.log("Seed complete.\n");
 
   try {
@@ -163,7 +304,6 @@ async function main(): Promise<void> {
     for (const [table, match] of [
       ["editions", { address: editionAddress }],
       ["edition_signers", { edition_address: editionAddress }],
-      ["certificates", { address: certAddress }],
     ] as const) {
       const { data, error } = await anon.from(table).select("*").match(match);
       if (error) {
@@ -190,66 +330,103 @@ async function main(): Promise<void> {
       }
     }
 
-    // SELECT — profiles/events must be INVISIBLE to anon (RLS, no policy).
+    // certificates is readable, but only through the public column allowlist
+    // 0003_hardening.sql grants — so the "allowed" probe must ask for exactly
+    // that projection, not `*`.
     {
       const { data, error } = await anon
-        .from("profiles")
-        .select("*")
-        .eq("did", did);
+        .from("certificates")
+        .select(CERT_PUBLIC_COLUMNS)
+        .eq("address", certAddress);
       if (error) {
         record(
-          "profiles",
-          "select-denied",
-          "PASS",
-          `anon SELECT errored (denied): ${error.message}`,
-        );
-      } else if (data && data.length > 0) {
-        record(
-          "profiles",
-          "select-denied",
+          "certificates",
+          "select-allowed",
           "FAIL",
-          `anon SELECT returned the row — NOT DENIED`,
+          `anon SELECT of the public column list errored: ${error.message} — the verify page is broken`,
+        );
+      } else if (!data || data.length === 0) {
+        record(
+          "certificates",
+          "select-allowed",
+          "FAIL",
+          "anon SELECT returned 0 rows for a row known to exist",
         );
       } else {
         record(
-          "profiles",
-          "select-denied",
+          "certificates",
+          "select-allowed",
           "PASS",
-          "0 rows returned (RLS-hidden)",
-        );
-      }
-    }
-    {
-      const { data, error } = await anon
-        .from("events")
-        .select("*")
-        .eq("id", eventId as number);
-      if (error) {
-        record(
-          "events",
-          "select-denied",
-          "PASS",
-          `anon SELECT errored (denied): ${error.message}`,
-        );
-      } else if (data && data.length > 0) {
-        record(
-          "events",
-          "select-denied",
-          "FAIL",
-          `anon SELECT returned the row — NOT DENIED`,
-        );
-      } else {
-        record(
-          "events",
-          "select-denied",
-          "PASS",
-          "0 rows returned (RLS-hidden)",
+          `public columns visible (${data.length} row(s))`,
         );
       }
     }
 
     // -------------------------------------------------------------------
-    // INSERT — anon must be unable to create a row in any of the 5 tables.
+    // SELECT columns — the anon key must NOT be able to read (or filter on)
+    // name_salt / owner_did / owner_wallet. name_salt is the secret half of
+    // the on-chain sha256(salt || name) commitment; the owner columns are the
+    // student's identity. Together they'd allow bulk name<->wallet<->DID
+    // enumeration. See 0003_hardening.sql §1.
+    // -------------------------------------------------------------------
+    await expectReadDenied(
+      "certificates",
+      "select-columns",
+      'select("*")',
+      anon.from("certificates").select("*").eq("address", certAddress),
+    );
+
+    for (const column of CERT_WITHHELD_COLUMNS) {
+      await expectReadDenied(
+        "certificates",
+        "select-columns",
+        `select("${column}")`,
+        anon.from("certificates").select(column).eq("address", certAddress),
+      );
+    }
+
+    // A column GRANT also governs WHERE clauses, which is what stops anon from
+    // confirming a DID it cannot read by probing for a match.
+    await expectReadDenied(
+      "certificates",
+      "select-columns",
+      "filter on owner_did",
+      anon.from("certificates").select("address").eq("owner_did", did),
+    );
+
+    // -------------------------------------------------------------------
+    // SELECT — profiles/events/attendance_* must be INVISIBLE to anon
+    // (RLS enabled, no policy at all).
+    // -------------------------------------------------------------------
+    for (const [table, match] of [
+      ["profiles", { did }],
+      ["events", { id: eventId as number }],
+      ["attendance_events", { id: attendanceEventId as string }],
+      ["attendance_claims", { wallet: attendanceWallet }],
+      ["attendance_nonces", { nonce: attendanceNonce }],
+    ] as const) {
+      const { data, error } = await anon.from(table).select("*").match(match);
+      if (error) {
+        record(
+          table,
+          "select-denied",
+          "PASS",
+          `anon SELECT errored (denied): ${error.message}`,
+        );
+      } else if (data && data.length > 0) {
+        record(
+          table,
+          "select-denied",
+          "FAIL",
+          "anon SELECT returned the row — NOT DENIED",
+        );
+      } else {
+        record(table, "select-denied", "PASS", "0 rows returned (RLS-hidden)");
+      }
+    }
+
+    // -------------------------------------------------------------------
+    // INSERT — anon must be unable to create a row in any table.
     // -------------------------------------------------------------------
     {
       const r = await attempt(
@@ -330,6 +507,118 @@ async function main(): Promise<void> {
         eventInsertAttemptId = (data as { id: number } | null)?.id ?? null;
       }
     }
+    {
+      const r = await attempt(
+        anon
+          .from("attendance_claims")
+          .insert({
+            event_id: attendanceEventId,
+            wallet: `${RUN_ID}_attendance_wallet_insert`,
+          })
+          .select(),
+      );
+      record(
+        "attendance_claims",
+        "insert",
+        r.blocked ? "PASS" : "FAIL",
+        r.detail,
+      );
+    }
+    {
+      const r = await attempt(
+        anon
+          .from("attendance_nonces")
+          .insert({
+            nonce: `${RUN_ID}_nonce_insert`,
+            wallet: attendanceWallet,
+            purpose: "rls-probe-insert",
+            expires_at: new Date(Date.now() + 60_000).toISOString(),
+          })
+          .select(),
+      );
+      record(
+        "attendance_nonces",
+        "insert",
+        r.blocked ? "PASS" : "FAIL",
+        r.detail,
+      );
+    }
+
+    // -------------------------------------------------------------------
+    // RPC — the attendance SECURITY functions are service-role-only
+    // (0003_hardening.sql §4). attendance_release_claim in particular is a
+    // free capacity-decrement primitive for anyone who can guess a claim uuid,
+    // and reserve_claim mints capacity pressure at will.
+    // -------------------------------------------------------------------
+    {
+      const r = await attemptRpc(
+        anon.rpc("attendance_reserve_claim", {
+          p_event_id: attendanceEventId,
+          p_wallet: `${RUN_ID}_rpc_wallet`,
+        }),
+      );
+      record(
+        "attendance_reserve_claim",
+        "rpc-denied",
+        r.blocked ? "PASS" : "FAIL",
+        r.detail,
+      );
+    }
+    {
+      const r = await attemptRpc(
+        anon.rpc("attendance_release_claim", { p_claim_id: randomUUID() }),
+      );
+      record(
+        "attendance_release_claim",
+        "rpc-denied",
+        r.blocked ? "PASS" : "FAIL",
+        r.detail,
+      );
+    }
+    {
+      const r = await attemptRpc(
+        anon.rpc("attendance_mark_minted", {
+          p_claim_id: randomUUID(),
+          p_tx_sig: `${RUN_ID}_sig`,
+        }),
+      );
+      record(
+        "attendance_mark_minted",
+        "rpc-denied",
+        r.blocked ? "PASS" : "FAIL",
+        r.detail,
+      );
+    }
+
+    // -------------------------------------------------------------------
+    // STORAGE — the four buckets are public to READ by design (rendered
+    // certificate PNGs, metadata JSON and attendance art are served straight
+    // from their public URLs). Writing is the part that must be
+    // service-role-only: an anon upload would let anyone overwrite the
+    // artifact a verify page renders.
+    // -------------------------------------------------------------------
+    for (const bucket of STORAGE_BUCKETS) {
+      const path = `${RUN_ID}/probe.txt`;
+      const { error } = await anon.storage
+        .from(bucket)
+        .upload(path, new Blob(["rls probe"]), { contentType: "text/plain" });
+      if (error) {
+        record(
+          bucket,
+          "storage-write",
+          "PASS",
+          `anon upload denied: ${error.message}`,
+        );
+      } else {
+        record(
+          bucket,
+          "storage-write",
+          "FAIL",
+          "anon upload SUCCEEDED — NOT BLOCKED",
+        );
+        await admin.storage.from(bucket).remove([path]);
+      }
+    }
 
     // -------------------------------------------------------------------
     // UPDATE — anon must be unable to modify the seeded row in any table.
@@ -344,6 +633,21 @@ async function main(): Promise<void> {
       ["certificates", { address: certAddress }, { student_name: "TAMPERED" }],
       ["profiles", { did }, { email: "tampered@example.invalid" }],
       ["events", { id: eventId as number }, { type: "tampered" }],
+      [
+        "attendance_events",
+        { id: attendanceEventId as string },
+        { max_supply: 99999 },
+      ],
+      [
+        "attendance_claims",
+        { wallet: attendanceWallet },
+        { status: "minted" as const },
+      ],
+      [
+        "attendance_nonces",
+        { nonce: attendanceNonce },
+        { used_at: new Date().toISOString() },
+      ],
     ] as const) {
       const r = await attempt(
         anon.from(table).update(patch).match(match).select(),
@@ -353,7 +657,7 @@ async function main(): Promise<void> {
 
     // -------------------------------------------------------------------
     // DELETE — anon must be unable to remove the seeded row in any table.
-    // Run last (destructive); order among these 5 doesn't matter further.
+    // Run last (destructive); order among these doesn't matter further.
     // -------------------------------------------------------------------
     for (const [table, match] of [
       ["edition_signers", { edition_address: editionAddress, position: 0 }],
@@ -361,14 +665,18 @@ async function main(): Promise<void> {
       ["editions", { address: editionAddress }],
       ["profiles", { did }],
       ["events", { id: eventId as number }],
+      ["attendance_claims", { wallet: attendanceWallet }],
+      ["attendance_nonces", { nonce: attendanceNonce }],
+      ["attendance_events", { id: attendanceEventId as string }],
     ] as const) {
       const r = await attempt(anon.from(table).delete().match(match).select());
       record(table, "delete", r.blocked ? "PASS" : "FAIL", r.detail);
     }
   } finally {
     console.log("\nCleaning up probe rows (service role)...");
-    // Deleting the edition cascades to edition_signers + certificates
-    // (0001_init.sql: `on delete cascade`). Each delete tolerates the row
+    // Deleting the edition cascades to edition_signers + certificates, and
+    // the attendance event cascades to attendance_claims (0001_init.sql /
+    // 0002_attendance.sql: `on delete cascade`). Each delete tolerates the row
     // already being gone (e.g. if a DELETE probe above unexpectedly
     // succeeded) — cleanup must never throw on top of a real finding.
     await admin.from("editions").delete().eq("address", editionAddress);
@@ -385,6 +693,13 @@ async function main(): Promise<void> {
     if (eventId !== null) await admin.from("events").delete().eq("id", eventId);
     if (eventInsertAttemptId !== null) {
       await admin.from("events").delete().eq("id", eventInsertAttemptId);
+    }
+    await admin.from("attendance_nonces").delete().like("nonce", `${RUN_ID}%`);
+    if (attendanceEventId !== null) {
+      await admin
+        .from("attendance_events")
+        .delete()
+        .eq("id", attendanceEventId);
     }
     console.log("Cleanup complete.");
   }
@@ -407,7 +722,7 @@ async function main(): Promise<void> {
   );
   if (failures.length > 0) {
     console.error(
-      `\n${failures.length} RLS check(s) FAILED — anon key can do something it should not be able to do. Fix supabase/migrations/0001_init.sql before shipping.`,
+      `\n${failures.length} RLS check(s) FAILED — the anon key can do something it should not be able to do. Fix supabase/migrations/*.sql before shipping.`,
     );
     process.exitCode = 1;
   } else {

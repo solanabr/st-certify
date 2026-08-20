@@ -62,8 +62,6 @@ export interface BuildMetadataJsonInput {
   values: {
     /** Plaintext student name — this JSON is the only off-chain place it lives. */
     studentName: string;
-    /** Hex-encoded 32-byte salt used in the on-chain name_commitment. */
-    nameSaltHex: string;
     dateText: string;
     certId: string;
   };
@@ -87,7 +85,6 @@ export interface CertifyMetadataJson {
     layout: Layout;
     values: {
       student_name: string;
-      name_salt: string;
       date_text: string;
       cert_id: string;
     };
@@ -106,8 +103,12 @@ export interface CertifyMetadataJson {
 /**
  * Builds the off-chain metadata JSON for a claimed certificate: Metaplex
  * standard fields + a full `render_spec` sufficient to regenerate the exact
- * same PNG and to independently verify the name commitment, from this JSON
- * alone (given the pinned engine versions + committed fonts + template).
+ * same PNG from this JSON alone (given the pinned engine versions + committed
+ * fonts + template). The `name_salt` is deliberately NOT published: an
+ * archived salt+name pair would cryptographically bind the student to the
+ * on-chain commitment forever, defeating post-erasure unlinkability (LGPD).
+ * Commitment verification is served by /verify, which holds the salt
+ * server-side.
  */
 export function buildMetadataJson(
   input: BuildMetadataJsonInput,
@@ -126,7 +127,13 @@ export function buildMetadataJson(
     external_url: input.externalUrl,
     attributes: [
       { trait_type: "Artifact SHA-256", value: input.artifactSha256Hex },
+      // Composed string for humans; the raw numbers below let indexers and
+      // marketplaces sort/range-filter, which a "#7 of 50" string cannot.
       { trait_type: "Cert Number", value: numbering },
+      { trait_type: "Serial", value: input.certNumber },
+      ...(input.maxSupply
+        ? [{ trait_type: "Edition Size", value: input.maxSupply }]
+        : []),
     ],
     properties: {
       files: [{ uri: input.imageUrl, type: "image/png" }],
@@ -141,7 +148,6 @@ export function buildMetadataJson(
       layout: input.layout,
       values: {
         student_name: input.values.studentName,
-        name_salt: input.values.nameSaltHex,
         date_text: input.values.dateText,
         cert_id: input.values.certId,
       },

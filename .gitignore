@@ -162,3 +162,11 @@ CLAUDE.local.md
 
 # Rust / Cargo build artifacts (workspace target dir)
 /target/
+.vercel
+.env*
+# ...but the committed template must stay tracked — `.env*` above re-ignores
+# it, overriding the `!.env.example` negation further up this file.
+!.env.example
+
+# Claude plugin state (memsearch index)
+.memsearch/

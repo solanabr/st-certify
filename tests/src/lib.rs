@@ -15,10 +15,12 @@ use {
     mollusk_svm::Mollusk,
     solana_account::Account,
     solana_instruction::{AccountMeta, Instruction},
+    solana_instruction_error::InstructionError,
     solana_keypair::Keypair,
     solana_pubkey::Pubkey,
     solana_signer::Signer,
     solana_transaction::Transaction,
+    solana_transaction_error::TransactionError,
     std::path::PathBuf,
 };
 
@@ -67,6 +69,23 @@ pub fn deploy_dir() -> PathBuf {
 /// Fresh LiteSVM with the program loaded.
 pub fn setup() -> LiteSVM {
     let mut svm = LiteSVM::new();
+    svm.add_program_from_file(PROGRAM_ID, so_path())
+        .expect("load certify.so — run `cargo build-sbf` first");
+    svm
+}
+
+/// LiteSVM with the program loaded and signature verification DISABLED.
+///
+/// The `init_config` genesis gate requires `BOOTSTRAP_ADMIN` to be a tx signer,
+/// but that recovery key's secret is (correctly) not in the repo. `is_signer` —
+/// the flag the program actually checks — comes from the message header, not from
+/// signature validity, so with sigverify off a partially-signed tx can present the
+/// real bootstrap address as a signer without its secret. The runtime's
+/// `is_signer ⇔ valid-signature` guarantee is Solana's to enforce, not this
+/// program's; we test the program's `is_signer` *check* against the real binary
+/// and the real constant. Every real keypair still signs normally.
+pub fn setup_no_sigverify() -> LiteSVM {
+    let mut svm = LiteSVM::new().with_sigverify(false);
     svm.add_program_from_file(PROGRAM_ID, so_path())
         .expect("load certify.so — run `cargo build-sbf` first");
     svm
@@ -208,6 +227,25 @@ fn admin_metas(admins: &[Pubkey]) -> Vec<AccountMeta> {
 }
 
 pub fn ix_init_config(payer: &Pubkey, notary: &Pubkey, admins: &[Pubkey]) -> Instruction {
+    let (config, _) = config_pda();
+    ix(
+        vec![
+            AccountMeta::new(*payer, true),
+            AccountMeta::new(config, false),
+            AccountMeta::new_readonly(SYSTEM_PROGRAM, false),
+            // Genesis gate: the bootstrap recovery key must sign init.
+            AccountMeta::new_readonly(constants::BOOTSTRAP_ADMIN, true),
+        ],
+        enc_init_config(notary, admins),
+    )
+}
+/// init builder that OMITS the bootstrap genesis signer — for the negative gate
+/// test (must be rejected with `MissingRequiredSignature`).
+pub fn ix_init_config_no_bootstrap_signer(
+    payer: &Pubkey,
+    notary: &Pubkey,
+    admins: &[Pubkey],
+) -> Instruction {
     let (config, _) = config_pda();
     ix(
         vec![
@@ -559,9 +597,50 @@ pub fn send(
     svm.send_transaction(t)
 }
 
+/// Build+PARTIALLY-sign+send: only `signers` sign; other required signers (e.g.
+/// `BOOTSTRAP_ADMIN`, whose secret the tests don't hold) keep a default signature.
+/// Requires a sigverify-disabled svm (see [`setup_no_sigverify`]).
+pub fn send_partial(
+    svm: &mut LiteSVM,
+    payer: &Keypair,
+    signers: &[&Keypair],
+    ixs: &[Instruction],
+) -> litesvm::types::TransactionResult {
+    let mut t = Transaction::new_with_payer(ixs, Some(&payer.pubkey()));
+    t.partial_sign(signers, svm.latest_blockhash());
+    svm.send_transaction(t)
+}
+
+/// The `ProgramError::Custom(code)` of a failed tx, or `None` if it failed some
+/// other way (or succeeded).
+pub fn custom_err_code(res: &litesvm::types::TransactionResult) -> Option<u32> {
+    match res {
+        Err(meta) => match meta.err {
+            TransactionError::InstructionError(_, InstructionError::Custom(code)) => Some(code),
+            _ => None,
+        },
+        Ok(_) => None,
+    }
+}
+
+/// True iff the tx failed with `InstructionError::MissingRequiredSignature`.
+pub fn is_missing_signature(res: &litesvm::types::TransactionResult) -> bool {
+    matches!(
+        res,
+        Err(meta)
+            if matches!(
+                meta.err,
+                TransactionError::InstructionError(_, InstructionError::MissingRequiredSignature)
+            )
+    )
+}
+
 /// Initialize config with two admin keypairs we control, returning the env.
+///
+/// Uses a sigverify-disabled svm so init's genesis signer (BOOTSTRAP_ADMIN) can be
+/// presented without its secret; all downstream ops still pass real keypairs.
 pub fn boot() -> Env {
-    let mut svm = setup();
+    let mut svm = setup_no_sigverify();
     let payer = funded_keypair(&mut svm, 100_000_000_000);
     let admin1 = funded_keypair(&mut svm, 10_000_000_000);
     let admin2 = funded_keypair(&mut svm, 10_000_000_000);
@@ -571,7 +650,7 @@ pub fn boot() -> Env {
         &notary.pubkey(),
         &[admin1.pubkey(), admin2.pubkey()],
     );
-    send(&mut svm, &payer, &[&payer], &[ix]).expect("init_config");
+    send_partial(&mut svm, &payer, &[&payer], &[ix]).expect("init_config");
     Env {
         svm,
         payer,

@@ -1,24 +1,34 @@
 // Certificator (M4) DB reads. Lives under lib/db/** so the @supabase import
 // fence is satisfied; a separate file (not queries.ts) to stay collision-free
-// with M3's concurrent edits. Self-contained anon client, mirroring queries.ts.
+// with M3's concurrent edits.
+//
+// Service-role client: getPendingForSigner / isWalletSignerOfEdition run ONLY
+// from server routes already behind requireCertifier, and getPendingForSigner
+// needs `owner_wallet` — a column the certificates RLS column grants (migration
+// 0003) deliberately withhold from anon. The pure helpers below
+// (callerSignerWallet, assemblePendingGroups) stay client-importable:
+// SUPABASE_SERVICE_ROLE_KEY is never inlined into the client bundle (Next only
+// inlines NEXT_PUBLIC_* vars), and db() is never reached from client code.
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { fail } from "@/lib/errors";
 import type { CertificateRow, EditionSignerRow } from "./types";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 /** False until Supabase env is set — callers degrade to an empty inbox. */
-export const dbConfigured = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
+export const dbConfigured = Boolean(SUPABASE_URL && SERVICE_ROLE_KEY);
 
-let anonClient: SupabaseClient | null = null;
+let serviceClient: SupabaseClient | null = null;
 function db(): SupabaseClient {
-  if (!dbConfigured || !SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  if (!dbConfigured || !SUPABASE_URL || !SERVICE_ROLE_KEY) {
     fail("INTERNAL", "Supabase não configurado.");
   }
-  anonClient ??= createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  return anonClient;
+  serviceClient ??= createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
+    auth: { persistSession: false },
+  });
+  return serviceClient;
 }
 
 export interface PendingSignerSlot {

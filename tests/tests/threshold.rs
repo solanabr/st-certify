@@ -187,3 +187,110 @@ fn set_notary_threshold() {
         new_notary
     );
 }
+
+// ── genesis gate: init_config requires the bootstrap recovery key ────────────
+
+#[test]
+fn init_config_requires_bootstrap_signer() {
+    // Sigverify ON: a permissionless race-winner has no bootstrap secret, so it
+    // simply cannot present that signer. The gate rejects before any PDA is made.
+    let mut svm = setup();
+    let payer = funded_keypair(&mut svm, 100_000_000_000);
+    let a1 = Keypair::new();
+    let a2 = Keypair::new();
+    let notary = Keypair::new();
+    let ix = ix_init_config_no_bootstrap_signer(
+        &payer.pubkey(),
+        &notary.pubkey(),
+        &[a1.pubkey(), a2.pubkey()],
+    );
+    let res = send(&mut svm, &payer, &[&payer], &[ix]);
+    assert!(
+        is_missing_signature(&res),
+        "init without bootstrap must fail MissingRequiredSignature, got {res:?}"
+    );
+    assert!(
+        account_opt(&svm, &config_pda().0).is_none(),
+        "no config PDA may exist after a rejected init"
+    );
+}
+
+#[test]
+fn init_config_succeeds_when_bootstrap_signs() {
+    let mut svm = setup_no_sigverify();
+    let payer = funded_keypair(&mut svm, 100_000_000_000);
+    let a1 = Keypair::new();
+    let a2 = Keypair::new();
+    let notary = Keypair::new();
+    let ix = ix_init_config(
+        &payer.pubkey(),
+        &notary.pubkey(),
+        &[a1.pubkey(), a2.pubkey()],
+    );
+    send_partial(&mut svm, &payer, &[&payer], &[ix]).expect("init with bootstrap signer");
+    let cfg = decode_config(&account_data(&svm, &config_pda().0));
+    assert_eq!(cfg.admin_count, 3, "a1 + a2 + forced bootstrap");
+    assert!(cfg.admins.contains(&constants::BOOTSTRAP_ADMIN));
+    assert!(cfg.admins.contains(&a1.pubkey()));
+    assert!(cfg.admins.contains(&a2.pubkey()));
+    assert_eq!(cfg.notary, notary.pubkey());
+}
+
+#[test]
+fn bootstrap_admin_cannot_be_removed() {
+    let mut env = boot(); // admins: admin1, admin2, BOOTSTRAP (count 3)
+
+    // Add a 4th admin so the floor (count-1 >= MIN_ADMINS_AFTER_REMOVE) permits a
+    // removal — isolating the bootstrap guard from the floor check.
+    let extra = Keypair::new().pubkey();
+    send(
+        &mut env.svm,
+        &env.payer,
+        &[&env.payer, &env.admin1, &env.admin2],
+        &[ix_add_admin(
+            &extra,
+            &[env.admin1.pubkey(), env.admin2.pubkey()],
+        )],
+    )
+    .expect("add 4th admin");
+    assert_eq!(
+        decode_config(&account_data(&env.svm, &config_pda().0)).admin_count,
+        4
+    );
+
+    // Evicting BOOTSTRAP_ADMIN must fail with CannotRemoveBootstrap (floor passes).
+    let res = send(
+        &mut env.svm,
+        &env.payer,
+        &[&env.payer, &env.admin1, &env.admin2],
+        &[ix_remove_admin(
+            &constants::BOOTSTRAP_ADMIN,
+            &[env.admin1.pubkey(), env.admin2.pubkey()],
+        )],
+    );
+    assert_eq!(
+        custom_err_code(&res),
+        Some(CertifyError::CannotRemoveBootstrap as u32),
+        "removing bootstrap must fail CannotRemoveBootstrap, got {res:?}"
+    );
+    let cfg = decode_config(&account_data(&env.svm, &config_pda().0));
+    assert_eq!(cfg.admin_count, 4, "config unchanged after blocked removal");
+    assert!(cfg.admins.contains(&constants::BOOTSTRAP_ADMIN));
+
+    // A NON-bootstrap admin removes fine at the same count → the guard is
+    // bootstrap-specific, not a floor artifact.
+    send(
+        &mut env.svm,
+        &env.payer,
+        &[&env.payer, &env.admin1, &env.admin2],
+        &[ix_remove_admin(
+            &extra,
+            &[env.admin1.pubkey(), env.admin2.pubkey()],
+        )],
+    )
+    .expect("removing a non-bootstrap admin at count 4 succeeds");
+    let cfg = decode_config(&account_data(&env.svm, &config_pda().0));
+    assert_eq!(cfg.admin_count, 3);
+    assert!(cfg.admins.contains(&constants::BOOTSTRAP_ADMIN));
+    assert!(!cfg.admins.contains(&extra));
+}

@@ -223,14 +223,16 @@ fn full_lifecycle() {
 #[test]
 fn config_is_singleton() {
     let mut env = boot();
-    // Re-init must fail (config already exists).
+    // Re-init must fail (config already exists) even with the genesis gate
+    // satisfied — send_partial presents the bootstrap signer so the failure is the
+    // singleton virgin-check, not the gate.
     let ix = ix_init_config(
         &env.payer.pubkey(),
         &env.notary.pubkey(),
         &[env.admin1.pubkey()],
     );
     assert!(
-        send(&mut env.svm, &env.payer, &[&env.payer], &[ix]).is_err(),
+        send_partial(&mut env.svm, &env.payer, &[&env.payer], &[ix]).is_err(),
         "re-init must fail"
     );
 }

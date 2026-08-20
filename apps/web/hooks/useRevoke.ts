@@ -7,6 +7,7 @@ import {
 } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { api } from "@/lib/api-client";
+import { useT } from "@/lib/i18n";
 import { onAppError } from "@/lib/on-app-error";
 
 interface RevokeResponse {
@@ -31,6 +32,7 @@ export function useRevoke(): UseMutationResult<
   RevokeVars
 > {
   const queryClient = useQueryClient();
+  const { t } = useT();
   return useMutation<RevokeResponse, Error, RevokeVars>({
     mutationFn: (vars) =>
       api<RevokeResponse>(
@@ -38,11 +40,7 @@ export function useRevoke(): UseMutationResult<
         { json: { reason: vars.reason } },
       ),
     onSuccess: (res) => {
-      toast.success(
-        res.burned
-          ? "Certificado revogado · NFT queimado"
-          : "Certificado revogado",
-      );
+      toast.success(t(res.burned ? "admin.revokedAndBurned" : "admin.revoked"));
       void queryClient.invalidateQueries({
         queryKey: ["admin", "certificates"],
       });

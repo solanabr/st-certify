@@ -31,6 +31,8 @@ const pt = {
   "verify.banner.invalidTitle": "Certificado não válido",
   "verify.banner.invalidBody":
     "Esta solicitação foi encerrada e não corresponde a um certificado emitido.",
+  "verify.media.imageAlt": "Certificado de {student}",
+  "verify.media.revokedStamp": "Revogado",
   "verify.detail.student": "Aluno",
   "verify.detail.number": "Nº",
   "verify.detail.numberOf": "#{number} de {max}",
@@ -92,6 +94,8 @@ export const verifyDict: Record<Locale, Record<verifyKey, string>> = {
     "verify.banner.invalidTitle": "Certificate not valid",
     "verify.banner.invalidBody":
       "This request was closed and does not correspond to an issued certificate.",
+    "verify.media.imageAlt": "{student}'s certificate",
+    "verify.media.revokedStamp": "Revoked",
     "verify.detail.student": "Student",
     "verify.detail.number": "No.",
     "verify.detail.numberOf": "#{number} of {max}",
@@ -148,6 +152,8 @@ export const verifyDict: Record<Locale, Record<verifyKey, string>> = {
     "verify.banner.invalidTitle": "Certificado no válido",
     "verify.banner.invalidBody":
       "Esta solicitud fue cerrada y no corresponde a un certificado emitido.",
+    "verify.media.imageAlt": "Certificado de {student}",
+    "verify.media.revokedStamp": "Revocado",
     "verify.detail.student": "Alumno",
     "verify.detail.number": "N.º",
     "verify.detail.numberOf": "#{number} de {max}",

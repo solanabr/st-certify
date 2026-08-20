@@ -14,22 +14,36 @@ const imageDataUrlSchema = z.string().refine((v) => {
   return (m[2].length * 3) / 4 <= MAX_IMAGE_BYTES;
 }, "Imagem inválida — use PNG, JPEG ou WebP de até 2MB.");
 
-export const createEventSchema = z.object({
-  name: z
-    .string()
-    .trim()
-    .min(1, "Informe o nome.")
-    .max(32, "Máximo de 32 caracteres."),
-  description: z
-    .string()
-    .trim()
-    .max(500, "Máximo de 500 caracteres.")
-    .default(""),
-  eventDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data inválida."),
-  imageDataUrl: imageDataUrlSchema,
-  maxSupply: z.number().int().min(1).max(10_000).optional(),
-  claimDeadline: z.string().datetime({ offset: true }).optional(),
-});
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+export const createEventSchema = z
+  .object({
+    name: z
+      .string()
+      .trim()
+      .min(1, "Informe o nome.")
+      .max(32, "Máximo de 32 caracteres."),
+    description: z
+      .string()
+      .trim()
+      .max(500, "Máximo de 500 caracteres.")
+      .default(""),
+    eventDate: z.string().regex(ISO_DATE_RE, "Data inválida."),
+    endDate: z.string().regex(ISO_DATE_RE, "Data inválida.").optional(),
+    location: z.string().trim().max(80, "Máximo de 80 caracteres.").default(""),
+    eventUrl: z
+      .url("Link inválido — use uma URL http(s).")
+      .max(200, "Máximo de 200 caracteres.")
+      .refine((v) => /^https?:\/\//.test(v), "Link inválido — use http(s).")
+      .optional(),
+    imageDataUrl: imageDataUrlSchema,
+    maxSupply: z.number().int().min(1).max(10_000).optional(),
+    claimDeadline: z.string().datetime({ offset: true }).optional(),
+  })
+  .refine((v) => !v.endDate || v.endDate >= v.eventDate, {
+    message: "A data de término não pode ser anterior à de início.",
+    path: ["endDate"],
+  });
 export type CreateEventInput = z.infer<typeof createEventSchema>;
 
 export const claimSchema = z.object({

@@ -3,10 +3,9 @@ import {
   layoutSchema,
   editionReadyLayoutSchema,
   canonicalizeLayout,
-  specHash,
-  specHashBytes,
   type Layout,
 } from "../layout";
+import { specHash, specHashBytes } from "../spec-hash";
 
 const baseLayout: Layout = {
   version: 1,

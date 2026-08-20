@@ -34,6 +34,9 @@ export function WizardQaStep({ form, onOpened }: Props) {
     address: string;
     slug: string;
   } | null>(null);
+  const [sample, setSample] = useState<"loading" | "ready" | "error">(
+    "loading",
+  );
   const firedRef = useRef(false);
 
   function fireCreate(): void {
@@ -116,13 +119,49 @@ export function WizardQaStep({ form, onOpened }: Props) {
       <p className="text-sm text-muted-foreground">
         {t("admin.qa.createdPaused")}
       </p>
-      {created && (
-        // eslint-disable-next-line @next/next/no-img-element -- server-rendered PNG, not a static/local asset
-        <img
-          src={`/api/admin/editions/${created.address}/qa-sample`}
-          alt={t("admin.qa.sampleAlt")}
-          className="w-full rounded-lg border border-border"
-        />
+      {created && sample !== "error" && (
+        <>
+          {sample === "loading" && (
+            <div className="space-y-2" aria-live="polite">
+              <p className="text-sm text-muted-foreground">
+                {t("admin.qa.sampleLoading")}
+              </p>
+              <Skeleton className="aspect-[16/11] w-full rounded-lg" />
+            </div>
+          )}
+          {/* eslint-disable-next-line @next/next/no-img-element -- server-rendered PNG, not a static/local asset */}
+          <img
+            src={`/api/admin/editions/${created.address}/qa-sample`}
+            alt={t("admin.qa.sampleAlt")}
+            className={
+              sample === "ready"
+                ? "w-full rounded-lg border border-border"
+                : "hidden"
+            }
+            onLoad={() => setSample("ready")}
+            onError={() => setSample("error")}
+          />
+        </>
+      )}
+
+      {created && sample === "error" && (
+        <Alert variant="destructive">
+          <AlertTriangle />
+          <AlertTitle>{t("admin.qa.sampleError")}</AlertTitle>
+          <AlertDescription className="flex flex-col items-start gap-3">
+            {t("admin.qa.sampleErrorHint")}
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              // The <img> above is unmounted in this branch, so flipping back
+              // to "loading" remounts it and re-requests the render.
+              onClick={() => setSample("loading")}
+            >
+              {t("admin.qa.reloadSample")}
+            </Button>
+          </AlertDescription>
+        </Alert>
       )}
       <div className="flex justify-between pt-2">
         <Button

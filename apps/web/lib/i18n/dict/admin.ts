@@ -34,6 +34,9 @@ const pt = {
   "admin.pause": "Pausar",
   "admin.open": "Abrir",
   "admin.copyLink": "Copiar link",
+  "admin.copyLinkFailed": "Não foi possível copiar o link.",
+  "admin.revoked": "Certificado revogado",
+  "admin.revokedAndBurned": "Certificado revogado · NFT queimado",
   "admin.edit": "Editar",
   "admin.editDisabledTitle":
     "Duplicar como nova edição (em breve) — edições são imutáveis após criadas",
@@ -120,6 +123,11 @@ const pt = {
   "admin.qa.createdPaused":
     "Edição criada e pausada. Confira a amostra abaixo com dados de exemplo antes de abrir para o público.",
   "admin.qa.sampleAlt": "Amostra do certificado com dados de exemplo",
+  "admin.qa.sampleLoading": "Renderizando a amostra…",
+  "admin.qa.sampleError": "Não foi possível carregar a amostra do certificado.",
+  "admin.qa.sampleErrorHint":
+    "A edição foi criada e está pausada. Recarregue a amostra antes de abri-la ao público.",
+  "admin.qa.reloadSample": "Recarregar amostra",
   "admin.qa.opening": "Abrindo…",
   "admin.qa.openEdition": "Abrir edição",
   "admin.qa.pausedNote":
@@ -163,6 +171,9 @@ export const adminDict: Record<Locale, Record<adminKey, string>> = {
     "admin.pause": "Pause",
     "admin.open": "Open",
     "admin.copyLink": "Copy link",
+    "admin.copyLinkFailed": "Couldn't copy the link.",
+    "admin.revoked": "Certificate revoked",
+    "admin.revokedAndBurned": "Certificate revoked · NFT burned",
     "admin.edit": "Edit",
     "admin.editDisabledTitle":
       "Duplicate as a new edition (coming soon) — editions are immutable once created",
@@ -249,6 +260,11 @@ export const adminDict: Record<Locale, Record<adminKey, string>> = {
     "admin.qa.createdPaused":
       "Edition created and paused. Check the sample below with example data before opening it to the public.",
     "admin.qa.sampleAlt": "Certificate sample with example data",
+    "admin.qa.sampleLoading": "Rendering the sample…",
+    "admin.qa.sampleError": "Couldn't load the certificate sample.",
+    "admin.qa.sampleErrorHint":
+      "The edition was created and is paused. Reload the sample before opening it to the public.",
+    "admin.qa.reloadSample": "Reload sample",
     "admin.qa.opening": "Opening…",
     "admin.qa.openEdition": "Open edition",
     "admin.qa.pausedNote":
@@ -287,6 +303,9 @@ export const adminDict: Record<Locale, Record<adminKey, string>> = {
     "admin.pause": "Pausar",
     "admin.open": "Abrir",
     "admin.copyLink": "Copiar enlace",
+    "admin.copyLinkFailed": "No se pudo copiar el enlace.",
+    "admin.revoked": "Certificado revocado",
+    "admin.revokedAndBurned": "Certificado revocado · NFT quemado",
     "admin.edit": "Editar",
     "admin.editDisabledTitle":
       "Duplicar como nueva edición (próximamente) — las ediciones son inmutables una vez creadas",
@@ -373,6 +392,11 @@ export const adminDict: Record<Locale, Record<adminKey, string>> = {
     "admin.qa.createdPaused":
       "Edición creada y pausada. Revisa la muestra de abajo con datos de ejemplo antes de abrirla al público.",
     "admin.qa.sampleAlt": "Muestra del certificado con datos de ejemplo",
+    "admin.qa.sampleLoading": "Renderizando la muestra…",
+    "admin.qa.sampleError": "No se pudo cargar la muestra del certificado.",
+    "admin.qa.sampleErrorHint":
+      "La edición fue creada y está pausada. Recarga la muestra antes de abrirla al público.",
+    "admin.qa.reloadSample": "Recargar muestra",
     "admin.qa.opening": "Abriendo…",
     "admin.qa.openEdition": "Abrir edición",
     "admin.qa.pausedNote":

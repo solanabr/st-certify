@@ -33,10 +33,32 @@ const RESTRICTED_ACCOUNT_COMPRESSION = {
   name: "@metaplex-foundation/mpl-account-compression",
   message: "Import mpl-account-compression only under lib/chain/**.",
 };
+const RESTRICTED_MPL_CORE = {
+  name: "@metaplex-foundation/mpl-core",
+  message: "Import mpl-core only under lib/chain/**.",
+};
+const RESTRICTED_UMI = {
+  group: ["@metaplex-foundation/umi", "@metaplex-foundation/umi-*"],
+  message: "Import @metaplex-foundation/umi* only under lib/chain/**.",
+};
+const RESTRICTED_SOLANA_PROGRAM = {
+  group: ["@solana-program/*"],
+  message: "Import @solana-program/* only under lib/chain/**.",
+};
 const RESTRICTED_WALLET_STANDARD = {
   group: ["@wallet-standard/*"],
   message: "Import @wallet-standard/* only under lib/wallet/**.",
 };
+
+// The chain SDKs, as one list — every non-lib/chain scope denies all of them.
+const RESTRICTED_CHAIN_PATHS = [
+  RESTRICTED_KIT,
+  RESTRICTED_CLIENT,
+  RESTRICTED_BUBBLEGUM,
+  RESTRICTED_ACCOUNT_COMPRESSION,
+  RESTRICTED_MPL_CORE,
+];
+const RESTRICTED_CHAIN_PATTERNS = [RESTRICTED_UMI, RESTRICTED_SOLANA_PROGRAM];
 
 const eslintConfig = [
   ...compat.extends("next/core-web-vitals", "next/typescript"),
@@ -55,14 +77,8 @@ const eslintConfig = [
       "no-restricted-imports": [
         "error",
         {
-          paths: [
-            RESTRICTED_KIT,
-            RESTRICTED_CLIENT,
-            RESTRICTED_SUPABASE,
-            RESTRICTED_BUBBLEGUM,
-            RESTRICTED_ACCOUNT_COMPRESSION,
-          ],
-          patterns: [RESTRICTED_WALLET_STANDARD],
+          paths: [...RESTRICTED_CHAIN_PATHS, RESTRICTED_SUPABASE],
+          patterns: [...RESTRICTED_CHAIN_PATTERNS, RESTRICTED_WALLET_STANDARD],
         },
       ],
     },
@@ -82,8 +98,8 @@ const eslintConfig = [
       "no-restricted-imports": [
         "error",
         {
-          paths: [RESTRICTED_KIT, RESTRICTED_CLIENT, RESTRICTED_BUBBLEGUM, RESTRICTED_ACCOUNT_COMPRESSION],
-          patterns: [RESTRICTED_WALLET_STANDARD],
+          paths: RESTRICTED_CHAIN_PATHS,
+          patterns: [...RESTRICTED_CHAIN_PATTERNS, RESTRICTED_WALLET_STANDARD],
         },
       ],
     },
@@ -94,13 +110,8 @@ const eslintConfig = [
       "no-restricted-imports": [
         "error",
         {
-          paths: [
-            RESTRICTED_KIT,
-            RESTRICTED_CLIENT,
-            RESTRICTED_SUPABASE,
-            RESTRICTED_BUBBLEGUM,
-            RESTRICTED_ACCOUNT_COMPRESSION,
-          ],
+          paths: [...RESTRICTED_CHAIN_PATHS, RESTRICTED_SUPABASE],
+          patterns: RESTRICTED_CHAIN_PATTERNS,
         },
       ],
     },

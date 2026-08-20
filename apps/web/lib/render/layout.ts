@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { createHash } from "node:crypto";
 
 // Canonical certificate layout: normalized (0-1) coordinates as fractions of
 // `canvas.width`/`canvas.height`, so the same layout works for any canvas
@@ -128,17 +127,6 @@ export function canonicalizeLayout(layout: Layout): string {
   return JSON.stringify(canonicalizeValue(layout));
 }
 
-/** sha256(canonicalizeLayout(layout)) as raw bytes — the on-chain spec_hash[32]. */
-export function specHashBytes(layout: Layout): Uint8Array {
-  const digest = createHash("sha256")
-    .update(canonicalizeLayout(layout), "utf8")
-    .digest();
-  return new Uint8Array(digest);
-}
-
-/** sha256(canonicalizeLayout(layout)) as lowercase hex — for DB/API/display use. */
-export function specHash(layout: Layout): string {
-  return createHash("sha256")
-    .update(canonicalizeLayout(layout), "utf8")
-    .digest("hex");
-}
+// The sha256 spec-hash helpers live in ./spec-hash.ts: they need node:crypto,
+// and this module is imported by client components (designer, wizard steps),
+// where a node: import breaks the production webpack build.

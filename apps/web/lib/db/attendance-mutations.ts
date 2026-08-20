@@ -77,6 +77,9 @@ export interface InsertEventInput {
   metadataUri: string;
   collectionAddress: string;
   eventDate: string;
+  endDate: string | null;
+  location: string;
+  eventUrl: string;
   maxSupply: number | null;
   claimDeadline: string | null;
   claimToken: string;
@@ -98,6 +101,9 @@ export async function insertEvent(
       metadata_uri: input.metadataUri,
       collection_address: input.collectionAddress,
       event_date: input.eventDate,
+      end_date: input.endDate,
+      location: input.location,
+      event_url: input.eventUrl,
       max_supply: input.maxSupply,
       claim_deadline: input.claimDeadline,
       claim_token: input.claimToken,
@@ -166,6 +172,8 @@ export interface ReserveResult {
   outcome: ReserveOutcome;
   claimId: string | null;
   existingTxSig: string | null;
+  /** Capacity-slot number for the leaf name; null on exhausted / pre-0004 rows. */
+  mintSerial: number | null;
 }
 
 /**
@@ -199,11 +207,13 @@ export async function reserveClaim(
     outcome: ReserveOutcome;
     claim_id: string | null;
     existing_tx_sig: string | null;
+    mint_serial: number | null;
   };
   return {
     outcome: row.outcome,
     claimId: row.claim_id,
     existingTxSig: row.existing_tx_sig,
+    mintSerial: row.mint_serial ?? null,
   };
 }
 
@@ -224,6 +234,55 @@ export async function markClaimMinted(
       retryable: true,
     });
   }
+}
+
+export interface MarkMintedInput {
+  claimId: string;
+  txSig: string;
+  /** Carried only for the reconciliation log — the update itself keys on claimId. */
+  wallet: string;
+  assetId?: string | null;
+}
+
+interface RetryOptions {
+  attempts?: number;
+  delayMs?: number;
+  sleep?: (ms: number) => Promise<void>;
+}
+
+const sleep = (ms: number): Promise<void> =>
+  new Promise((r) => setTimeout(r, ms));
+
+/**
+ * markClaimMinted retried with backoff (same loop shape as retryFetch in
+ * lib/chain/umi.ts). Deliberately never throws: the NFT is already on-chain
+ * when this runs, and a caller that mistook a bookkeeping failure for a mint
+ * failure would release the slot and let the participant's retry mint a
+ * second, operator-paid asset. Returns false once the attempts are spent,
+ * having logged a `[attendance:reconcile]` line for manual repair of the row.
+ */
+export async function markClaimMintedWithRetry(
+  input: MarkMintedInput,
+  opts: RetryOptions = {},
+): Promise<boolean> {
+  const { attempts = 4, delayMs = 250, sleep: wait = sleep } = opts;
+  let last: unknown;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      await markClaimMinted(input.claimId, input.txSig);
+      return true;
+    } catch (err) {
+      last = err;
+      if (i < attempts - 1) await wait(delayMs * 2 ** i);
+    }
+  }
+  console.error(
+    `[attendance:reconcile] mint confirmed on-chain but not recorded — ` +
+      `claimId=${input.claimId} txSig=${input.txSig} ` +
+      `assetId=${input.assetId ?? "unresolved"} wallet=${input.wallet}:`,
+    last instanceof Error ? last.message : String(last),
+  );
+  return false;
 }
 
 /** Marks a pending claim failed and frees its capacity slot after a failed mint. */

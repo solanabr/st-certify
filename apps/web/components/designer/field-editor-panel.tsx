@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type {
   Align,
   FieldFont,
@@ -13,6 +13,7 @@ import { useT } from "@/lib/i18n";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { clamp, clampRect, clampSquare, round4 } from "./geometry";
+import { nextRadioIndex } from "./radio-nav";
 import { TEXT_FIELD_LABEL_KEYS } from "./designer-canvas";
 import {
   type DesignerLayoutDraft,
@@ -87,6 +88,86 @@ function PercentInput({
   );
 }
 
+interface RadioOption<T> {
+  value: T;
+  label: string;
+  /** Extra classes for options that must preview themselves (the Great Vibes font swatch). */
+  className?: string;
+}
+
+/**
+ * The ARIA radiogroup pattern: exactly one option in the tab order, arrows
+ * (plus Home/End) moving both focus and selection. Shared by all three of the
+ * panel's toggles — they were three copies of the same markup, and the
+ * keyboard model has to be identical across them anyway.
+ */
+function RadioToggle<T extends string | number>({
+  labelId,
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  labelId: string;
+  label: string;
+  value: T;
+  options: RadioOption<T>[];
+  onChange: (value: T) => void;
+}): React.JSX.Element {
+  const buttons = useRef<(HTMLButtonElement | null)[]>([]);
+  const selectedIndex = options.findIndex((opt) => opt.value === value);
+  // With nothing selected, ARIA still requires one tab stop into the group.
+  const tabbableIndex = selectedIndex < 0 ? 0 : selectedIndex;
+
+  function handleKeyDown(event: React.KeyboardEvent<HTMLDivElement>): void {
+    const target = nextRadioIndex(selectedIndex, event.key, options.length);
+    const option = target === null ? undefined : options[target];
+    if (target === null || !option) {
+      return;
+    }
+    event.preventDefault();
+    onChange(option.value);
+    buttons.current[target]?.focus();
+  }
+
+  return (
+    <div className="space-y-1">
+      <span id={labelId} className="text-sm font-medium">
+        {label}
+      </span>
+      <div
+        role="radiogroup"
+        aria-labelledby={labelId}
+        className="flex gap-1"
+        onKeyDown={handleKeyDown}
+      >
+        {options.map((opt, index) => (
+          <button
+            key={opt.value}
+            ref={(el) => {
+              buttons.current[index] = el;
+            }}
+            type="button"
+            role="radio"
+            aria-checked={value === opt.value}
+            tabIndex={index === tabbableIndex ? 0 : -1}
+            onClick={() => onChange(opt.value)}
+            className={cn(
+              "min-h-9 flex-1 rounded-md border px-2 py-1.5 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none",
+              value === opt.value
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-border text-muted-foreground hover:text-foreground",
+              opt.className,
+            )}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function AlignToggle({
   id,
   label,
@@ -99,36 +180,18 @@ function AlignToggle({
   onChange: (align: Align) => void;
 }): React.JSX.Element {
   const { t } = useT();
-  const options: { value: Align; label: string }[] = [
-    { value: "left", label: t("designer.panel.alignLeft") },
-    { value: "center", label: t("designer.panel.alignCenter") },
-    { value: "right", label: t("designer.panel.alignRight") },
-  ];
   return (
-    <div className="space-y-1">
-      <span id={id} className="text-sm font-medium">
-        {label}
-      </span>
-      <div role="radiogroup" aria-labelledby={id} className="flex gap-1">
-        {options.map((opt) => (
-          <button
-            key={opt.value}
-            type="button"
-            role="radio"
-            aria-checked={value === opt.value}
-            onClick={() => onChange(opt.value)}
-            className={cn(
-              "min-h-9 flex-1 rounded-md border px-2 py-1.5 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none",
-              value === opt.value
-                ? "border-primary bg-primary text-primary-foreground"
-                : "border-border text-muted-foreground hover:text-foreground",
-            )}
-          >
-            {opt.label}
-          </button>
-        ))}
-      </div>
-    </div>
+    <RadioToggle
+      labelId={id}
+      label={label}
+      value={value}
+      onChange={onChange}
+      options={[
+        { value: "left", label: t("designer.panel.alignLeft") },
+        { value: "center", label: t("designer.panel.alignCenter") },
+        { value: "right", label: t("designer.panel.alignRight") },
+      ]}
+    />
   );
 }
 
@@ -142,37 +205,22 @@ function FontToggle({
   onChange: (font: FieldFont) => void;
 }): React.JSX.Element {
   const { t } = useT();
-  // Font names are proper nouns — same in every locale.
-  const options: { value: FieldFont; label: string }[] = [
-    { value: "inter", label: "Inter" },
-    { value: "great-vibes", label: "Great Vibes" },
-  ];
   return (
-    <div className="space-y-1">
-      <span id={id} className="text-sm font-medium">
-        {t("designer.panel.font")}
-      </span>
-      <div role="radiogroup" aria-labelledby={id} className="flex gap-1">
-        {options.map((opt) => (
-          <button
-            key={opt.value}
-            type="button"
-            role="radio"
-            aria-checked={value === opt.value}
-            onClick={() => onChange(opt.value)}
-            className={cn(
-              "min-h-9 flex-1 rounded-md border px-2 py-1.5 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none",
-              value === opt.value
-                ? "border-primary bg-primary text-primary-foreground"
-                : "border-border text-muted-foreground hover:text-foreground",
-              opt.value === "great-vibes" && "font-display",
-            )}
-          >
-            {opt.label}
-          </button>
-        ))}
-      </div>
-    </div>
+    <RadioToggle
+      labelId={id}
+      label={t("designer.panel.font")}
+      value={value}
+      onChange={onChange}
+      // Font names are proper nouns — same in every locale.
+      options={[
+        { value: "inter", label: "Inter" },
+        {
+          value: "great-vibes",
+          label: "Great Vibes",
+          className: "font-display",
+        },
+      ]}
+    />
   );
 }
 
@@ -185,36 +233,16 @@ function WeightToggle({
 }): React.JSX.Element {
   const { t } = useT();
   return (
-    <div className="space-y-1">
-      <span id="weight-toggle-label" className="text-sm font-medium">
-        {t("designer.panel.weight")}
-      </span>
-      <div
-        role="radiogroup"
-        aria-labelledby="weight-toggle-label"
-        className="flex gap-1"
-      >
-        {([400, 600] as const).map((w) => (
-          <button
-            key={w}
-            type="button"
-            role="radio"
-            aria-checked={value === w}
-            onClick={() => onChange(w)}
-            className={cn(
-              "min-h-9 flex-1 rounded-md border px-2 py-1.5 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none",
-              value === w
-                ? "border-primary bg-primary text-primary-foreground"
-                : "border-border text-muted-foreground hover:text-foreground",
-            )}
-          >
-            {w === 400
-              ? t("designer.panel.weightNormal")
-              : t("designer.panel.weightBold")}
-          </button>
-        ))}
-      </div>
-    </div>
+    <RadioToggle
+      labelId="weight-toggle-label"
+      label={t("designer.panel.weight")}
+      value={value}
+      onChange={onChange}
+      options={[
+        { value: 400, label: t("designer.panel.weightNormal") },
+        { value: 600, label: t("designer.panel.weightBold") },
+      ]}
+    />
   );
 }
 

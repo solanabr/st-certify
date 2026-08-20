@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -15,11 +16,13 @@ import type { useWalletProof } from "@/hooks/useWalletProof";
 import type { WalletHandle } from "@/lib/wallet";
 
 /**
- * Wallet connect dialog for the attendance flows (public claim page, and
- * reused by the creator sign-in in Task 14). Lists every wallet-standard
- * wallet detected in the browser plus a Privy-email fallback for people
- * without one — `proof` is owned by the caller so both surfaces can share
- * (or isolate) the same `useWalletProof()` instance.
+ * Wallet connect dialog for the attendance flows (public claim page, reused by
+ * the creator sign-in). Lists every wallet-standard wallet detected in the
+ * browser plus a Privy-email fallback for people without one. On a touch device
+ * with no injected wallet — the QR-scan-into-mobile-browser case — it also
+ * offers a Phantom deep link that reopens the current page inside Phantom's
+ * in-app browser. `proof` is owned by the caller so both surfaces can share (or
+ * isolate) the same `useWalletProof()` instance.
  */
 export function WalletPicker({
   open,
@@ -31,6 +34,24 @@ export function WalletPicker({
   proof: ReturnType<typeof useWalletProof>;
 }) {
   const { t } = useT();
+  const [phantomUrl, setPhantomUrl] = useState<string | null>(null);
+
+  // Coarse-pointer + no-hover ≈ a phone; only there does reopening in Phantom's
+  // in-app browser help. Computed client-side to avoid a hydration mismatch.
+  // 2026-08: Phantom universal-link shape (/ul/v1/browse/<url>?ref=<origin>) —
+  // vendor params drift; re-verify against Phantom's deep-link docs
+  // periodically. A dead scheme soft-fails (the link simply does nothing).
+  useEffect(() => {
+    const isMobile = window.matchMedia(
+      "(pointer: coarse) and (hover: none)",
+    ).matches;
+    if (!isMobile) return;
+    const current = window.location.href;
+    const ref = window.location.origin;
+    setPhantomUrl(
+      `https://phantom.app/ul/v1/browse/${encodeURIComponent(current)}?ref=${encodeURIComponent(ref)}`,
+    );
+  }, []);
 
   async function handleConnect(wallet: WalletHandle): Promise<void> {
     try {
@@ -40,6 +61,8 @@ export function WalletPicker({
       onAppError(err);
     }
   }
+
+  const noWallets = proof.wallets.length === 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -51,7 +74,11 @@ export function WalletPicker({
           </DialogDescription>
         </DialogHeader>
 
-        {proof.wallets.length > 0 ? (
+        {noWallets ? (
+          <p className="text-sm text-muted-foreground">
+            {t("attendance.picker.empty")}
+          </p>
+        ) : (
           <div className="flex flex-col gap-2">
             {proof.wallets.map((wallet) => (
               <Button
@@ -71,17 +98,20 @@ export function WalletPicker({
               </Button>
             ))}
           </div>
-        ) : (
-          <p className="text-sm text-muted-foreground">
-            {t("attendance.picker.empty")}
-          </p>
         )}
 
         <Separator />
 
-        <Button variant="ghost" onClick={() => proof.privyLogin()}>
-          {t("attendance.picker.fallback")}
-        </Button>
+        <div className="flex flex-col gap-2">
+          {noWallets && phantomUrl && (
+            <Button asChild>
+              <a href={phantomUrl}>{t("attendance.picker.openPhantom")}</a>
+            </Button>
+          )}
+          <Button variant="secondary" onClick={() => proof.privyLogin()}>
+            {t("attendance.picker.fallback")}
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   );
