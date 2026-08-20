@@ -10,8 +10,8 @@ const DASHBOARD_LABEL_KEY: Record<
   "sysadmin" | "certifier" | "student",
   TranslationKey
 > = {
-  sysadmin: "cta.goAdmin",
-  certifier: "cta.goCertificator",
+  sysadmin: "cta.goStudio",
+  certifier: "cta.goSign",
   student: "cta.goMyCerts",
 };
 
