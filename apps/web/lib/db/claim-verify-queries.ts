@@ -56,12 +56,18 @@ export interface VerifyCertView {
   completionDate: string | null;
   completedAt: string | null;
   createdAt: string;
+  /** The printed 8-character code; null on pre-0005 certificates. */
+  verifyCode: string | null;
   signers: VerifySignerView[];
 }
 
-// The public, salt-free projection of a certificate row.
+// The public, salt-free projection of a certificate row. Every column here
+// must also appear in 0003_hardening.sql §1's column-level GRANT to anon (0005
+// adds verify_code to it) — anon reading a withheld column is a permission
+// error, not a silent null, so a drift between the two lists takes the whole
+// verify page down. scripts/rls-probe.ts keeps a hand-synced copy.
 const CERT_PUBLIC_COLUMNS =
-  "address, edition_address, student_name, status, signer_bitmap, sha256, image_url, metadata_url, asset, cert_number, signer_txs, revoke_reason, completed_at, created_at";
+  "address, edition_address, student_name, status, signer_bitmap, sha256, image_url, metadata_url, asset, cert_number, signer_txs, revoke_reason, completed_at, created_at, verify_code";
 
 interface CertPublicRow {
   address: string;
@@ -78,6 +84,8 @@ interface CertPublicRow {
   revoke_reason: string | null;
   completed_at: string | null;
   created_at: string;
+  /** Null on certificates issued before 0005's backfill ran. */
+  verify_code: string | null;
 }
 
 async function assembleView(
@@ -140,6 +148,7 @@ async function assembleView(
     completionDate: edition?.completion_date ?? null,
     completedAt: cert.completed_at,
     createdAt: cert.created_at,
+    verifyCode: cert.verify_code,
     signers,
   };
 }
@@ -164,6 +173,37 @@ export async function getVerifyView(
   }
   if (!data) return null;
   return assembleView(supabase, data as unknown as CertPublicRow);
+}
+
+/**
+ * Resolves a printed 8-character verify code to the certificate address it
+ * fingerprints — the `/verify` input path for someone holding paper. Returns
+ * the address only; the caller redirects to `/verify/[address]`, which does
+ * the real verdict lookup, so a wrong code costs one cheap indexed query.
+ *
+ * Uppercased because the code is transcribed by hand: every stored code is
+ * uppercase by construction (see lib/verify-code.ts), so this can turn a
+ * lowercase entry into a hit but can never turn a miss into a false match.
+ * Look-alike substitution (I/L→1, O→0) belongs to the input surface, not here.
+ */
+export async function getCertificateByVerifyCode(
+  code: string,
+): Promise<{ address: string } | null> {
+  if (!dbConfigured) return null;
+  const supabase = db();
+  const { data, error } = await supabase
+    .from("certificates")
+    .select("address")
+    .eq("verify_code", code.trim().toUpperCase())
+    .maybeSingle();
+
+  if (error) {
+    fail("INTERNAL", "Falha ao buscar certificado.", {
+      detail: error.message,
+      retryable: true,
+    });
+  }
+  return data as { address: string } | null;
 }
 
 /** Resolve a Core asset address back to its certificate verdict (base58-input path). */

@@ -2,6 +2,7 @@ import "server-only";
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { fail } from "@/lib/errors";
+import { verifyCode } from "@/lib/verify-code";
 import type {
   CertificateStatusValue,
   EditionSignerRow,
@@ -297,6 +298,10 @@ export interface InsertPendingCertificateInput {
  * even sent — this is where the plaintext name + salt (LGPD-erasable layer)
  * first land. `syncCertificateMirrorFromChain` fills in the chain-derived
  * columns once the tx confirms.
+ *
+ * `verify_code` is written here, at the row's only insert point, so every
+ * certificate has one from birth and the backfill script stays a one-shot for
+ * pre-overhaul rows.
  */
 export async function insertPendingCertificate(
   input: InsertPendingCertificateInput,
@@ -311,6 +316,7 @@ export async function insertPendingCertificate(
     name_salt: input.nameSalt,
     status: "Requested" satisfies CertificateStatusValue,
     signer_bitmap: 0,
+    verify_code: verifyCode(input.address),
   });
 
   if (error) {

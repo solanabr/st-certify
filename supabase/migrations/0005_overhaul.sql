@@ -74,3 +74,14 @@ begin
       on public.certificates (verify_code) where verify_code is not null;
   end if;
 end $$;
+
+-- 0003 §1 revoked anon's blanket SELECT on certificates and replaced it with a
+-- column-level grant whose list is exactly CERT_PUBLIC_COLUMNS in
+-- apps/web/lib/db/claim-verify-queries.ts. A column added later is NOT covered
+-- by that grant, and a column-level grant governs WHERE clauses as well as
+-- projections — so without this the public verify page (whose SELECT now lists
+-- verify_code) and the code lookup (which filters on it) would both fail with
+-- a permission error the moment this migration lands. Granting discloses
+-- nothing new: the code is derived from the certificate address, which anon
+-- can already read.
+grant select (verify_code) on public.certificates to anon, authenticated;
