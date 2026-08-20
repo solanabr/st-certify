@@ -41,7 +41,7 @@ export function EditionsTable() {
   const { t, locale } = useT();
 
   async function copyLink(slug: string): Promise<void> {
-    const url = `${window.location.origin}/editions/${slug}`;
+    const url = `${window.location.origin}/certificates/${slug}`;
     // Denied clipboard permission and non-secure origins both reject here;
     // surface the URL so the admin can still copy it by hand.
     try {
