@@ -53,6 +53,9 @@ const DEFAULT_VALUES: CreateEventFormValues = {
   name: "",
   description: "",
   eventDate: "",
+  endDate: undefined,
+  location: "",
+  eventUrl: undefined,
   imageDataUrl: "",
   maxSupply: undefined,
   claimDeadline: undefined,
@@ -180,6 +183,75 @@ export function EventForm() {
                   <FormLabel>{t("attendance.form.date")}</FormLabel>
                   <FormControl>
                     <Input type="date" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="endDate"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t("attendance.form.endDate")}</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="date"
+                      name={field.name}
+                      ref={field.ref}
+                      onBlur={field.onBlur}
+                      value={field.value ?? ""}
+                      onChange={(e) =>
+                        field.onChange(
+                          e.target.value === "" ? undefined : e.target.value,
+                        )
+                      }
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="location"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t("attendance.form.location")}</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder={t("attendance.form.locationHint")}
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="eventUrl"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t("attendance.form.eventUrl")}</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="url"
+                      inputMode="url"
+                      placeholder="https://"
+                      name={field.name}
+                      ref={field.ref}
+                      onBlur={field.onBlur}
+                      value={field.value ?? ""}
+                      onChange={(e) =>
+                        field.onChange(
+                          e.target.value === "" ? undefined : e.target.value,
+                        )
+                      }
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

@@ -30,6 +30,8 @@ function toInitialClaimInfo(event: AttendanceEventRow): ClaimPageInfo {
     description: event.description,
     imageUrl: event.image_url,
     eventDate: event.event_date,
+    endDate: event.end_date,
+    location: event.location,
     mintedCount: event.minted_count,
     maxSupply: event.max_supply,
     state,

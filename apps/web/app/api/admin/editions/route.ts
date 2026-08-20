@@ -6,10 +6,9 @@ import { editionWizardSchema, type EditionWizardInput } from "@/lib/schemas";
 import {
   editionReadyLayoutSchema,
   layoutSchema,
-  specHash,
-  specHashBytes,
   type Layout,
 } from "@/lib/render/layout";
+import { specHash, specHashBytes } from "@/lib/render/spec-hash";
 import {
   dbConfigured,
   isSlugAvailable,

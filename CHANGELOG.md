@@ -5,6 +5,54 @@ gate-verified (build/test/review) before the next started; full briefs,
 reports, and reviews are in
 `.superpowers/sdd/you-are-going-to-foamy-stallman/`.
 
+## 2026-08-20 — Attendance metadata (POAP-informed) + published-salt removal
+
+Second wave of the day, after the hardening pass below landed. Gates green:
+production build, typecheck + lint clean, 269 vitest tests (37 files).
+`0003_hardening.sql` and `0004_attendance_metadata.sql` are **applied to
+production** (43/43 `rls-probe` checks pass); the devnet program was
+**upgraded in place** (same program id, `solana program deploy` +
+`ExtendProgram`) with the `init_config` takeover guard.
+
+**Privacy**
+
+- fix(certificates): the published metadata JSON no longer contains
+  `render_spec.values.name_salt` — an archived salt+name pair would
+  permanently prove the on-chain `sha256(salt‖name)` commitment binding,
+  defeating post-erasure unlinkability (LGPD). The PNG stays reproducible
+  from `render_spec`; commitment verification is served by `/verify`, which
+  holds the salt server-side. `scripts/admin/scrub-metadata-salt.ts` rewrites
+  any pre-fix JSONs in place (production scan 2026-08-20: zero published, so
+  nothing to scrub).
+
+**Attendance metadata**
+
+- feat(attendance): events gain optional **location**, **end date** and
+  **event URL** (form + zod + DB, migration `0004`); the shared metadata
+  JSON follows POAP's attribute conventions in this platform's Title-Case
+  style — `Location`, `Event Date`, `End Date`, `Year`, `Event URL`,
+  `Issuer`, `Event ID` — plus `symbol: "STB"`, `external_url`, and
+  `properties.files`/`category` for wallet display. Claim page shows the
+  location and date range.
+- feat(attendance): per-attendee **mint serial in the cNFT leaf name**
+  ("Meetup SP #42") — `attendance_reserve_claim` now assigns and returns
+  `mint_serial` atomically with the capacity slot (no extra write on the
+  mint path); `attendanceLeafName` truncates byte-aware to Bubblegum's
+  32-byte cap (multibyte pt-BR names never split mid-character).
+
+**Build / ops**
+
+- fix(web): the production build was failing on two latent issues — the
+  sha256 spec-hash helpers moved out of `lib/render/layout.ts` (imported by
+  client components; `node:crypto` breaks the client webpack bundle) into
+  `lib/render/spec-hash.ts`, and `toEventView` moved out of the events route
+  file (route modules may only export handlers) into
+  `lib/attendance/event-view.ts`.
+- fix(deploy): `deploy.sh` pre-extends the program allocation
+  (`solana program extend`, ≥10240-byte floor) when the new `.so` outgrows
+  the on-chain account — the CLI's own auto-extend requests the exact
+  deficit and the runtime rejects it.
+
 ## 2026-08-20 — Security hardening + attendance UX
 
 Adjudicated from a parallel, adversarially-verified audit (9 domains, 96

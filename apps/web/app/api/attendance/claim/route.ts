@@ -19,6 +19,7 @@ import {
   mintAttendanceAsset,
   resolveAttendanceAssetId,
 } from "@/lib/chain/attendance";
+import { attendanceLeafName } from "@/lib/attendance/metadata";
 
 /** POST /api/attendance/claim response shape - Task 13's public claim page. */
 export interface ClaimResult {
@@ -103,7 +104,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       ({ txSig } = await mintAttendanceAsset({
         coreCollection: event.collection_address,
         owner: wallet,
-        name: event.name,
+        // Per-attendee serial in the leaf name ("Event #42") — the only
+        // per-mint field Bubblegum gives us; the JSON uri stays shared.
+        name: attendanceLeafName(event.name, reserved.mintSerial),
         metadataUri: event.metadata_uri,
       }));
     } catch (err) {

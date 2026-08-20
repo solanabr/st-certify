@@ -46,6 +46,62 @@ describe("createEventSchema", () => {
   });
 });
 
+describe("createEventSchema — metadata expansion fields (0004)", () => {
+  const base = {
+    name: "Meetup SP",
+    eventDate: "2026-09-01",
+    imageDataUrl: TINY_PNG,
+  };
+
+  it("defaults location to '' and leaves endDate/eventUrl undefined", () => {
+    const r = createEventSchema.parse(base);
+    expect(r.location).toBe("");
+    expect(r.endDate).toBeUndefined();
+    expect(r.eventUrl).toBeUndefined();
+  });
+
+  it("accepts the full POAP-style payload", () => {
+    const r = createEventSchema.parse({
+      ...base,
+      endDate: "2026-09-03",
+      location: "São Paulo, Brasil",
+      eventUrl: "https://lu.ma/meetupsp",
+    });
+    expect(r.endDate).toBe("2026-09-03");
+    expect(r.location).toBe("São Paulo, Brasil");
+    expect(r.eventUrl).toBe("https://lu.ma/meetupsp");
+  });
+
+  it("rejects an end date before the event date, accepts same-day", () => {
+    const before = createEventSchema.safeParse({
+      ...base,
+      endDate: "2026-08-31",
+    });
+    expect(before.success).toBe(false);
+    if (!before.success) {
+      expect(before.error.issues[0]?.path).toEqual(["endDate"]);
+    }
+    expect(
+      createEventSchema.safeParse({ ...base, endDate: "2026-09-01" }).success,
+    ).toBe(true);
+  });
+
+  it("rejects non-http(s) and malformed event URLs", () => {
+    for (const bad of ["ftp://files.example", "not a url", "javascript:x"]) {
+      expect(
+        createEventSchema.safeParse({ ...base, eventUrl: bad }).success,
+      ).toBe(false);
+    }
+  });
+
+  it("caps the location at 80 characters", () => {
+    expect(
+      createEventSchema.safeParse({ ...base, location: "x".repeat(81) })
+        .success,
+    ).toBe(false);
+  });
+});
+
 describe("claimSchema / eventActionSchema", () => {
   it("accepts signature and cookie-proof variants", () => {
     expect(

@@ -258,6 +258,17 @@ pause/resume, and link rotation (invalidates the old link immediately).
 Copy says "attendance NFT" (pt: "NFT de presença") throughout, deliberately
 avoiding the more common but trademarked term for this pattern.
 
+Each event's shared metadata JSON follows that pattern's conventions
+(adapted to the Metaplex standard): optional **location**, **end date**
+(multi-day events) and **event URL** from the creation form become
+Title-Case attributes (`Location`, `Event Date`, `End Date`, `Year`,
+`Event URL`, `Issuer`, `Event ID`) plus `external_url` and
+`properties.files`. Every attendee's cNFT also carries a per-mint **serial
+in its on-chain leaf name** ("Meetup SP #42") — assigned atomically by the
+claim reservation, truncated byte-aware to Bubblegum's 32-byte name cap
+(`lib/attendance/metadata.ts#attendanceLeafName`). Events created before
+migration `0004` keep their original JSONs.
+
 Three env vars, all server-only:
 
 | Var | What |

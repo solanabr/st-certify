@@ -65,7 +65,13 @@ alter table attendance_nonces enable row level security;
 --                        now, caller should not mint
 --   'already_claimed' → returns the original tx_sig
 --   'exhausted'       → no capacity left (or claiming closed via claim_open=false is checked in TS)
-create or replace function attendance_reserve_claim(p_event_id uuid, p_wallet text)
+-- 0004 re-creates this function with an extra `mint_serial` OUT column, and
+-- CREATE OR REPLACE cannot change a return type — without this drop, re-running
+-- the migration suite would abort here once 0004 has been applied. The drop is
+-- safe mid-suite: 0004 always runs after this file and restores the final
+-- (serial-returning, service-role-only) version.
+drop function if exists attendance_reserve_claim(uuid, text);
+create function attendance_reserve_claim(p_event_id uuid, p_wallet text)
 returns table (outcome text, claim_id uuid, existing_tx_sig text)
 language plpgsql
 as $$

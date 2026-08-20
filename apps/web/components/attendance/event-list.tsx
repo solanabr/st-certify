@@ -39,7 +39,7 @@ import {
 } from "@/hooks/useAttendanceEvents";
 import { useT } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
-import type { AttendanceEventView } from "@/app/api/attendance/events/route";
+import type { AttendanceEventView } from "@/lib/attendance/event-view";
 
 function formatEventDate(iso: string, locale: string): string {
   return new Intl.DateTimeFormat(locale, {

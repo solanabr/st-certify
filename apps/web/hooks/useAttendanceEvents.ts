@@ -10,7 +10,7 @@ import {
 import { api } from "@/lib/api-client";
 import { onAppError } from "@/lib/on-app-error";
 import type { ProofPayload } from "@/hooks/useWalletProof";
-import type { AttendanceEventView } from "@/app/api/attendance/events/route";
+import type { AttendanceEventView } from "@/lib/attendance/event-view";
 import type { AttendanceClaimListRow } from "@/lib/db/attendance-queries";
 import type { CreateEventInput } from "@/lib/attendance/schemas";
 

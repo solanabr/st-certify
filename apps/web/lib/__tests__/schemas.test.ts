@@ -6,7 +6,8 @@ import {
   requestCertificateSchema,
   studentNameSchema,
 } from "../schemas";
-import { canonicalizeLayout, specHash, type Layout } from "../render/layout";
+import { canonicalizeLayout, type Layout } from "../render/layout";
+import { specHash } from "../render/spec-hash";
 
 const validMeta = {
   name: "Bootcamp Solana 2026",

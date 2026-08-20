@@ -28,6 +28,17 @@ function formatEventDate(iso: string, locale: string): string {
   }).format(new Date(iso));
 }
 
+/** "20/08/2026" or, for multi-day events, "20/08/2026 – 22/08/2026". */
+function formatEventDates(
+  start: string,
+  end: string | null,
+  locale: string,
+): string {
+  const from = formatEventDate(start, locale);
+  if (!end || end === start) return from;
+  return `${from} – ${formatEventDate(end, locale)}`;
+}
+
 const GATE_COPY: Record<
   "paused" | "ended" | "exhausted",
   { title: TranslationKey; body: TranslationKey }
@@ -220,7 +231,10 @@ export function ClaimCard({
 
         <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
           <span className="tabular-nums">
-            {formatEventDate(data.eventDate, locale)}
+            {formatEventDates(data.eventDate, data.endDate, locale)}
+            {data.location && (
+              <span className="tabular-nums"> · {data.location}</span>
+            )}
           </span>
           <span className="tabular-nums">
             {data.maxSupply !== null

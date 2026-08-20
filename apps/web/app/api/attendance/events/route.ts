@@ -15,41 +15,11 @@ import {
 import { insertEvent } from "@/lib/db/attendance-mutations";
 import { listAttendanceEvents } from "@/lib/db/attendance-queries";
 import { createEventCollection } from "@/lib/chain/attendance";
+import {
+  toEventView,
+  type AttendanceEventView,
+} from "@/lib/attendance/event-view";
 import type { AttendanceEventRow } from "@/lib/db/types";
-
-/** Client-facing event shape — the creator dashboard and Tasks 12/14's hooks import this. */
-export interface AttendanceEventView {
-  id: string;
-  name: string;
-  description: string;
-  imageUrl: string;
-  eventDate: string;
-  maxSupply: number | null;
-  claimDeadline: string | null;
-  claimOpen: boolean;
-  mintedCount: number;
-  claimUrl: string;
-  createdAt: string;
-}
-
-export function toEventView(
-  row: AttendanceEventRow,
-  origin: string,
-): AttendanceEventView {
-  return {
-    id: row.id,
-    name: row.name,
-    description: row.description,
-    imageUrl: row.image_url,
-    eventDate: row.event_date,
-    maxSupply: row.max_supply,
-    claimDeadline: row.claim_deadline,
-    claimOpen: row.claim_open,
-    mintedCount: row.minted_count,
-    claimUrl: `${origin}/attend/${row.claim_token}`,
-    createdAt: row.created_at,
-  };
-}
 
 /** Creator dashboard's event list. */
 export async function GET(request: Request): Promise<NextResponse> {
@@ -84,6 +54,9 @@ export async function POST(request: Request): Promise<NextResponse> {
       name,
       description,
       eventDate,
+      endDate,
+      location,
+      eventUrl,
       imageDataUrl,
       maxSupply,
       claimDeadline,
@@ -106,7 +79,11 @@ export async function POST(request: Request): Promise<NextResponse> {
         name,
         description,
         imageUrl,
+        imageMime: `image/${mime}`,
         eventDate,
+        endDate,
+        location: location || undefined,
+        eventUrl,
         eventId,
       }),
     );
@@ -125,6 +102,9 @@ export async function POST(request: Request): Promise<NextResponse> {
         metadataUri,
         collectionAddress,
         eventDate,
+        endDate: endDate ?? null,
+        location,
+        eventUrl: eventUrl ?? "",
         maxSupply: maxSupply ?? null,
         claimDeadline: claimDeadline ?? null,
         claimToken,

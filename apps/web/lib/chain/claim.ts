@@ -294,11 +294,10 @@ export async function prepareClaim(
     layout: artifact.layout,
     values: {
       studentName: cert.student_name,
-      // Publishing name+salt in render_spec is intentional (plan): it makes the
-      // cert commitment-verifiable from metadata alone. Salt secrecy protects
-      // nothing here — privacy comes from erasure (deleting the mirror row), and
-      // the on-chain commitment is already public.
-      nameSaltHex: cert.name_salt ?? "",
+      // The name_salt is deliberately withheld from the published JSON: erasure
+      // (deleting the mirror row) only restores unlinkability if no archived
+      // copy can re-prove sha256(salt‖name) against the chain. The plaintext
+      // name here is a removable assertion; name+salt would be a permanent proof.
       dateText: artifact.dateText,
       certId: input.certificateAddress,
     },

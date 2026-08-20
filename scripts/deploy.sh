@@ -51,6 +51,21 @@ echo "   fee payer  : $DEPLOYER"
 echo -n "   rent (.so-size estimate): "
 solana rent "$SIZE" 2>/dev/null | awk -F': ' '/minimum/ {print $2}' || echo "n/a"
 
+# Upgrades that outgrow the current allocation need ExtendProgram first: the
+# runtime rejects extensions under 10240 bytes, but the CLI auto-extends by the
+# exact deficit — so a small growth (e.g. +448 bytes, hit 2026-08-20) fails
+# with "ExtendProgram requires a minimum of 10240 additional bytes". Pre-extend
+# by at least that floor whenever the new .so is bigger than what's on-chain.
+CURRENT_LEN=$(solana program show "$PROGRAM_ID" --url "$RPC" 2>/dev/null \
+  | awk -F': ' '/Data Length/ {print $2}' | awk '{print $1}')
+if [ -n "${CURRENT_LEN:-}" ] && [ "$SIZE" -gt "$CURRENT_LEN" ]; then
+  DELTA=$(( SIZE - CURRENT_LEN ))
+  [ "$DELTA" -lt 10240 ] && DELTA=10240
+  echo "   .so outgrew allocation ($CURRENT_LEN -> $SIZE); extending by $DELTA bytes"
+  solana program extend "$PROGRAM_ID" "$DELTA" \
+    --url "$RPC" --keypair "$DEPLOYER_KEYPAIR"
+fi
+
 echo "== [3/3] Deploy to devnet =="
 solana program deploy "$SO" \
   --program-id "$PROGRAM_KEYPAIR" \

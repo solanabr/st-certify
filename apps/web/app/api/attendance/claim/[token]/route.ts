@@ -17,6 +17,8 @@ export interface ClaimPageInfo {
   description: string;
   imageUrl: string;
   eventDate: string;
+  endDate: string | null;
+  location: string;
   mintedCount: number;
   maxSupply: number | null;
   state: "open" | "paused" | "ended" | "exhausted";
@@ -88,6 +90,8 @@ export async function GET(
       description: event.description,
       imageUrl: event.image_url,
       eventDate: event.event_date,
+      endDate: event.end_date,
+      location: event.location,
       mintedCount: event.minted_count,
       maxSupply: event.max_supply,
       state,

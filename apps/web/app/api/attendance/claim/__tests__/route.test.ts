@@ -51,6 +51,9 @@ const EVENT: AttendanceEventRow = {
   metadata_uri: "https://example.test/m.json",
   collection_address: "CoLLection111111111111111111111111111111111",
   event_date: "2026-08-20",
+  end_date: null,
+  location: "",
+  event_url: "",
   max_supply: null,
   claim_deadline: null,
   claim_open: true,
@@ -82,6 +85,7 @@ describe("POST /api/attendance/claim — post-mint failure handling", () => {
       outcome: "reserved",
       claimId: CLAIM_ID,
       existingTxSig: null,
+      mintSerial: 7,
     });
     vi.mocked(markClaimMintedWithRetry).mockResolvedValue(true);
   });
@@ -109,6 +113,10 @@ describe("POST /api/attendance/claim — post-mint failure handling", () => {
       txSig: TX_SIG,
       wallet: WALLET,
     });
+    // The reservation's serial reaches the on-chain leaf name.
+    expect(mintAttendanceAsset).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ name: "Superteam Meetup #7" }),
+    );
     expect(releaseClaim).not.toHaveBeenCalled();
     expect(res.body).toMatchObject({ status: "minted", txSig: TX_SIG });
   });

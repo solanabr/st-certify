@@ -77,6 +77,9 @@ export interface InsertEventInput {
   metadataUri: string;
   collectionAddress: string;
   eventDate: string;
+  endDate: string | null;
+  location: string;
+  eventUrl: string;
   maxSupply: number | null;
   claimDeadline: string | null;
   claimToken: string;
@@ -98,6 +101,9 @@ export async function insertEvent(
       metadata_uri: input.metadataUri,
       collection_address: input.collectionAddress,
       event_date: input.eventDate,
+      end_date: input.endDate,
+      location: input.location,
+      event_url: input.eventUrl,
       max_supply: input.maxSupply,
       claim_deadline: input.claimDeadline,
       claim_token: input.claimToken,
@@ -166,6 +172,8 @@ export interface ReserveResult {
   outcome: ReserveOutcome;
   claimId: string | null;
   existingTxSig: string | null;
+  /** Capacity-slot number for the leaf name; null on exhausted / pre-0004 rows. */
+  mintSerial: number | null;
 }
 
 /**
@@ -199,11 +207,13 @@ export async function reserveClaim(
     outcome: ReserveOutcome;
     claim_id: string | null;
     existing_tx_sig: string | null;
+    mint_serial: number | null;
   };
   return {
     outcome: row.outcome,
     claimId: row.claim_id,
     existingTxSig: row.existing_tx_sig,
+    mintSerial: row.mint_serial ?? null,
   };
 }
 

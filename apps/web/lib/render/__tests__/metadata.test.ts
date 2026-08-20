@@ -47,7 +47,7 @@ const layout: Layout = {
 };
 
 describe("buildMetadataJson", () => {
-  it("round-trips through JSON and includes a render_spec sufficient to regenerate + verify the certificate", () => {
+  it("round-trips through JSON and includes a render_spec sufficient to regenerate the certificate", () => {
     const metadata = buildMetadataJson({
       editionName: "Bootcamp Solana",
       certNumber: 7,
@@ -59,7 +59,6 @@ describe("buildMetadataJson", () => {
       layout,
       values: {
         studentName: "Maria da Silva",
-        nameSaltHex: "c".repeat(64),
         dateText: "07/08/2026",
         certId: "CERT-0007",
       },
@@ -102,12 +101,15 @@ describe("buildMetadataJson", () => {
       sha256: "0".repeat(64),
     });
     expect(metadata.render_spec.layout).toEqual(layout);
+    // The name_salt must never appear anywhere in the published JSON —
+    // an archived salt+name pair would permanently prove the on-chain
+    // commitment binding, defeating post-erasure unlinkability.
     expect(metadata.render_spec.values).toEqual({
       student_name: "Maria da Silva",
-      name_salt: "c".repeat(64),
       date_text: "07/08/2026",
       cert_id: "CERT-0007",
     });
+    expect(JSON.stringify(metadata)).not.toContain("salt");
     expect(metadata.render_spec.signers).toEqual([
       {
         wallet: "11111111111111111111111111111111",
@@ -146,7 +148,6 @@ describe("buildMetadataJson", () => {
       layout,
       values: {
         studentName: "X",
-        nameSaltHex: "d".repeat(64),
         dateText: "01/01/2026",
         certId: "CERT-0003",
       },
@@ -171,7 +172,6 @@ describe("buildMetadataJson", () => {
       layout,
       values: {
         studentName: "X",
-        nameSaltHex: "f".repeat(64),
         dateText: "01/01/2026",
         certId: "CERT-0001",
       },
