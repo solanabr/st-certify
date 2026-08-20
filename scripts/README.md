@@ -15,7 +15,7 @@ None of them accept new dependencies — `scripts/` has an isolated
 `pnpm --ignore-workspace` install; see "Why `scripts/` has its own
 `package.json`" in the root README.
 
-**Exit code convention**, shared by all eight: `0` = OK / nothing to do,
+**Exit code convention**, shared by all nine: `0` = OK / nothing to do,
 `1` = the condition the script looks for was found (stale reservations,
 anomalies, a capacity or balance warning, a failed release), `2` = the
 script couldn't complete the check at all (bad args, unreachable
@@ -34,6 +34,7 @@ For symptom -> script -> remediation walkthroughs, see
 | `tree-capacity.ts` | Reads the shared Merkle tree's on-chain leaf usage (`sequenceNumber`) against its 16,384-leaf capacity; warns at 80%, critical at 95% (matches `apps/web/lib/attendance/constants.ts`). Read-only. |
 | `preflight.ts` | Composes all the read-only checks above (plus RPC reachability and, with `--with-rls`, `rls-probe.ts`) into one green/red summary. Run this before every event. |
 | `scrub-metadata-salt.ts` | One-shot remediation: strips `render_spec.values.name_salt` from certificate metadata JSONs published before 2026-08-20 (the builder no longer emits it) and rewrites them in place in the `metadata` bucket. |
+| `backfill-verify-codes.ts` | One-shot, run right after `0005_overhaul.sql`: fills `certificates.verify_code` (the 8-char code printed on PDFs and typed into `/verify`) for rows issued before the column existed. Re-derives the codes the app already wrote as a drift check and refuses to run if they disagree. |
 
 Example:
 
