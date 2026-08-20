@@ -204,3 +204,77 @@ export interface AttendanceClaimRow {
   mint_serial: number | null;
   created_at: string;
 }
+
+// ---------------------------------------------------------------------------
+// Overhaul: drafts, invites, notifications — mirrors
+// supabase/migrations/0005_overhaul.sql
+// ---------------------------------------------------------------------------
+
+/**
+ * The draft's editable edition metadata (`edition_drafts.meta` jsonb). Every
+ * field is optional: a draft is created from an empty wizard and fills in as
+ * the user advances, so nothing is guaranteed present until the on-chain
+ * write validates it. Column names are the camelCase wizard vocabulary, not
+ * the snake_case `editions` mirror — this JSON is the wizard's own state.
+ */
+export interface EditionDraftMeta {
+  name?: string;
+  slug?: string;
+  description?: string;
+  maxSupply?: number | null;
+  completionDate?: string;
+}
+
+/**
+ * A pre-chain edition. `chain_address` stays null until "Criar on-chain"
+ * succeeds, at which point the `editions` mirror takes over as the source of
+ * truth and the draft becomes history. Editions created before the overhaul
+ * simply have no draft row (0005 does not backfill).
+ */
+export interface EditionDraftRow {
+  id: string;
+  meta: EditionDraftMeta;
+  /** Same 0..1 layout model as `EditionRow.layout`; null until the designer step. */
+  layout: Record<string, unknown> | null;
+  template_sha: string | null;
+  chain_address: string | null;
+  /** Privy DID of the creator. */
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export type SignerInviteStatus = "invited" | "accepted" | "expired";
+
+/**
+ * One seat on a draft edition. `token` is a bearer capability (the
+ * `/invite/[token]` magic link) — never expose it on a public surface.
+ * `wallet` is null until the signer accepts and binds one.
+ */
+export interface SignerInviteRow {
+  id: string;
+  draft_id: string;
+  name: string;
+  role: string;
+  email: string;
+  token: string;
+  status: SignerInviteStatus;
+  wallet: string | null;
+  invited_at: string;
+  accepted_at: string | null;
+  reminded_at: string | null;
+}
+
+/**
+ * Append-only send ledger backing `notifyOnce`'s idempotency: a row exists
+ * iff that (type, recipient, ref_id) email was handed to the provider.
+ * `type` is an `EmailKind` — kept as `string` here because lib/db must not
+ * depend on lib/email.
+ */
+export interface NotificationLogRow {
+  id: string;
+  type: string;
+  recipient: string;
+  ref_id: string;
+  sent_at: string;
+}
