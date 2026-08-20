@@ -6,7 +6,7 @@ import { useT, type TranslationKey } from "@/lib/i18n";
 import type { AdminStats } from "@/lib/db/types";
 
 const STAT_DEFS: Array<{ key: keyof AdminStats; labelKey: TranslationKey }> = [
-  { key: "editionsCount", labelKey: "nav.editions" },
+  { key: "editionsCount", labelKey: "admin.editions" },
   { key: "pendingSignaturesCount", labelKey: "admin.stat.pendingSignatures" },
   { key: "claimedCount", labelKey: "admin.stat.claimed" },
   { key: "revokedCount", labelKey: "admin.stat.revoked" },

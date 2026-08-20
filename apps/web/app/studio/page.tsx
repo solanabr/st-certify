@@ -19,7 +19,7 @@ export default function AdminPage() {
     <div className="mx-auto max-w-6xl px-4 py-12">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold tracking-tight">
-          {t("nav.admin")}
+          {t("admin.title")}
         </h1>
         <Button asChild>
           <Link href="/studio/editions/new">{t("admin.createEdition")}</Link>
@@ -56,7 +56,7 @@ export default function AdminPage() {
 
       <Tabs defaultValue="editions" className="mt-10">
         <TabsList>
-          <TabsTrigger value="editions">{t("nav.editions")}</TabsTrigger>
+          <TabsTrigger value="editions">{t("admin.editions")}</TabsTrigger>
           <TabsTrigger value="certificates">
             {t("admin.certificates")}
           </TabsTrigger>

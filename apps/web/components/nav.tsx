@@ -34,20 +34,29 @@ function truncateAddress(address: string): string {
   return `${address.slice(0, 4)}…${address.slice(-4)}`;
 }
 
+/**
+ * Two public doors (Certificados, Verificar) plus whatever the visitor can
+ * actually open. Every gated item stays hidden until `useMe` confirms it —
+ * `me` is undefined on first paint, so nothing is offered optimistically and
+ * then retracted. Eventos is the one that used to be a locked door for
+ * everyone: `isEventCreator` runs the same `getCreatorWallet()` check that
+ * `/events` enforces server-side, so the item and the page can't disagree.
+ */
 function RoleLinks({ onNavigate }: { onNavigate?: () => void }) {
   const { data: me } = useMe();
   const { t } = useT();
 
   return (
     <>
-      <Link href="/editions" onClick={onNavigate} className={NAV_LINK_CLASS}>
-        {t("nav.editions")}
+      <Link
+        href="/certificates"
+        onClick={onNavigate}
+        className={NAV_LINK_CLASS}
+      >
+        {t("nav.certificates")}
       </Link>
       <Link href="/verify" onClick={onNavigate} className={NAV_LINK_CLASS}>
         {t("nav.verify")}
-      </Link>
-      <Link href="/events" onClick={onNavigate} className={NAV_LINK_CLASS}>
-        {t("nav.events")}
       </Link>
       {me?.authenticated && (
         <Link href="/me" onClick={onNavigate} className={NAV_LINK_CLASS}>
@@ -55,17 +64,18 @@ function RoleLinks({ onNavigate }: { onNavigate?: () => void }) {
         </Link>
       )}
       {me?.isCertifier && (
-        <Link
-          href="/certificator"
-          onClick={onNavigate}
-          className={NAV_LINK_CLASS}
-        >
-          {t("nav.certificator")}
+        <Link href="/sign" onClick={onNavigate} className={NAV_LINK_CLASS}>
+          {t("nav.sign")}
         </Link>
       )}
       {me?.role === "sysadmin" && (
-        <Link href="/admin" onClick={onNavigate} className={NAV_LINK_CLASS}>
-          {t("nav.admin")}
+        <Link href="/studio" onClick={onNavigate} className={NAV_LINK_CLASS}>
+          {t("nav.studio")}
+        </Link>
+      )}
+      {me?.isEventCreator && (
+        <Link href="/events" onClick={onNavigate} className={NAV_LINK_CLASS}>
+          {t("nav.events")}
         </Link>
       )}
     </>

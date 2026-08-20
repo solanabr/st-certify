@@ -1,9 +1,11 @@
 import type { Locale } from "../locales";
 
-/** Admin area: dashboard, editions/certificates tables, revoke, edition wizard. */
+/** Studio area: dashboard, editions/certificates tables, revoke, edition wizard. */
 const pt = {
+  "admin.title": "Studio",
   "admin.createEdition": "Criar edição",
   "admin.newEditionTitle": "Nova edição",
+  "admin.editions": "Edições",
   "admin.certificates": "Certificados",
   "admin.statsError": "Falha ao carregar estatísticas",
   "admin.statsErrorHint": "Tente novamente em instantes.",
@@ -16,8 +18,8 @@ const pt = {
   "admin.stat.claimed": "Certificados resgatados",
   "admin.stat.revoked": "Revogados",
 
-  "admin.recentActivity": "Atividade recente",
-  "admin.noEvents": "Nenhum evento registrado ainda.",
+  "admin.recentActivity": "Atividade",
+  "admin.noEvents": "Nenhuma atividade registrada ainda.",
   "admin.event.editionCreated": "Edição criada",
   "admin.event.editionStatusChanged": "Status da edição alterado",
   "admin.event.certificateRequested": "Certificado solicitado",
@@ -81,6 +83,7 @@ const pt = {
   "admin.meta.nameLabel": "Nome da edição",
   "admin.meta.namePlaceholder": "Ex.: Solana Bootcamp 2026",
   "admin.meta.slugLabel": "Slug (link público)",
+  "admin.meta.slugPlaceholder": "solana-bootcamp-2026",
   "admin.meta.slugChecking": "Verificando disponibilidade…",
   "admin.meta.slugAvailable": "Disponível.",
   "admin.meta.slugTaken": "Este slug já está em uso.",
@@ -139,8 +142,10 @@ export type adminKey = keyof typeof pt;
 export const adminDict: Record<Locale, Record<adminKey, string>> = {
   "pt-BR": pt,
   en: {
+    "admin.title": "Studio",
     "admin.createEdition": "Create edition",
     "admin.newEditionTitle": "New edition",
+    "admin.editions": "Editions",
     "admin.certificates": "Certificates",
     "admin.statsError": "Failed to load statistics",
     "admin.statsErrorHint": "Please try again shortly.",
@@ -153,8 +158,8 @@ export const adminDict: Record<Locale, Record<adminKey, string>> = {
     "admin.stat.claimed": "Claimed certificates",
     "admin.stat.revoked": "Revoked",
 
-    "admin.recentActivity": "Recent activity",
-    "admin.noEvents": "No events recorded yet.",
+    "admin.recentActivity": "Activity",
+    "admin.noEvents": "No activity recorded yet.",
     "admin.event.editionCreated": "Edition created",
     "admin.event.editionStatusChanged": "Edition status changed",
     "admin.event.certificateRequested": "Certificate requested",
@@ -218,6 +223,7 @@ export const adminDict: Record<Locale, Record<adminKey, string>> = {
     "admin.meta.nameLabel": "Edition name",
     "admin.meta.namePlaceholder": "E.g.: Solana Bootcamp 2026",
     "admin.meta.slugLabel": "Slug (public link)",
+    "admin.meta.slugPlaceholder": "solana-bootcamp-2026",
     "admin.meta.slugChecking": "Checking availability…",
     "admin.meta.slugAvailable": "Available.",
     "admin.meta.slugTaken": "This slug is already in use.",
@@ -271,8 +277,10 @@ export const adminDict: Record<Locale, Record<adminKey, string>> = {
       "The edition stays paused until you click “Open edition” — you can leave this page and resume later from the dashboard.",
   },
   es: {
+    "admin.title": "Studio",
     "admin.createEdition": "Crear edición",
     "admin.newEditionTitle": "Nueva edición",
+    "admin.editions": "Ediciones",
     "admin.certificates": "Certificados",
     "admin.statsError": "Error al cargar las estadísticas",
     "admin.statsErrorHint": "Inténtalo de nuevo en unos instantes.",
@@ -285,8 +293,8 @@ export const adminDict: Record<Locale, Record<adminKey, string>> = {
     "admin.stat.claimed": "Certificados reclamados",
     "admin.stat.revoked": "Revocados",
 
-    "admin.recentActivity": "Actividad reciente",
-    "admin.noEvents": "Aún no hay eventos registrados.",
+    "admin.recentActivity": "Actividad",
+    "admin.noEvents": "Aún no hay actividad registrada.",
     "admin.event.editionCreated": "Edición creada",
     "admin.event.editionStatusChanged": "Estado de la edición modificado",
     "admin.event.certificateRequested": "Certificado solicitado",
@@ -350,6 +358,7 @@ export const adminDict: Record<Locale, Record<adminKey, string>> = {
     "admin.meta.nameLabel": "Nombre de la edición",
     "admin.meta.namePlaceholder": "Ej.: Solana Bootcamp 2026",
     "admin.meta.slugLabel": "Slug (enlace público)",
+    "admin.meta.slugPlaceholder": "solana-bootcamp-2026",
     "admin.meta.slugChecking": "Comprobando disponibilidad…",
     "admin.meta.slugAvailable": "Disponible.",
     "admin.meta.slugTaken": "Este slug ya está en uso.",
