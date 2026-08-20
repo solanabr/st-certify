@@ -114,7 +114,7 @@ async function fetchSignersFor(
   return groupSignersByEdition((data ?? []) as EditionSignerRow[]);
 }
 
-/** Open editions for the public /editions browse grid. */
+/** Open editions for the public /certificates browse grid. */
 export async function listOpenEditions(): Promise<EditionWithSigners[]> {
   const supabase = getAnonClient();
   const { data, error } = await supabase
