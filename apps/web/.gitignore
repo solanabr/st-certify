@@ -13,6 +13,9 @@
 # testing
 /coverage
 
+# UI QA screenshots (generated, see scripts/ui-qa.mjs)
+/.ui-qa
+
 # next.js
 /.next/
 /out/
