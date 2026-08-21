@@ -1,9 +1,10 @@
 export const maxDuration = 60;
 
-import type { NextResponse } from "next/server";
+import { after, type NextResponse } from "next/server";
 import { apiRoute } from "@/lib/api";
 import { requireCertifier } from "@/lib/auth";
 import { fail } from "@/lib/errors";
+import { DEFAULT_LOCALE } from "@/lib/i18n/locales";
 import {
   submitAndSyncTransaction,
   type SubmitAndSyncResult,
@@ -11,6 +12,8 @@ import {
 } from "@/lib/chain/server";
 import { getCertificateByAddress } from "@/lib/db/queries";
 import { isWalletSignerOfEdition } from "@/lib/db/certificator-queries";
+import { getCertificateNotificationContext } from "@/lib/db/notification-queries";
+import { notifyOnce } from "@/lib/email/notify";
 import type { CertificateRow } from "@/lib/db/types";
 
 /**
@@ -90,7 +93,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       address: row.address,
     }));
 
-    return submitAndSyncTransaction({
+    const result = await submitAndSyncTransaction({
       wireBytesBase64: body.wireBytesBase64,
       lastValidBlockHeight,
       syncTargets,
@@ -101,5 +104,48 @@ export async function POST(request: Request): Promise<NextResponse> {
         count: certRows.length,
       },
     });
+
+    if (!result.alreadyProcessed) {
+      // The sync above refetched each mirror row; certificates whose LAST
+      // signature just landed are now FullySigned — the student's cue to
+      // claim, which today they only discover by reopening /me. Detected by
+      // the before/after status delta so a replayed chunk can't re-notify
+      // (and notifyOnce's ledger backstops even that). after() + catch: a
+      // mail outage never fails a completed sign batch.
+      const before = new Map(certRows.map((row) => [row.address, row.status]));
+      after(() =>
+        notifyNewlyReady(before).catch((err: unknown) => {
+          console.error("[notify] cert-ready sweep failed:", err);
+        }),
+      );
+    }
+    return result;
   });
+}
+
+async function notifyNewlyReady(
+  before: Map<string, CertificateRow["status"]>,
+): Promise<void> {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  for (const [address, previous] of before) {
+    if (previous === "FullySigned") continue;
+    const current = await getCertificateByAddress(address);
+    if (current?.status !== "FullySigned") continue;
+    const context = await getCertificateNotificationContext(address);
+    if (!context?.studentEmail) {
+      console.warn(`[notify] cert-ready ${address}: no student email`);
+      continue;
+    }
+    await notifyOnce({
+      to: context.studentEmail,
+      kind: "cert-ready",
+      locale: DEFAULT_LOCALE,
+      refId: address,
+      payload: {
+        studentName: context.studentName,
+        editionName: context.editionName,
+        claimUrl: `${appUrl}/me`,
+      },
+    });
+  }
 }
