@@ -15,6 +15,13 @@ export default defineConfig({
       "@": import.meta.dirname,
     },
   },
+  // tsconfig.json keeps jsx: "preserve" for Next's own compiler, which Vite
+  // can't load — importing any .tsx component from a test fails import
+  // analysis as invalid JS. Component tests render through react-dom/server
+  // (markup only, no DOM), so this transform is the only thing they need.
+  oxc: {
+    jsx: { runtime: "automatic" },
+  },
   test: {
     environment: "node",
   },

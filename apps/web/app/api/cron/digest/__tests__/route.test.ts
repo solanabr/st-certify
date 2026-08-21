@@ -4,14 +4,9 @@ import type { PendingEditionGroup } from "@/lib/db/certificator-queries";
 
 // Everything the handler talks to is faked; the Bearer guard, the aggregation
 // and the AppError envelope stay real (route-test style of
-// app/api/attendance/claim/__tests__/route.test.ts).
-const state = {
-  signerRows: [] as Array<{ wallet: string }>,
-  signerError: null as { message: string } | null,
-  inviteRows: [] as Array<{ wallet: string | null; email: string }>,
-  inviteError: null as { message: string } | null,
-};
-
+// app/api/attendance/claim/__tests__/route.test.ts). The two lookups moved to
+// lib/db/notification-queries in W2-E, so they are mocked as accessors — their
+// own degrade behaviour is covered in lib/db/__tests__/notification-queries.
 vi.mock("next/server", () => ({
   NextResponse: {
     json: (body: unknown, init?: { status?: number }) => ({
@@ -20,36 +15,10 @@ vi.mock("next/server", () => ({
     }),
   },
 }));
-vi.mock("@/lib/db/mutations", () => ({
-  dbConfigured: true,
-  getServiceClient: () => ({
-    from(table: string) {
-      const builder = {
-        select() {
-          return builder;
-        },
-        in() {
-          return builder;
-        },
-        not() {
-          return builder;
-        },
-        then(
-          resolve: (value: {
-            data: unknown[];
-            error: { message: string } | null;
-          }) => unknown,
-        ) {
-          return Promise.resolve(
-            table === "edition_signers"
-              ? { data: state.signerRows, error: state.signerError }
-              : { data: state.inviteRows, error: state.inviteError },
-          ).then(resolve);
-        },
-      };
-      return builder;
-    },
-  }),
+vi.mock("@/lib/db/mutations", () => ({ dbConfigured: true }));
+vi.mock("@/lib/db/notification-queries", () => ({
+  listAllSignerWallets: vi.fn(async () => []),
+  signerEmailsByWallet: vi.fn(async () => new Map<string, string>()),
 }));
 vi.mock("@/lib/db/certificator-queries", () => ({
   getPendingForSigner: vi.fn(async () => []),
@@ -58,6 +27,8 @@ vi.mock("@/lib/email/notify", () => ({
   notifyOnce: vi.fn(async () => ({ sent: true, deduped: false })),
 }));
 
+const { listAllSignerWallets, signerEmailsByWallet } =
+  await import("@/lib/db/notification-queries");
 const { getPendingForSigner } = await import("@/lib/db/certificator-queries");
 const { notifyOnce } = await import("@/lib/email/notify");
 const { GET } = await import("../route");
@@ -106,17 +77,29 @@ function get(authorization?: string): Promise<FakeResponse> {
   return GET(request) as unknown as Promise<FakeResponse>;
 }
 
+/** Signer wallets the digest will fan out over. */
+function givenSigners(...wallets: string[]): void {
+  vi.mocked(listAllSignerWallets).mockResolvedValue(wallets);
+}
+
+/** wallet → email, as signer_invites would resolve it. */
+function givenEmails(entries: Record<string, string>): void {
+  vi.mocked(signerEmailsByWallet).mockResolvedValue(
+    new Map(Object.entries(entries)),
+  );
+}
+
 beforeEach(() => {
   vi.stubEnv("CRON_SECRET", SECRET);
   vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://certify.test");
+  vi.mocked(listAllSignerWallets).mockReset();
+  vi.mocked(listAllSignerWallets).mockResolvedValue([]);
+  vi.mocked(signerEmailsByWallet).mockReset();
+  vi.mocked(signerEmailsByWallet).mockResolvedValue(new Map());
   vi.mocked(getPendingForSigner).mockReset();
   vi.mocked(getPendingForSigner).mockResolvedValue([]);
   vi.mocked(notifyOnce).mockReset();
   vi.mocked(notifyOnce).mockResolvedValue({ sent: true, deduped: false });
-  state.signerRows = [];
-  state.signerError = null;
-  state.inviteRows = [];
-  state.inviteError = null;
 });
 
 afterEach(() => {
@@ -157,11 +140,11 @@ describe("GET /api/cron/digest — authorization", () => {
 
 describe("GET /api/cron/digest — digest", () => {
   it("notifies each signer that has pending requests", async () => {
-    state.signerRows = [{ wallet: WALLET_A }, { wallet: WALLET_B }];
-    state.inviteRows = [
-      { wallet: WALLET_A, email: "a@example.test" },
-      { wallet: WALLET_B, email: "b@example.test" },
-    ];
+    givenSigners(WALLET_A, WALLET_B);
+    givenEmails({
+      [WALLET_A]: "a@example.test",
+      [WALLET_B]: "b@example.test",
+    });
     vi.mocked(getPendingForSigner).mockImplementation(async (wallets) =>
       wallets[0] === WALLET_A
         ? [group("Ed1t10nA", "Turma A", 3)]
@@ -193,12 +176,8 @@ describe("GET /api/cron/digest — digest", () => {
     );
   });
 
-  it("queries pending work once per distinct signer wallet", async () => {
-    state.signerRows = [
-      { wallet: WALLET_A },
-      { wallet: WALLET_A },
-      { wallet: WALLET_B },
-    ];
+  it("queries pending work once per signer wallet", async () => {
+    givenSigners(WALLET_A, WALLET_B);
 
     await get(`Bearer ${SECRET}`);
 
@@ -208,8 +187,7 @@ describe("GET /api/cron/digest — digest", () => {
   });
 
   it("skips a signer with pending work but no known email", async () => {
-    state.signerRows = [{ wallet: WALLET_A }];
-    state.inviteRows = [];
+    givenSigners(WALLET_A);
     vi.mocked(getPendingForSigner).mockResolvedValue([
       group("Ed1t10nA", "Turma A", 2),
     ]);
@@ -221,8 +199,8 @@ describe("GET /api/cron/digest — digest", () => {
   });
 
   it("notifies nobody when no request is pending", async () => {
-    state.signerRows = [{ wallet: WALLET_A }];
-    state.inviteRows = [{ wallet: WALLET_A, email: "a@example.test" }];
+    givenSigners(WALLET_A);
+    givenEmails({ [WALLET_A]: "a@example.test" });
 
     const response = await get(`Bearer ${SECRET}`);
 
@@ -230,9 +208,9 @@ describe("GET /api/cron/digest — digest", () => {
     expect(notifyOnce).not.toHaveBeenCalled();
   });
 
-  it("degrades to no email resolution when signer_invites is unavailable", async () => {
-    state.signerRows = [{ wallet: WALLET_A }];
-    state.inviteError = { message: 'relation "signer_invites" does not exist' };
+  it("stays a 200 when email resolution comes back empty", async () => {
+    givenSigners(WALLET_A);
+    vi.mocked(signerEmailsByWallet).mockResolvedValue(new Map());
     vi.mocked(getPendingForSigner).mockResolvedValue([
       group("Ed1t10nA", "Turma A", 2),
     ]);
@@ -244,8 +222,8 @@ describe("GET /api/cron/digest — digest", () => {
   });
 
   it("sends one notice per edition when a signer has several", async () => {
-    state.signerRows = [{ wallet: WALLET_A }];
-    state.inviteRows = [{ wallet: WALLET_A, email: "a@example.test" }];
+    givenSigners(WALLET_A);
+    givenEmails({ [WALLET_A]: "a@example.test" });
     vi.mocked(getPendingForSigner).mockResolvedValue([
       group("Ed1t10nA", "Turma A", 2),
       group("Ed1t10nB", "Turma B", 5),

@@ -1,7 +1,11 @@
 import type { NextRequest } from "next/server";
 import { apiRoute } from "@/lib/api";
 import { getPendingForSigner } from "@/lib/db/certificator-queries";
-import { dbConfigured, getServiceClient } from "@/lib/db/mutations";
+import { dbConfigured } from "@/lib/db/mutations";
+import {
+  listAllSignerWallets,
+  signerEmailsByWallet,
+} from "@/lib/db/notification-queries";
 import { notifyOnce } from "@/lib/email/notify";
 import { fail } from "@/lib/errors";
 import { DEFAULT_LOCALE } from "@/lib/i18n/locales";
@@ -17,15 +21,6 @@ import { DEFAULT_LOCALE } from "@/lib/i18n/locales";
  */
 const MIN_INTERVAL_HOURS = 20;
 
-interface SignerWalletRow {
-  wallet: string;
-}
-
-interface InviteEmailRow {
-  wallet: string | null;
-  email: string;
-}
-
 export async function GET(request: NextRequest) {
   return apiRoute(async () => {
     requireCronSecret(request);
@@ -34,8 +29,8 @@ export async function GET(request: NextRequest) {
       return { signers: 0, notified: 0, skipped: 0 };
     }
 
-    const wallets = await listSignerWallets();
-    const emailByWallet = await resolveSignerEmails(wallets);
+    const wallets = await listAllSignerWallets();
+    const emailByWallet = await signerEmailsByWallet(wallets);
 
     let signers = 0;
     let notified = 0;
@@ -92,48 +87,4 @@ function appBaseUrl(): string {
     process.env.NEXT_PUBLIC_APP_URL?.replace(/\/+$/, "") ??
     "http://localhost:3000"
   );
-}
-
-async function listSignerWallets(): Promise<string[]> {
-  const { data, error } = await getServiceClient()
-    .from("edition_signers")
-    .select("wallet");
-  if (error) {
-    fail("INTERNAL", "Falha ao listar signatários.", {
-      detail: error.message,
-      retryable: true,
-    });
-  }
-  const rows = (data ?? []) as SignerWalletRow[];
-  return [...new Set(rows.map((row) => row.wallet).filter(Boolean))];
-}
-
-/**
- * wallet → email, from the invites a signer accepted. Missing table (before
- * migration 0005 lands) or a read failure degrades to "no emails known", which
- * the caller reports as skips.
- */
-async function resolveSignerEmails(
-  wallets: string[],
-): Promise<Map<string, string>> {
-  const byWallet = new Map<string, string>();
-  if (wallets.length === 0) {
-    return byWallet;
-  }
-
-  const { data, error } = await getServiceClient()
-    .from("signer_invites")
-    .select("wallet, email")
-    .in("wallet", wallets);
-  if (error) {
-    console.warn("[cron:digest] signer emails unavailable:", error.message);
-    return byWallet;
-  }
-
-  for (const row of (data ?? []) as InviteEmailRow[]) {
-    if (row.wallet && row.email && !byWallet.has(row.wallet)) {
-      byWallet.set(row.wallet, row.email);
-    }
-  }
-  return byWallet;
 }

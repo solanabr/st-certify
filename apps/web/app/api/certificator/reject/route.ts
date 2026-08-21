@@ -1,7 +1,10 @@
-import type { NextResponse } from "next/server";
+import { after, type NextResponse } from "next/server";
 import { apiRoute } from "@/lib/api";
 import { requireCertifier } from "@/lib/auth";
 import { fail } from "@/lib/errors";
+import { DEFAULT_LOCALE } from "@/lib/i18n/locales";
+import { getCertificateNotificationContext } from "@/lib/db/notification-queries";
+import { notifyOnce } from "@/lib/email/notify";
 import {
   certificateExistsOnChain,
   submitAndSyncTransaction,
@@ -105,7 +108,42 @@ export async function POST(request: Request): Promise<NextResponse> {
         );
       }
       await markCertificateRejected(target.address, body.reason);
+      // The student otherwise only learns from the card's badge — tell them,
+      // with the reason. after() + catch: a mail outage never turns a
+      // completed rejection into an error (same shape as the revoke route).
+      after(() =>
+        notifyRejected(target.address, body.reason ?? null).catch(
+          (err: unknown) => {
+            console.error(
+              `[notify] cert-rejected ${target.address} failed:`,
+              err,
+            );
+          },
+        ),
+      );
     }
     return result;
+  });
+}
+
+async function notifyRejected(
+  address: string,
+  reason: string | null,
+): Promise<void> {
+  const context = await getCertificateNotificationContext(address);
+  if (!context?.studentEmail) {
+    console.warn(`[notify] cert-rejected ${address}: no student email`);
+    return;
+  }
+  await notifyOnce({
+    to: context.studentEmail,
+    kind: "cert-rejected",
+    locale: DEFAULT_LOCALE,
+    refId: address,
+    payload: {
+      studentName: context.studentName,
+      editionName: context.editionName,
+      reason,
+    },
   });
 }
