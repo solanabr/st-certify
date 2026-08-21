@@ -94,7 +94,7 @@ export function VerifyChainStamp({
         <ShieldX className="size-4" aria-hidden="true" />
         {t("verify.stamp.revoked")}
         <span className="tabular-nums font-normal text-muted-foreground">
-          · slot {verdict.slot}
+          {t("verify.stamp.slot", { slot: verdict.slot })}
         </span>
       </p>
     );
@@ -117,7 +117,7 @@ export function VerifyChainStamp({
           {t("verify.stamp.verified")}
         </span>
         <span className="tabular-nums text-muted-foreground">
-          · slot {verdict.slot}
+          {t("verify.stamp.slot", { slot: verdict.slot })}
         </span>
       </p>
 

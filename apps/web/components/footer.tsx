@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getT } from "@/lib/i18n/server";
+import type { TranslationKey } from "@/lib/i18n";
 
 /**
  * Brand footer: the Superteam Brasil dark-green "impact field" (same in both
@@ -13,6 +14,21 @@ interface SocialLink {
   href: string;
   path: string;
 }
+
+/**
+ * Mirrors the nav's public doors. This footer renders on the server with no
+ * session, so it lists only destinations that are meaningful to any visitor —
+ * role-gated areas (/studio, /sign) stay out. "Para organizadores" is the
+ * event product's front door, framed as an invitation rather than a nav item
+ * everyone sees and can't open.
+ */
+const PRODUCT_LINKS: ReadonlyArray<{ href: string; labelKey: TranslationKey }> =
+  [
+    { href: "/certificates", labelKey: "footer.certificates" },
+    { href: "/verify", labelKey: "footer.verifyCertificate" },
+    { href: "/me", labelKey: "footer.myDocuments" },
+    { href: "/events", labelKey: "footer.forOrganizers" },
+  ];
 
 const SOCIALS: SocialLink[] = [
   {
@@ -89,30 +105,16 @@ export async function Footer() {
                 {t("footer.product")}
               </h2>
               <ul className="mt-4 space-y-2 text-sm">
-                <li>
-                  <Link
-                    href="/verify"
-                    className="text-inverse-foreground/80 transition-colors hover:text-inverse-foreground focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    {t("footer.verifyCertificate")}
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href="/editions"
-                    className="text-inverse-foreground/80 transition-colors hover:text-inverse-foreground focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    {t("footer.browseEditions")}
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href="/me"
-                    className="text-inverse-foreground/80 transition-colors hover:text-inverse-foreground focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    {t("footer.myCertificates")}
-                  </Link>
-                </li>
+                {PRODUCT_LINKS.map((link) => (
+                  <li key={link.href}>
+                    <Link
+                      href={link.href}
+                      className="text-inverse-foreground/80 transition-colors hover:text-inverse-foreground focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      {t(link.labelKey)}
+                    </Link>
+                  </li>
+                ))}
               </ul>
             </nav>
 
@@ -159,7 +161,7 @@ export async function Footer() {
               Superteam Brasil
             </a>
           </p>
-          <p className="font-mono">Devnet</p>
+          <p className="font-mono">{t("common.devnet")}</p>
         </div>
       </div>
     </footer>

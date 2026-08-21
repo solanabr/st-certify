@@ -110,6 +110,9 @@ importers:
       react-hook-form:
         specifier: 7.84.0
         version: 7.84.0(react@19.1.0)
+      resend:
+        specifier: ^6.21.0
+        version: 6.21.0
       satori:
         specifier: 0.29.0
         version: 0.29.0
@@ -5602,6 +5605,9 @@ packages:
     resolution: {integrity: sha512-/+5VFTchJDoVj3bhoqi6UeymcD00DAwb1nJwamzPvHEszJ4FpF6SNNbUbOS8yI56qHzdV8eK0qEfOSiodkTdxg==}
     engines: {node: '>= 0.4'}
 
+  postal-mime@2.7.5:
+    resolution: {integrity: sha512-GNEXKvWFQnbgO5NlrGzVa0FmWzBZ24PersAWErttSg1Hjpf0ATxTwS5DOMGaOpTG6bUh5cTr7xi0jAD942wCJA==}
+
   postcss-value-parser@4.2.0:
     resolution: {integrity: sha512-1NNCs6uurfkVbeXG4S8JFT9t19m45ICnif8zWLd5oPSZ50QnwMfK+H3jv408d4jw/7Bttv5axS5IiHoLaVNHeQ==}
 
@@ -5821,6 +5827,15 @@ packages:
 
   reselect@5.2.0:
     resolution: {integrity: sha512-AgZ3UOZm3YndfrJ4OYjgrT7bmCm/1iqkjvEfH/oYjzh6PD2qw4QuT3jjnXIrpdt4MTpMXclMT3lXbmRY+XRakw==}
+
+  resend@6.21.0:
+    resolution: {integrity: sha512-XT1eP2iA8rZ51NSO2CJlL1ZE2baBoPpOGMgz2p0o2uluz/YU3XfItpGymXDlL0Sp2Mc+y9+Xxsfdccfi4f2FzQ==}
+    engines: {node: '>=20'}
+    peerDependencies:
+      '@react-email/render': '*'
+    peerDependenciesMeta:
+      '@react-email/render':
+        optional: true
 
   resolve-from@4.0.0:
     resolution: {integrity: sha512-pb/MYmXstAkysRFx8piNI1tGFNQIFA3vkE3Gq4EuA1dF6gHp/+vgZqsCGJapvy8N3Q+4o7FwvquPJcnZ7RYy4g==}
@@ -13936,6 +13951,8 @@ snapshots:
 
   possible-typed-array-names@1.1.0: {}
 
+  postal-mime@2.7.5: {}
+
   postcss-value-parser@4.2.0: {}
 
   postcss@8.4.31:
@@ -14211,6 +14228,11 @@ snapshots:
   require-main-filename@2.0.0: {}
 
   reselect@5.2.0: {}
+
+  resend@6.21.0:
+    dependencies:
+      postal-mime: 2.7.5
+      standardwebhooks: 1.0.0
 
   resolve-from@4.0.0: {}
 

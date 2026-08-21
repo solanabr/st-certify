@@ -1,9 +1,11 @@
 import type { Locale } from "../locales";
 
-/** Admin area: dashboard, editions/certificates tables, revoke, edition wizard. */
+/** Studio area: dashboard, editions/certificates tables, revoke, edition wizard. */
 const pt = {
+  "admin.title": "Studio",
   "admin.createEdition": "Criar edição",
   "admin.newEditionTitle": "Nova edição",
+  "admin.editions": "Edições",
   "admin.certificates": "Certificados",
   "admin.statsError": "Falha ao carregar estatísticas",
   "admin.statsErrorHint": "Tente novamente em instantes.",
@@ -16,8 +18,8 @@ const pt = {
   "admin.stat.claimed": "Certificados resgatados",
   "admin.stat.revoked": "Revogados",
 
-  "admin.recentActivity": "Atividade recente",
-  "admin.noEvents": "Nenhum evento registrado ainda.",
+  "admin.recentActivity": "Atividade",
+  "admin.noEvents": "Nenhuma atividade registrada ainda.",
   "admin.event.editionCreated": "Edição criada",
   "admin.event.editionStatusChanged": "Status da edição alterado",
   "admin.event.certificateRequested": "Certificado solicitado",
@@ -36,7 +38,7 @@ const pt = {
   "admin.copyLink": "Copiar link",
   "admin.copyLinkFailed": "Não foi possível copiar o link.",
   "admin.revoked": "Certificado revogado",
-  "admin.revokedAndBurned": "Certificado revogado · NFT queimado",
+  "admin.revokedAndBurned": "Certificado revogado · registro on-chain queimado",
   "admin.edit": "Editar",
   "admin.editDisabledTitle":
     "Duplicar como nova edição (em breve) — edições são imutáveis após criadas",
@@ -64,7 +66,7 @@ const pt = {
   "admin.revoke.action": "Revogar",
   "admin.revoke.title": "Revogar certificado de {name}?",
   "admin.revoke.description":
-    "Esta ação é permanente: o certificado passa a REVOGADO na verificação pública e o NFT é queimado quando possível.",
+    "Esta ação é permanente: o certificado passa a REVOGADO na verificação pública e o registro on-chain é queimado quando possível.",
   "admin.revoke.reasonLabel": "Motivo",
   "admin.revoke.reasonPlaceholder":
     "Ex.: emitido por engano; dados incorretos.",
@@ -81,6 +83,7 @@ const pt = {
   "admin.meta.nameLabel": "Nome da edição",
   "admin.meta.namePlaceholder": "Ex.: Solana Bootcamp 2026",
   "admin.meta.slugLabel": "Slug (link público)",
+  "admin.meta.slugPlaceholder": "solana-bootcamp-2026",
   "admin.meta.slugChecking": "Verificando disponibilidade…",
   "admin.meta.slugAvailable": "Disponível.",
   "admin.meta.slugTaken": "Este slug já está em uso.",
@@ -130,6 +133,67 @@ const pt = {
   "admin.qa.reloadSample": "Recarregar amostra",
   "admin.qa.opening": "Abrindo…",
   "admin.qa.openEdition": "Abrir edição",
+  "admin.manage.metaTitle": "Gerenciar edição · Studio",
+  "admin.manage.backToStudio": "Voltar ao Studio",
+  "admin.manage.untitled": "Edição sem nome",
+  "admin.manage.draftBadge": "Rascunho",
+  "admin.manage.notFoundTitle": "Edição não encontrada",
+  "admin.manage.notFoundBody":
+    "Confira o endereço na barra de navegação ou volte ao Studio e abra a edição pela lista.",
+  "admin.manage.supplyLabel": "Emitidos",
+  "admin.manage.supply": "{minted} de {max}",
+  "admin.manage.supplyUnlimited": "{minted} (sem limite)",
+  "admin.manage.requestedLabel": "Solicitações",
+  "admin.manage.close": "Encerrar",
+  "admin.manage.closeConfirmTitle": "Encerrar {name}?",
+  "admin.manage.closeConfirmBody":
+    "Encerrar é definitivo: a edição para de aceitar solicitações e não pode ser reaberta. Para uma pausa temporária, use Pausar.",
+
+  "admin.manage.seats.title": "Signatários",
+  "admin.manage.seats.intro":
+    "Cada signatário assina os certificados desta turma. Reenvie o convite de quem ainda não aceitou.",
+  "admin.manage.seats.onChainNote":
+    "Esta edição foi criada antes dos convites — os signatários já estão registrados on-chain e não há convite para reenviar.",
+  "admin.manage.seats.empty": "Nenhum signatário ainda.",
+  "admin.manage.seats.colSigner": "Signatário",
+  "admin.manage.seats.colContact": "Contato",
+  "admin.manage.seats.status.invited": "Convite enviado",
+  "admin.manage.seats.status.accepted": "Aceito",
+  "admin.manage.seats.status.expired": "Convite expirado",
+  "admin.manage.seats.resend": "Reenviar convite",
+  "admin.manage.seats.resending": "Reenviando…",
+  "admin.manage.seats.resent": "Convite reenviado.",
+  "admin.manage.seats.resendDeduped":
+    "Esta pessoa já recebeu um lembrete nas últimas horas — nada foi reenviado.",
+
+  "admin.manage.share.title": "Kit de divulgação",
+  "admin.manage.share.intro":
+    "Compartilhe o link público para que os alunos solicitem o certificado.",
+  "admin.manage.share.unavailable":
+    "O link público aparece aqui quando a edição estiver criada on-chain.",
+  "admin.manage.share.qr": "QR code",
+  "admin.manage.share.downloadQr": "Baixar QR",
+  "admin.manage.share.whatsapp": "WhatsApp",
+  "admin.manage.share.copyBlock": "Texto pronto",
+  "admin.manage.share.copyText": "Copiar texto",
+  "admin.manage.share.message":
+    "Seu certificado de {name} está disponível. Solicite o seu em {url}",
+
+  "admin.manage.pipeline.title": "Certificados",
+  "admin.manage.pipeline.intro":
+    "Acompanhe cada solicitação desta turma, da entrada até a emissão.",
+  "admin.manage.pipeline.draftNote":
+    "As solicitações começam a aparecer depois que a edição for criada on-chain.",
+  "admin.manage.pipeline.empty": "Nenhuma solicitação ainda.",
+  "admin.manage.pipeline.colStage": "Etapa",
+  "admin.manage.pipeline.signatures": "{signed}/{total} assinaturas",
+  "admin.manage.pipeline.stage.requested": "Solicitado",
+  "admin.manage.pipeline.stage.signing": "Assinando",
+  "admin.manage.pipeline.stage.ready": "Pronto",
+  "admin.manage.pipeline.stage.issued": "Emitido",
+  "admin.manage.pipeline.stage.rejected": "Rejeitado",
+  "admin.manage.pipeline.stage.revoked": "Revogado",
+
   "admin.qa.pausedNote":
     "A edição fica pausada até você clicar em “Abrir edição” — você pode sair desta página e retomar depois pelo painel.",
 } as const;
@@ -139,8 +203,10 @@ export type adminKey = keyof typeof pt;
 export const adminDict: Record<Locale, Record<adminKey, string>> = {
   "pt-BR": pt,
   en: {
+    "admin.title": "Studio",
     "admin.createEdition": "Create edition",
     "admin.newEditionTitle": "New edition",
+    "admin.editions": "Editions",
     "admin.certificates": "Certificates",
     "admin.statsError": "Failed to load statistics",
     "admin.statsErrorHint": "Please try again shortly.",
@@ -153,8 +219,8 @@ export const adminDict: Record<Locale, Record<adminKey, string>> = {
     "admin.stat.claimed": "Claimed certificates",
     "admin.stat.revoked": "Revoked",
 
-    "admin.recentActivity": "Recent activity",
-    "admin.noEvents": "No events recorded yet.",
+    "admin.recentActivity": "Activity",
+    "admin.noEvents": "No activity recorded yet.",
     "admin.event.editionCreated": "Edition created",
     "admin.event.editionStatusChanged": "Edition status changed",
     "admin.event.certificateRequested": "Certificate requested",
@@ -173,7 +239,7 @@ export const adminDict: Record<Locale, Record<adminKey, string>> = {
     "admin.copyLink": "Copy link",
     "admin.copyLinkFailed": "Couldn't copy the link.",
     "admin.revoked": "Certificate revoked",
-    "admin.revokedAndBurned": "Certificate revoked · NFT burned",
+    "admin.revokedAndBurned": "Certificate revoked · on-chain record burned",
     "admin.edit": "Edit",
     "admin.editDisabledTitle":
       "Duplicate as a new edition (coming soon) — editions are immutable once created",
@@ -201,7 +267,7 @@ export const adminDict: Record<Locale, Record<adminKey, string>> = {
     "admin.revoke.action": "Revoke",
     "admin.revoke.title": "Revoke {name}'s certificate?",
     "admin.revoke.description":
-      "This action is permanent: the certificate becomes REVOKED on public verification and the NFT is burned when possible.",
+      "This action is permanent: the certificate becomes REVOKED on public verification and the on-chain record is burned when possible.",
     "admin.revoke.reasonLabel": "Reason",
     "admin.revoke.reasonPlaceholder":
       "E.g.: issued by mistake; incorrect details.",
@@ -218,6 +284,7 @@ export const adminDict: Record<Locale, Record<adminKey, string>> = {
     "admin.meta.nameLabel": "Edition name",
     "admin.meta.namePlaceholder": "E.g.: Solana Bootcamp 2026",
     "admin.meta.slugLabel": "Slug (public link)",
+    "admin.meta.slugPlaceholder": "solana-bootcamp-2026",
     "admin.meta.slugChecking": "Checking availability…",
     "admin.meta.slugAvailable": "Available.",
     "admin.meta.slugTaken": "This slug is already in use.",
@@ -267,12 +334,75 @@ export const adminDict: Record<Locale, Record<adminKey, string>> = {
     "admin.qa.reloadSample": "Reload sample",
     "admin.qa.opening": "Opening…",
     "admin.qa.openEdition": "Open edition",
+    "admin.manage.metaTitle": "Manage edition · Studio",
+    "admin.manage.backToStudio": "Back to Studio",
+    "admin.manage.untitled": "Untitled edition",
+    "admin.manage.draftBadge": "Draft",
+    "admin.manage.notFoundTitle": "Edition not found",
+    "admin.manage.notFoundBody":
+      "Check the address in the URL, or go back to Studio and open the edition from the list.",
+    "admin.manage.supplyLabel": "Issued",
+    "admin.manage.supply": "{minted} of {max}",
+    "admin.manage.supplyUnlimited": "{minted} (no cap)",
+    "admin.manage.requestedLabel": "Requests",
+    "admin.manage.close": "Close",
+    "admin.manage.closeConfirmTitle": "Close {name}?",
+    "admin.manage.closeConfirmBody":
+      "Closing is final: the edition stops accepting requests and cannot be reopened. For a temporary stop, use Pause.",
+
+    "admin.manage.seats.title": "Signers",
+    "admin.manage.seats.intro":
+      "Each signer signs this class's certificates. Re-send the invite to anyone who hasn't accepted yet.",
+    "admin.manage.seats.onChainNote":
+      "This edition predates invites — its signers are already recorded on-chain, so there is no invite to re-send.",
+    "admin.manage.seats.empty": "No signers yet.",
+    "admin.manage.seats.colSigner": "Signer",
+    "admin.manage.seats.colContact": "Contact",
+    "admin.manage.seats.status.invited": "Invite sent",
+    "admin.manage.seats.status.accepted": "Accepted",
+    "admin.manage.seats.status.expired": "Invite expired",
+    "admin.manage.seats.resend": "Re-send invite",
+    "admin.manage.seats.resending": "Re-sending…",
+    "admin.manage.seats.resent": "Invite re-sent.",
+    "admin.manage.seats.resendDeduped":
+      "They were already reminded in the last few hours — nothing was re-sent.",
+
+    "admin.manage.share.title": "Distribution kit",
+    "admin.manage.share.intro":
+      "Share the public link so students can request their certificate.",
+    "admin.manage.share.unavailable":
+      "The public link appears here once the edition exists on-chain.",
+    "admin.manage.share.qr": "QR code",
+    "admin.manage.share.downloadQr": "Download QR",
+    "admin.manage.share.whatsapp": "WhatsApp",
+    "admin.manage.share.copyBlock": "Ready-to-send text",
+    "admin.manage.share.copyText": "Copy text",
+    "admin.manage.share.message":
+      "Your {name} certificate is available. Request yours at {url}",
+
+    "admin.manage.pipeline.title": "Certificates",
+    "admin.manage.pipeline.intro":
+      "Follow every request in this class, from arrival to issuance.",
+    "admin.manage.pipeline.draftNote":
+      "Requests start appearing once the edition is created on-chain.",
+    "admin.manage.pipeline.empty": "No requests yet.",
+    "admin.manage.pipeline.colStage": "Stage",
+    "admin.manage.pipeline.signatures": "{signed}/{total} signatures",
+    "admin.manage.pipeline.stage.requested": "Requested",
+    "admin.manage.pipeline.stage.signing": "Signing",
+    "admin.manage.pipeline.stage.ready": "Ready",
+    "admin.manage.pipeline.stage.issued": "Issued",
+    "admin.manage.pipeline.stage.rejected": "Rejected",
+    "admin.manage.pipeline.stage.revoked": "Revoked",
+
     "admin.qa.pausedNote":
       "The edition stays paused until you click “Open edition” — you can leave this page and resume later from the dashboard.",
   },
   es: {
+    "admin.title": "Studio",
     "admin.createEdition": "Crear edición",
     "admin.newEditionTitle": "Nueva edición",
+    "admin.editions": "Ediciones",
     "admin.certificates": "Certificados",
     "admin.statsError": "Error al cargar las estadísticas",
     "admin.statsErrorHint": "Inténtalo de nuevo en unos instantes.",
@@ -285,8 +415,8 @@ export const adminDict: Record<Locale, Record<adminKey, string>> = {
     "admin.stat.claimed": "Certificados reclamados",
     "admin.stat.revoked": "Revocados",
 
-    "admin.recentActivity": "Actividad reciente",
-    "admin.noEvents": "Aún no hay eventos registrados.",
+    "admin.recentActivity": "Actividad",
+    "admin.noEvents": "Aún no hay actividad registrada.",
     "admin.event.editionCreated": "Edición creada",
     "admin.event.editionStatusChanged": "Estado de la edición modificado",
     "admin.event.certificateRequested": "Certificado solicitado",
@@ -305,7 +435,8 @@ export const adminDict: Record<Locale, Record<adminKey, string>> = {
     "admin.copyLink": "Copiar enlace",
     "admin.copyLinkFailed": "No se pudo copiar el enlace.",
     "admin.revoked": "Certificado revocado",
-    "admin.revokedAndBurned": "Certificado revocado · NFT quemado",
+    "admin.revokedAndBurned":
+      "Certificado revocado · registro on-chain quemado",
     "admin.edit": "Editar",
     "admin.editDisabledTitle":
       "Duplicar como nueva edición (próximamente) — las ediciones son inmutables una vez creadas",
@@ -333,7 +464,7 @@ export const adminDict: Record<Locale, Record<adminKey, string>> = {
     "admin.revoke.action": "Revocar",
     "admin.revoke.title": "¿Revocar el certificado de {name}?",
     "admin.revoke.description":
-      "Esta acción es permanente: el certificado pasa a REVOCADO en la verificación pública y el NFT se quema cuando es posible.",
+      "Esta acción es permanente: el certificado pasa a REVOCADO en la verificación pública y el registro on-chain se quema cuando es posible.",
     "admin.revoke.reasonLabel": "Motivo",
     "admin.revoke.reasonPlaceholder":
       "Ej.: emitido por error; datos incorrectos.",
@@ -350,6 +481,7 @@ export const adminDict: Record<Locale, Record<adminKey, string>> = {
     "admin.meta.nameLabel": "Nombre de la edición",
     "admin.meta.namePlaceholder": "Ej.: Solana Bootcamp 2026",
     "admin.meta.slugLabel": "Slug (enlace público)",
+    "admin.meta.slugPlaceholder": "solana-bootcamp-2026",
     "admin.meta.slugChecking": "Comprobando disponibilidad…",
     "admin.meta.slugAvailable": "Disponible.",
     "admin.meta.slugTaken": "Este slug ya está en uso.",
@@ -399,6 +531,67 @@ export const adminDict: Record<Locale, Record<adminKey, string>> = {
     "admin.qa.reloadSample": "Recargar muestra",
     "admin.qa.opening": "Abriendo…",
     "admin.qa.openEdition": "Abrir edición",
+    "admin.manage.metaTitle": "Gestionar edición · Studio",
+    "admin.manage.backToStudio": "Volver al Studio",
+    "admin.manage.untitled": "Edición sin nombre",
+    "admin.manage.draftBadge": "Borrador",
+    "admin.manage.notFoundTitle": "Edición no encontrada",
+    "admin.manage.notFoundBody":
+      "Comprueba la dirección en la barra de navegación, o vuelve al Studio y abre la edición desde la lista.",
+    "admin.manage.supplyLabel": "Emitidos",
+    "admin.manage.supply": "{minted} de {max}",
+    "admin.manage.supplyUnlimited": "{minted} (sin límite)",
+    "admin.manage.requestedLabel": "Solicitudes",
+    "admin.manage.close": "Cerrar",
+    "admin.manage.closeConfirmTitle": "¿Cerrar {name}?",
+    "admin.manage.closeConfirmBody":
+      "Cerrar es definitivo: la edición deja de aceptar solicitudes y no se puede reabrir. Para una pausa temporal, usa Pausar.",
+
+    "admin.manage.seats.title": "Firmantes",
+    "admin.manage.seats.intro":
+      "Cada firmante firma los certificados de esta clase. Reenvía la invitación a quien aún no la haya aceptado.",
+    "admin.manage.seats.onChainNote":
+      "Esta edición es anterior a las invitaciones — sus firmantes ya están registrados on-chain y no hay invitación que reenviar.",
+    "admin.manage.seats.empty": "Aún no hay firmantes.",
+    "admin.manage.seats.colSigner": "Firmante",
+    "admin.manage.seats.colContact": "Contacto",
+    "admin.manage.seats.status.invited": "Invitación enviada",
+    "admin.manage.seats.status.accepted": "Aceptada",
+    "admin.manage.seats.status.expired": "Invitación caducada",
+    "admin.manage.seats.resend": "Reenviar invitación",
+    "admin.manage.seats.resending": "Reenviando…",
+    "admin.manage.seats.resent": "Invitación reenviada.",
+    "admin.manage.seats.resendDeduped":
+      "Ya recibió un recordatorio en las últimas horas — no se reenvió nada.",
+
+    "admin.manage.share.title": "Kit de difusión",
+    "admin.manage.share.intro":
+      "Comparte el enlace público para que los alumnos soliciten su certificado.",
+    "admin.manage.share.unavailable":
+      "El enlace público aparece aquí cuando la edición exista on-chain.",
+    "admin.manage.share.qr": "Código QR",
+    "admin.manage.share.downloadQr": "Descargar QR",
+    "admin.manage.share.whatsapp": "WhatsApp",
+    "admin.manage.share.copyBlock": "Texto listo",
+    "admin.manage.share.copyText": "Copiar texto",
+    "admin.manage.share.message":
+      "Tu certificado de {name} está disponible. Solicita el tuyo en {url}",
+
+    "admin.manage.pipeline.title": "Certificados",
+    "admin.manage.pipeline.intro":
+      "Sigue cada solicitud de esta clase, desde su entrada hasta la emisión.",
+    "admin.manage.pipeline.draftNote":
+      "Las solicitudes empiezan a aparecer cuando la edición se cree on-chain.",
+    "admin.manage.pipeline.empty": "Aún no hay solicitudes.",
+    "admin.manage.pipeline.colStage": "Etapa",
+    "admin.manage.pipeline.signatures": "{signed}/{total} firmas",
+    "admin.manage.pipeline.stage.requested": "Solicitado",
+    "admin.manage.pipeline.stage.signing": "Firmando",
+    "admin.manage.pipeline.stage.ready": "Listo",
+    "admin.manage.pipeline.stage.issued": "Emitido",
+    "admin.manage.pipeline.stage.rejected": "Rechazado",
+    "admin.manage.pipeline.stage.revoked": "Revocado",
+
     "admin.qa.pausedNote":
       "La edición permanece pausada hasta que hagas clic en “Abrir edición” — puedes salir de esta página y retomarla después desde el panel.",
   },

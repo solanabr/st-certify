@@ -135,6 +135,26 @@ const nextConfig: NextConfig = {
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },
+  // The 2026-08-20 IA rename. Permanent so printed QRs, bookmarks and the
+  // links already handed to students/signers keep resolving. Only page routes
+  // moved — everything under /api keeps its original path.
+  async redirects() {
+    return [
+      { source: "/editions", destination: "/certificates", permanent: true },
+      {
+        source: "/editions/:slug",
+        destination: "/certificates/:slug",
+        permanent: true,
+      },
+      { source: "/admin", destination: "/studio", permanent: true },
+      {
+        source: "/admin/editions/new",
+        destination: "/studio/editions/new",
+        permanent: true,
+      },
+      { source: "/certificator", destination: "/sign", permanent: true },
+    ];
+  },
 };
 
 export default nextConfig;

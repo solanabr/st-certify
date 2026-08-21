@@ -52,7 +52,7 @@ export default function MePage() {
             <AlertDescription className="flex flex-col items-start gap-3">
               <span>{t("me.emptyDesc")}</span>
               <Button asChild size="sm">
-                <Link href="/editions">{t("me.browseEditions")}</Link>
+                <Link href="/certificates">{t("me.browseEditions")}</Link>
               </Button>
             </AlertDescription>
           </Alert>

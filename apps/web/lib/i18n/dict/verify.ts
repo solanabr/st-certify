@@ -51,7 +51,8 @@ const pt = {
   "verify.stamp.revoked":
     "Revogado on-chain — este certificado não é mais válido.",
   "verify.stamp.verified": "verificado onchain",
-  "verify.stamp.viewNft": "Ver NFT (intransferível) no Explorer",
+  "verify.stamp.slot": "· slot {slot}",
+  "verify.stamp.viewNft": "Ver registro on-chain (intransferível)",
   "verify.stamp.drift":
     "A rede tem uma atualização mais recente — exibindo o estado on-chain.",
   "system.error.title": "Algo deu errado",
@@ -114,7 +115,8 @@ export const verifyDict: Record<Locale, Record<verifyKey, string>> = {
     "verify.stamp.revoked":
       "Revoked on-chain — this certificate is no longer valid.",
     "verify.stamp.verified": "verified onchain",
-    "verify.stamp.viewNft": "View NFT (non-transferable) on Explorer",
+    "verify.stamp.slot": "· slot {slot}",
+    "verify.stamp.viewNft": "View on-chain record (non-transferable)",
     "verify.stamp.drift":
       "The network has a more recent update — showing the on-chain state.",
     "system.error.title": "Something went wrong",
@@ -172,7 +174,8 @@ export const verifyDict: Record<Locale, Record<verifyKey, string>> = {
     "verify.stamp.revoked":
       "Revocado on-chain — este certificado ya no es válido.",
     "verify.stamp.verified": "verificado onchain",
-    "verify.stamp.viewNft": "Ver NFT (intransferible) en Explorer",
+    "verify.stamp.slot": "· slot {slot}",
+    "verify.stamp.viewNft": "Ver registro on-chain (intransferible)",
     "verify.stamp.drift":
       "La red tiene una actualización más reciente — mostrando el estado on-chain.",
     "system.error.title": "Algo salió mal",

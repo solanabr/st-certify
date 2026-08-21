@@ -135,7 +135,7 @@ export default function CertificatorPage() {
     <div className="mx-auto max-w-6xl px-4 py-12 pb-28">
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-2xl font-semibold tracking-tight">
-          {t("nav.certificator")}
+          {t("nav.sign")}
         </h1>
         {totalPending > 0 && (
           <Badge variant="secondary" className="tabular-nums">

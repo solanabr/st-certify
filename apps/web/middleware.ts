@@ -17,5 +17,5 @@ export function middleware(request: NextRequest): NextResponse {
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/certificator", "/me"],
+  matcher: ["/studio/:path*", "/sign", "/me"],
 };

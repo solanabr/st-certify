@@ -169,6 +169,77 @@ export async function getClaimByAssetId(
   };
 }
 
+/** One attendance claim as it appears in the visitor's own "Presenças" list on `/me`. */
+export interface AttendanceClaimForOwner {
+  eventName: string;
+  eventDate: string;
+  imageUrl: string;
+  assetId: string | null;
+  txSig: string | null;
+  claimedAt: string;
+}
+
+/**
+ * EXPLICIT column allowlist for the owner's claim list, same posture as
+ * ATTENDANCE_CLAIM_PUBLIC_COLUMNS: `claim_token` must never travel to a
+ * browser, so this never becomes `select('*')`. Asserted in the unit test.
+ */
+export const ATTENDANCE_CLAIM_OWNER_COLUMNS =
+  "tx_sig, asset_id, created_at, attendance_events(name, image_url, event_date)";
+
+interface ClaimOwnerJoinRow {
+  tx_sig: string | null;
+  asset_id: string | null;
+  created_at: string;
+  attendance_events:
+    | { name: string; image_url: string; event_date: string }
+    | { name: string; image_url: string; event_date: string }[]
+    | null;
+}
+
+/**
+ * Every minted attendance claim held by the session's wallets, newest first —
+ * the "Presenças" section of `/me`. Pending and failed claims are excluded:
+ * they have nothing to show and nothing to link to.
+ */
+export async function listAttendanceClaimsForWallets(
+  wallets: string[],
+): Promise<AttendanceClaimForOwner[]> {
+  if (!dbConfigured || wallets.length === 0) return [];
+  const supabase = getServiceClient();
+  const { data, error } = await supabase
+    .from("attendance_claims")
+    .select(ATTENDANCE_CLAIM_OWNER_COLUMNS)
+    .in("wallet", wallets)
+    .eq("status", "minted")
+    .order("created_at", { ascending: false });
+  if (error) {
+    fail("INTERNAL", "Falha ao buscar suas presenças.", {
+      detail: error.message,
+      retryable: true,
+    });
+  }
+
+  const rows = (data ?? []) as unknown as ClaimOwnerJoinRow[];
+  return rows.flatMap((row) => {
+    const event = Array.isArray(row.attendance_events)
+      ? row.attendance_events[0]
+      : row.attendance_events;
+    // A claim whose event vanished has no name, date or artwork to render.
+    if (!event) return [];
+    return [
+      {
+        eventName: event.name,
+        eventDate: event.event_date,
+        imageUrl: event.image_url,
+        assetId: row.asset_id,
+        txSig: row.tx_sig,
+        claimedAt: row.created_at,
+      },
+    ];
+  });
+}
+
 /** One row per claim for the creator's attendee drawer (P1-4). */
 export interface AttendanceClaimListRow {
   wallet: string;

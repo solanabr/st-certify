@@ -65,7 +65,7 @@ export function WizardQaStep({ form, onOpened }: Props) {
         status: "Open",
       });
       onOpened();
-      router.push("/admin");
+      router.push("/studio");
     } catch (err) {
       onAppError(err);
     }
@@ -96,7 +96,7 @@ export function WizardQaStep({ form, onOpened }: Props) {
           <Button
             type="button"
             variant="outline"
-            onClick={() => router.push("/admin")}
+            onClick={() => router.push("/studio")}
           >
             {t("admin.qa.backToDashboard")}
           </Button>
@@ -167,7 +167,7 @@ export function WizardQaStep({ form, onOpened }: Props) {
         <Button
           type="button"
           variant="outline"
-          onClick={() => router.push("/admin")}
+          onClick={() => router.push("/studio")}
         >
           {t("admin.qa.backToDashboard")}
         </Button>
