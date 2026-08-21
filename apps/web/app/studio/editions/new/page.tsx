@@ -100,7 +100,8 @@ export default function NewEditionWizardPage() {
         step === 4 ? "max-w-5xl" : "max-w-2xl",
       )}
     >
-      <h1 className="text-2xl font-semibold tracking-tight">
+      <p className="stbr-eyebrow">{t("admin.manage.eyebrow")}</p>
+      <h1 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">
         {t("admin.newEditionTitle")}
       </h1>
 
