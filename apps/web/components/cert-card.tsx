@@ -112,6 +112,17 @@ function ActionZone({ cert }: { cert: CertificateForOwner }) {
               </a>
             </Button>
           )}
+          {/* Sealed PDF (Wave 3) — the route serves claimed certs only and
+              builds/caches on demand; guarded here on the same Claimed status. */}
+          <Button asChild variant="outline" size="sm">
+            <a
+              href={`/api/certificates/${cert.address}/pdf`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Download /> {t("me.claim.downloadPdf")}
+            </a>
+          </Button>
           <CopyLinkButton
             path={`/verify/${cert.address}`}
             label={t("claim.copyLink")}
