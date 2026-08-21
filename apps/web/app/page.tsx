@@ -68,13 +68,17 @@ export default async function Home() {
 
   return (
     <div className="flex flex-col">
-      <section className="hero-glow relative overflow-hidden border-b border-border">
+      <section className="aurora relative overflow-hidden">
         <div className="gradient-solana-accent absolute inset-x-0 top-0 h-1" />
-        <div className="mx-auto max-w-6xl px-4 py-24 text-center sm:py-32">
-          <Badge variant="outline" className="mb-8">
-            {t("common.devnet")}
-          </Badge>
-          <h1 className="text-5xl font-semibold tracking-tight text-balance sm:text-6xl">
+        <div className="mx-auto max-w-6xl px-4 py-28 text-center sm:py-36">
+          <span className="mb-8 inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-1.5 ring-1 ring-inset ring-primary/20">
+            <span
+              className="size-1.5 rounded-full bg-primary"
+              aria-hidden="true"
+            />
+            <span className="stbr-eyebrow">{t("common.devnet")}</span>
+          </span>
+          <h1 className="text-5xl font-semibold tracking-tight text-balance sm:text-6xl lg:text-7xl">
             {t("landing.heroTitlePre")}{" "}
             <span className="text-primary">Superteam Brasil</span>
           </h1>
@@ -90,20 +94,20 @@ export default async function Home() {
         </div>
       </section>
 
-      <section className="mx-auto w-full max-w-6xl px-4 py-24">
-        <h2 className="text-center text-2xl font-semibold tracking-tight">
+      <section className="mx-auto w-full max-w-6xl px-4 py-24 sm:py-28">
+        <h2 className="text-center text-3xl font-semibold tracking-tight text-balance">
           {t("landing.chooseTitle")}
         </h2>
-        <div className="mt-10 grid gap-6 sm:grid-cols-3">
+        <div className="mt-12 grid gap-6 sm:grid-cols-3 sm:gap-8">
           {INTENTS.map((intent) => {
             const Icon = intent.icon;
             return (
-              <Card key={intent.href} className="group hover-lift">
-                <CardContent className="flex h-full flex-col pt-2">
-                  <div className="flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-1 ring-inset ring-primary/15 transition-transform duration-200 ease-[var(--ease-spring)] motion-safe:group-hover:scale-105">
+              <Card key={intent.href} className="group hover-lift p-6 sm:p-8">
+                <CardContent className="flex h-full flex-col p-0">
+                  <div className="flex size-12 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/15 via-primary/5 to-brand-yellow/20 text-primary ring-1 ring-inset ring-primary/20 transition-[transform,box-shadow] duration-200 ease-[var(--ease-spring)] group-hover:shadow-[0_10px_28px_-10px_rgba(0,139,76,0.5)] motion-safe:group-hover:scale-110 motion-safe:group-hover:-rotate-3">
                     <Icon className="size-6" aria-hidden="true" />
                   </div>
-                  <h3 className="mt-4 text-lg font-semibold">
+                  <h3 className="mt-5 text-lg font-semibold">
                     {t(intent.titleKey)}
                   </h3>
                   <p className="mt-2 grow text-sm text-muted-foreground">
@@ -112,7 +116,7 @@ export default async function Home() {
                   <Button
                     asChild
                     variant="ghost"
-                    className="mt-4 self-start px-2"
+                    className="mt-5 self-start px-2"
                   >
                     <Link href={intent.href}>
                       {t(intent.ctaKey)}
@@ -129,19 +133,23 @@ export default async function Home() {
         </div>
       </section>
 
-      <section className="border-t border-border bg-card/50">
-        <div className="mx-auto w-full max-w-6xl px-4 py-24">
-          <h2 className="text-center text-2xl font-semibold tracking-tight">
+      <div className="mx-auto w-full max-w-6xl px-4">
+        <div className="rule-gradient" aria-hidden="true" />
+      </div>
+
+      <section className="bg-card/50">
+        <div className="mx-auto w-full max-w-6xl px-4 py-24 sm:py-28">
+          <h2 className="text-center text-3xl font-semibold tracking-tight text-balance">
             {t("landing.howItWorks")}
           </h2>
-          <div className="mt-10 grid gap-6 sm:grid-cols-3">
+          <div className="mt-12 grid gap-6 sm:grid-cols-3 sm:gap-8">
             {steps.map((step) => (
-              <Card key={step.number}>
-                <CardContent className="pt-2">
-                  <div className="flex size-9 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground">
+              <Card key={step.number} className="p-6 sm:p-8">
+                <CardContent className="p-0">
+                  <div className="flex size-10 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground shadow-[0_6px_16px_-6px_rgba(0,139,76,0.55)]">
                     {step.number}
                   </div>
-                  <h3 className="mt-4 text-lg font-semibold">{step.title}</h3>
+                  <h3 className="mt-5 text-lg font-semibold">{step.title}</h3>
                   <p className="mt-2 text-sm text-muted-foreground">
                     {step.description}
                   </p>

@@ -61,7 +61,9 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
-  --radius-2xl: calc(var(--radius) * 2);
+  /* Card radius — the resting surface reads at 24px (was *2 = 32, too round for
+     dense cards). Bigger than --radius-xl so cards feel softer than inputs. */
+  --radius-2xl: calc(var(--radius) + 8px);
 }
 
 :root {
@@ -112,10 +114,21 @@
   --radius: 1rem; /* rounder, Uniswap-form; primitives read --radius-* off this */
 
   /* Elevation + motion (form language, not color — brand palette is untouched).
-     Warm-tinted shadows on the cream canvas so cards lift without going grey. */
-  --shadow-soft: 0 1px 2px rgba(27, 35, 29, 0.06), 0 4px 16px rgba(27, 35, 29, 0.06);
-  --shadow-lift: 0 2px 4px rgba(27, 35, 29, 0.08), 0 12px 32px rgba(27, 35, 29, 0.1);
-  --shadow-glow: 0 8px 32px rgba(0, 139, 76, 0.18);
+     Warm-tinted shadows on the cream canvas so cards lift without going grey.
+     Layered (tight ambient + wide diffuse) with negative spread so cards FLOAT
+     rather than sit inside a hard box — this replaces the flat card border in
+     light mode. */
+  --shadow-soft:
+    0 1px 2px rgba(27, 35, 29, 0.04), 0 10px 24px -6px rgba(27, 35, 29, 0.12),
+    0 18px 40px -14px rgba(27, 35, 29, 0.1);
+  --shadow-lift:
+    0 2px 4px rgba(27, 35, 29, 0.05), 0 16px 32px -8px rgba(27, 35, 29, 0.16),
+    0 30px 56px -20px rgba(27, 35, 29, 0.14);
+  /* Hero / feature surfaces — very diffuse, big drop. */
+  --shadow-float:
+    0 4px 10px rgba(27, 35, 29, 0.04), 0 24px 56px -12px rgba(27, 35, 29, 0.16),
+    0 40px 80px -28px rgba(27, 35, 29, 0.12);
+  --shadow-glow: 0 10px 36px rgba(0, 139, 76, 0.22);
   --glass-bg: rgba(255, 255, 255, 0.6);
   --glass-border: rgba(27, 35, 29, 0.08);
   --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
@@ -166,11 +179,20 @@
   --inverse: #1b231d;
   --inverse-foreground: #f5e8ca;
 
-  /* Dark-mode elevation: deeper shadows read on the green-black ground; the
-     glass panel goes translucent-dark with a cream hairline. */
-  --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 16px rgba(0, 0, 0, 0.3);
-  --shadow-lift: 0 2px 4px rgba(0, 0, 0, 0.5), 0 16px 40px rgba(0, 0, 0, 0.45);
-  --shadow-glow: 0 8px 40px rgba(10, 162, 90, 0.28);
+  /* Dark-mode elevation: a drop shadow is nearly invisible on the green-black
+     ground, so definition comes from a 1px cream INSET ring baked into every
+     elevation token — cards keep a crisp edge without a flat CSS border, and
+     the ring strengthens as a surface lifts. Deep black drops add the float. */
+  --shadow-soft:
+    inset 0 0 0 1px rgba(245, 232, 202, 0.08), 0 1px 2px rgba(0, 0, 0, 0.4),
+    0 10px 26px -6px rgba(0, 0, 0, 0.5);
+  --shadow-lift:
+    inset 0 0 0 1px rgba(245, 232, 202, 0.12), 0 2px 4px rgba(0, 0, 0, 0.5),
+    0 22px 48px -12px rgba(0, 0, 0, 0.6);
+  --shadow-float:
+    inset 0 0 0 1px rgba(245, 232, 202, 0.1), 0 4px 10px rgba(0, 0, 0, 0.4),
+    0 34px 72px -16px rgba(0, 0, 0, 0.62);
+  --shadow-glow: 0 10px 44px rgba(10, 162, 90, 0.32);
   --glass-bg: rgba(27, 35, 29, 0.55);
   --glass-border: rgba(245, 232, 202, 0.1);
 }
@@ -391,7 +413,9 @@ body {
     font-size: 0.75rem;
     letter-spacing: 0.14em;
     text-transform: uppercase;
-    color: #008b4c;
+    /* emerald-700 (brand's own hover step) — raw #008b4c is 3.5:1 on cream and
+       fails AA as 12px text; #007340 = 4.8:1. Footer forces its own cream tint. */
+    color: #007340;
   }
   .dark .stbr-eyebrow {
     color: #0aa25a;
@@ -402,12 +426,17 @@ body {
      the AA-checked palette above is untouched. */
 
   /* Soft-elevated surface — the default resting state for cards that used to
-     rely on a flat border. */
+     rely on a flat border. In dark mode each token also carries a 1px cream
+     inset ring (see --shadow-*), so these replace the border in both themes. */
   .elevate {
     box-shadow: var(--shadow-soft);
   }
   .elevate-lift {
     box-shadow: var(--shadow-lift);
+  }
+  /* Hero / feature surfaces float higher and more diffuse. */
+  .elevate-float {
+    box-shadow: var(--shadow-float);
   }
   .glow-primary {
     box-shadow: var(--shadow-glow);
@@ -427,8 +456,9 @@ body {
     }
   }
 
-  /* Hover lift — springy rise + shadow bloom on interactive cards. Motion is
-     guarded so reduced-motion users get the shadow change with no transform. */
+  /* Hover lift — springy rise + subtle scale + shadow bloom on interactive
+     cards. Motion is guarded so reduced-motion users get the shadow bloom with
+     no transform. */
   .hover-lift {
     transition:
       transform 220ms var(--ease-spring),
@@ -436,7 +466,7 @@ body {
   }
   @media (prefers-reduced-motion: no-preference) {
     .hover-lift:hover {
-      transform: translateY(-3px);
+      transform: translateY(-4px) scale(1.01);
     }
   }
   .hover-lift:hover {
@@ -460,5 +490,78 @@ body {
       radial-gradient(60% 60% at 30% 20%, rgba(0, 139, 76, 0.16), transparent 70%),
       radial-gradient(50% 50% at 80% 10%, rgba(255, 210, 63, 0.12), transparent 70%);
     pointer-events: none;
+  }
+
+  /* Aurora mesh — a bolder, multi-blob brand wash for hero backdrops.
+     Decorative and allowlisted like .gradient-solana-accent: it sits behind
+     content (z-index:-1, pointer-events:none) and its strong blobs are kept in
+     the upper band so the body copy below never loses contrast. Dark mode leans
+     into the emerald glow (richer on the green-black ground). Clip with an
+     overflow-hidden parent. */
+  .aurora {
+    position: relative;
+    isolation: isolate;
+  }
+  .aurora::before {
+    content: "";
+    position: absolute;
+    inset: -35% -10% auto -10%;
+    height: 95%;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      radial-gradient(42% 55% at 20% 12%, rgba(0, 139, 76, 0.22), transparent 70%),
+      radial-gradient(38% 50% at 82% 6%, rgba(255, 210, 63, 0.16), transparent 72%),
+      radial-gradient(48% 60% at 60% 30%, rgba(10, 162, 90, 0.14), transparent 75%);
+    filter: blur(6px);
+  }
+  .aurora::after {
+    content: "";
+    position: absolute;
+    inset: auto 15% -15% 15%;
+    height: 40%;
+    z-index: -1;
+    pointer-events: none;
+    background: radial-gradient(
+      60% 100% at 50% 100%,
+      rgba(0, 139, 76, 0.08),
+      transparent 70%
+    );
+  }
+  .dark .aurora::before {
+    background:
+      radial-gradient(42% 55% at 20% 12%, rgba(10, 162, 90, 0.3), transparent 70%),
+      radial-gradient(38% 50% at 82% 6%, rgba(255, 210, 63, 0.14), transparent 72%),
+      radial-gradient(48% 60% at 60% 30%, rgba(10, 162, 90, 0.2), transparent 75%);
+  }
+  .dark .aurora::after {
+    background: radial-gradient(
+      60% 100% at 50% 100%,
+      rgba(10, 162, 90, 0.12),
+      transparent 70%
+    );
+  }
+
+  /* Brand hairline divider — a fading emerald→yellow rule between landing
+     sections. Decorative; never sits behind text. */
+  .rule-gradient {
+    height: 1px;
+    border: 0;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(0, 139, 76, 0.35),
+      rgba(255, 210, 63, 0.3),
+      transparent
+    );
+  }
+  .dark .rule-gradient {
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(10, 162, 90, 0.4),
+      rgba(255, 210, 63, 0.28),
+      transparent
+    );
   }
 }

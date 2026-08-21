@@ -7,7 +7,10 @@ function Card({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="card"
       className={cn(
-        "elevate flex flex-col gap-6 rounded-xl border bg-card py-6 text-card-foreground",
+        // Borderless float: .elevate is the resting shadow in light mode and a
+        // 1px cream inset ring in dark (both baked into --shadow-soft), so cards
+        // lift off the canvas instead of sitting in a hard box.
+        "elevate flex flex-col gap-6 rounded-2xl bg-card py-6 text-card-foreground",
         className,
       )}
       {...props}
