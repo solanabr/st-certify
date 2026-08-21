@@ -1,7 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { AlertTriangle, Download, ExternalLink } from "lucide-react";
+import {
+  AlertTriangle,
+  Download,
+  ExternalLink,
+  ScrollText,
+} from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -136,9 +141,14 @@ export function CertCard({ cert }: { cert: CertificateForOwner }) {
   return (
     <Card className="hover-lift">
       <CardHeader className="flex-row items-start justify-between gap-3">
-        <div>
-          <p className="text-sm text-muted-foreground">{cert.editionName}</p>
-          <h3 className="font-semibold">{cert.studentName}</h3>
+        <div className="flex items-start gap-3">
+          <span className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary/15 via-primary/5 to-brand-yellow/20 text-primary ring-1 ring-inset ring-primary/20">
+            <ScrollText className="size-5" aria-hidden="true" />
+          </span>
+          <div className="min-w-0">
+            <p className="text-sm text-muted-foreground">{cert.editionName}</p>
+            <h3 className="font-semibold">{cert.studentName}</h3>
+          </div>
         </div>
         <Badge variant={STATUS_VARIANT[cert.status]}>
           {t(STATUS_LABEL_KEY[cert.status])}

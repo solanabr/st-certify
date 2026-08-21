@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2 } from "lucide-react";
+import { Loader2, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -19,6 +19,10 @@ import type {
   StudioSeat,
   StudioSeatStatus,
 } from "@/components/studio/use-studio-edition";
+
+/** Decorative section-heading chip — same emerald→yellow mark as the landing. */
+const SECTION_CHIP =
+  "flex size-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-primary/15 via-primary/5 to-brand-yellow/20 text-primary ring-1 ring-inset ring-primary/20";
 
 const STATUS_LABEL_KEY: Record<StudioSeatStatus, TranslationKey> = {
   invited: "admin.manage.seats.status.invited",
@@ -104,7 +108,13 @@ export function SeatList({ edition }: { edition: StudioEditionView }) {
 
   return (
     <section aria-labelledby="studio-seats-heading">
-      <h2 id="studio-seats-heading" className="text-lg font-semibold">
+      <h2
+        id="studio-seats-heading"
+        className="flex items-center gap-2.5 text-lg font-semibold"
+      >
+        <span className={SECTION_CHIP}>
+          <Users className="size-5" aria-hidden="true" />
+        </span>
         {t("admin.manage.seats.title")}
       </h2>
       <p className="mt-1 text-sm text-muted-foreground">
@@ -114,7 +124,10 @@ export function SeatList({ edition }: { edition: StudioEditionView }) {
       </p>
 
       {edition.seats.length === 0 ? (
-        <div className="mt-4 rounded-lg border border-dashed border-border p-6">
+        <div className="mt-4 flex flex-col items-center gap-3 rounded-xl border border-dashed border-border p-8 text-center">
+          <span className={SECTION_CHIP}>
+            <Users className="size-5" aria-hidden="true" />
+          </span>
           <p className="text-sm text-muted-foreground">
             {t("admin.manage.seats.empty")}
           </p>

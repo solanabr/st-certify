@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Inbox } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -148,7 +149,10 @@ export function CertPipelineTable({
 
   if (certs.length === 0) {
     return (
-      <div className="mt-4 rounded-lg border border-dashed border-border p-6">
+      <div className="mt-4 flex flex-col items-center gap-3 rounded-xl border border-dashed border-border p-8 text-center">
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-primary/15 via-primary/5 to-brand-yellow/20 text-primary ring-1 ring-inset ring-primary/20">
+          <Inbox className="size-5" aria-hidden="true" />
+        </span>
         <p className="text-sm text-muted-foreground">
           {t("admin.manage.pipeline.empty")}
         </p>
