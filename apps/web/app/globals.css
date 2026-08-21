@@ -109,7 +109,16 @@
   --inverse: #1b231d;
   --inverse-foreground: #f5e8ca;
 
-  --radius: 0.75rem;
+  --radius: 1rem; /* rounder, Uniswap-form; primitives read --radius-* off this */
+
+  /* Elevation + motion (form language, not color — brand palette is untouched).
+     Warm-tinted shadows on the cream canvas so cards lift without going grey. */
+  --shadow-soft: 0 1px 2px rgba(27, 35, 29, 0.06), 0 4px 16px rgba(27, 35, 29, 0.06);
+  --shadow-lift: 0 2px 4px rgba(27, 35, 29, 0.08), 0 12px 32px rgba(27, 35, 29, 0.1);
+  --shadow-glow: 0 8px 32px rgba(0, 139, 76, 0.18);
+  --glass-bg: rgba(255, 255, 255, 0.6);
+  --glass-border: rgba(27, 35, 29, 0.08);
+  --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .dark {
@@ -156,6 +165,14 @@
 
   --inverse: #1b231d;
   --inverse-foreground: #f5e8ca;
+
+  /* Dark-mode elevation: deeper shadows read on the green-black ground; the
+     glass panel goes translucent-dark with a cream hairline. */
+  --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 16px rgba(0, 0, 0, 0.3);
+  --shadow-lift: 0 2px 4px rgba(0, 0, 0, 0.5), 0 16px 40px rgba(0, 0, 0, 0.45);
+  --shadow-glow: 0 8px 40px rgba(10, 162, 90, 0.28);
+  --glass-bg: rgba(27, 35, 29, 0.55);
+  --glass-border: rgba(245, 232, 202, 0.1);
 }
 
 html {
@@ -378,5 +395,70 @@ body {
   }
   .dark .stbr-eyebrow {
     color: #0aa25a;
+  }
+
+  /* ── Form language (Uniswap-inspired): elevation, glass, lift, glow ──
+     All decorative (shadow/blur/transform) — no text-bearing color here, so
+     the AA-checked palette above is untouched. */
+
+  /* Soft-elevated surface — the default resting state for cards that used to
+     rely on a flat border. */
+  .elevate {
+    box-shadow: var(--shadow-soft);
+  }
+  .elevate-lift {
+    box-shadow: var(--shadow-lift);
+  }
+  .glow-primary {
+    box-shadow: var(--shadow-glow);
+  }
+
+  /* Frosted panel — sticky nav, floating bars, feature cards. Falls back to an
+     opaque surface where backdrop-filter is unsupported. */
+  .glass {
+    background-color: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    backdrop-filter: blur(16px) saturate(1.4);
+    -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  }
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .glass {
+      background-color: var(--card);
+    }
+  }
+
+  /* Hover lift — springy rise + shadow bloom on interactive cards. Motion is
+     guarded so reduced-motion users get the shadow change with no transform. */
+  .hover-lift {
+    transition:
+      transform 220ms var(--ease-spring),
+      box-shadow 220ms var(--ease-spring);
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .hover-lift:hover {
+      transform: translateY(-3px);
+    }
+  }
+  .hover-lift:hover {
+    box-shadow: var(--shadow-lift);
+  }
+
+  /* Ambient hero glow — a soft emerald→yellow radial wash behind hero content.
+     Decorative only; allowlisted like .gradient-solana-accent (hero/section
+     backdrops, never behind body text). */
+  .hero-glow {
+    position: relative;
+    isolation: isolate;
+  }
+  .hero-glow::before {
+    content: "";
+    position: absolute;
+    inset: -20% 0 auto 0;
+    height: 60%;
+    z-index: -1;
+    background:
+      radial-gradient(60% 60% at 30% 20%, rgba(0, 139, 76, 0.16), transparent 70%),
+      radial-gradient(50% 50% at 80% 10%, rgba(255, 210, 63, 0.12), transparent 70%);
+    pointer-events: none;
   }
 }
