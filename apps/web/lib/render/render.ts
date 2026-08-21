@@ -296,6 +296,15 @@ export interface RenderCertificateInput {
   layout: Layout;
   values: RenderValues;
   signers: RenderSigner[];
+  /**
+   * Raster multiplier. The layout math is untouched — satori still lays out at
+   * `layout.canvas` — only the rasterizer's output resolution changes, so a
+   * scaled render is the same picture with more pixels. Defaults to 1, which is
+   * the canonical artifact: its sha256 is what goes on-chain. Anything above 1
+   * is a print variant (the PDF's 300 dpi page) and its hash is NOT the
+   * commitment.
+   */
+  scale?: number;
 }
 
 export interface RenderCertificateResult {
@@ -311,7 +320,7 @@ export interface RenderCertificateResult {
 export async function renderCertificate(
   input: RenderCertificateInput,
 ): Promise<RenderCertificateResult> {
-  const { templatePng, layout, values, signers } = input;
+  const { templatePng, layout, values, signers, scale = 1 } = input;
 
   if (signers.length !== layout.signatures.length) {
     fail(
@@ -328,7 +337,9 @@ export async function renderCertificate(
   const qrDataUri = await QRCode.toDataURL(values.verifyUrl, {
     errorCorrectionLevel: "M",
     margin: 1,
-    width: qrSizePx,
+    // The QR's box in the tree stays `qrSizePx`; only its source bitmap grows,
+    // so a scaled render upsamples nothing and the modules stay crisp in print.
+    width: Math.round(qrSizePx * scale),
   });
 
   const tree = buildCertificateTree({
@@ -346,7 +357,14 @@ export async function renderCertificate(
     fonts,
   });
 
-  const resvg = new Resvg(svg);
+  const resvg = new Resvg(
+    svg,
+    scale === 1
+      ? undefined
+      : {
+          fitTo: { mode: "width", value: Math.round(canvas.width * scale) },
+        },
+  );
   const png = Buffer.from(resvg.render().asPng());
   const sha256hex = createHash("sha256").update(png).digest("hex");
 

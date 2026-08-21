@@ -1,11 +1,17 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { SignerTable } from "@/components/verify/signer-table";
+import { VerifyIssuer } from "@/components/verify/verify-issuer";
 import { VerifyStatusBanner } from "@/components/verify/verify-status-banner";
 import { VerifyMediaPanel } from "@/components/verify/verify-media-panel";
+import { VerifyTechnicalDetails } from "@/components/verify/verify-technical-details";
 import type { VerifyCertView } from "@/lib/db/claim-verify-queries";
-import { getT } from "@/lib/i18n/server";
+import { translate, type TranslationKey } from "@/lib/i18n/dictionaries";
+import type { Locale } from "@/lib/i18n/locales";
 
-type Translate = Awaited<ReturnType<typeof getT>>["t"];
+type Translate = (
+  key: TranslationKey,
+  params?: Record<string, string | number>,
+) => string;
 
 function formatDate(iso: string | null, locale: string): string {
   if (!iso) return "—";
@@ -27,37 +33,66 @@ function certNumberLabel(view: VerifyCertView, t: Translate): string {
     : `#${view.certNumber}`;
 }
 
-async function DetailGrid({ view }: { view: VerifyCertView }) {
-  const { locale, t } = await getT();
+function Field({
+  label,
+  className,
+  children,
+}: {
+  label: string;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className={className}>
+      <dt className="text-xs uppercase tracking-wide text-muted-foreground">
+        {label}
+      </dt>
+      {children}
+    </div>
+  );
+}
+
+function DetailGrid({
+  view,
+  locale,
+  t,
+}: {
+  view: VerifyCertView;
+  locale: Locale;
+  t: Translate;
+}) {
   return (
     <dl className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-4">
-      <div className="col-span-2">
-        <dt className="text-xs uppercase tracking-wide text-muted-foreground">
-          {t("verify.detail.student")}
-        </dt>
+      <Field label={t("verify.detail.student")} className="col-span-2">
         {/* Loudest cell — the human trust anchor (plan §Security #2). */}
         <dd className="text-lg font-semibold">{view.studentName}</dd>
-      </div>
-      <div>
-        <dt className="text-xs uppercase tracking-wide text-muted-foreground">
-          {t("verify.detail.number")}
-        </dt>
+      </Field>
+      <Field label={t("verify.detail.number")}>
         <dd className="tabular-nums">{certNumberLabel(view, t)}</dd>
-      </div>
-      <div>
-        <dt className="text-xs uppercase tracking-wide text-muted-foreground">
-          {t("verify.detail.date")}
-        </dt>
+      </Field>
+      <Field label={t("verify.detail.date")}>
         <dd className="tabular-nums">
           {formatDate(view.completionDate ?? view.completedAt, locale)}
         </dd>
-      </div>
-      <div className="col-span-2 sm:col-span-4">
-        <dt className="text-xs uppercase tracking-wide text-muted-foreground">
-          {t("verify.detail.edition")}
-        </dt>
+      </Field>
+      <Field
+        label={t("verify.detail.edition")}
+        className="col-span-2 sm:col-span-4"
+      >
         <dd>{view.editionName}</dd>
-      </div>
+      </Field>
+      {view.verifyCode && (
+        <Field
+          label={t("verify.detail.code")}
+          className="col-span-2 sm:col-span-4"
+        >
+          {/* The same code printed in the PDF footer — this is where someone
+              holding a printout confirms they typed it into the right page. */}
+          <dd className="font-mono text-base tracking-[0.2em]">
+            {view.verifyCode}
+          </dd>
+        </Field>
+      )}
     </dl>
   );
 }
@@ -68,15 +103,21 @@ async function DetailGrid({ view }: { view: VerifyCertView }) {
  * "verificado onchain" stamp + NFT link are added by the `VerifyChainStamp`
  * client island so the certificate's authoritative on-chain state is what the
  * viewer ultimately trusts.
+ *
+ * `locale` is passed in rather than read from the cookie here, because
+ * `/verify/[id]` accepts a `?lang=` override and every part of the verdict has
+ * to agree on which language won.
  */
-export async function VerifyResult({
+export function VerifyResult({
   view,
+  locale,
   reencode = false,
 }: {
   view: VerifyCertView;
+  locale: Locale;
   reencode?: boolean;
 }) {
-  const { t } = await getT();
+  const t: Translate = (key, params) => translate(locale, key, params);
   const isRejected = view.status === "Rejected";
 
   return (
@@ -90,7 +131,7 @@ export async function VerifyResult({
 
       <Card>
         <CardContent className="space-y-6">
-          <DetailGrid view={view} />
+          <DetailGrid view={view} locale={locale} t={t} />
 
           <VerifyMediaPanel
             certAddress={view.address}
@@ -102,14 +143,24 @@ export async function VerifyResult({
         </CardContent>
       </Card>
 
+      <VerifyIssuer locale={locale} />
+
       {view.signers.length > 0 && (
         <div className="space-y-3">
           <h2 className="text-sm font-medium text-muted-foreground">
             {t("verify.detail.signatures")}
           </h2>
-          <SignerTable signers={view.signers} />
+          <SignerTable signers={view.signers} locale={locale} />
         </div>
       )}
+
+      <VerifyTechnicalDetails
+        certAddress={view.address}
+        editionAddress={view.editionAddress}
+        asset={view.asset}
+        sha256={view.sha256}
+        signers={view.signers}
+      />
     </div>
   );
 }

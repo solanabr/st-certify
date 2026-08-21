@@ -1,6 +1,6 @@
 "use client";
 
-import { Download } from "lucide-react";
+import { Download, FileText, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   VerifyChainStamp,
@@ -62,7 +62,16 @@ export function VerifyMediaPanel({
       <VerifyChainStamp certAddress={certAddress} mirrorStatus={mirrorStatus} />
 
       {(imageUrl || !isRejected) && (
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 print:hidden">
+          {/* The PDF exists only once the certificate is claimed, and a revoked
+              one must not hand out a fresh signed copy. */}
+          {mirrorStatus === "Claimed" && !revoked && (
+            <Button asChild size="sm">
+              <a href={`/api/certificates/${certAddress}/pdf`}>
+                <FileText /> {t("verify.pdf.download")}
+              </a>
+            </Button>
+          )}
           {imageUrl && !revoked && (
             <Button asChild variant="outline" size="sm">
               <a
@@ -76,6 +85,14 @@ export function VerifyMediaPanel({
             </Button>
           )}
           <CopyLinkButton path={`/verify/${certAddress}`} />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => window.print()}
+            className="hidden sm:inline-flex"
+          >
+            <Printer /> {t("verify.print")}
+          </Button>
         </div>
       )}
     </>

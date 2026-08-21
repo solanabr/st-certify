@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { api } from "@/lib/api-client";
 import { useT } from "@/lib/i18n";
 import {
   classifyVerifyInput,
@@ -21,6 +22,11 @@ import {
   type ResolveOutcome,
   type VerifyStatus,
 } from "@/components/verify/verify-outcome";
+import {
+  artifactShaFromPdf,
+  isPdfBytes,
+  normalizeValidationCode,
+} from "@/components/verify/verify-input";
 
 function imageDataAtWidth(
   bitmap: ImageBitmap,
@@ -64,8 +70,28 @@ async function resolveQuery(
   return { kind: "hit", certId: parsed.value };
 }
 
+/** The paper path: the 8-character code printed in the PDF footer. */
+async function resolveCode(code: string): Promise<ResolveOutcome> {
+  const { address } = await api<{ address: string | null }>(
+    `/api/verify/resolve-code/${code}`,
+  );
+  return address ? { kind: "hit", certId: address } : { kind: "miss" };
+}
+
 async function resolveFile(file: File): Promise<ResolveOutcome> {
   const bytes = new Uint8Array(await file.arrayBuffer());
+
+  // An exported PDF carries the certificate's hash in its metadata, so it
+  // resolves without the browser having to understand PDF at all. Its own bytes
+  // are NOT the committed artifact — the PNG inside it is — so hashing the file
+  // would always miss.
+  if (isPdfBytes(bytes)) {
+    const embedded = artifactShaFromPdf(bytes);
+    if (!embedded) return { kind: "miss" };
+    const cert = await resolveHashToCert(embedded);
+    return cert ? { kind: "hit", certId: cert } : { kind: "miss" };
+  }
+
   const hash = await sha256HexOf(bytes);
   const exact = await resolveHashToCert(hash);
   if (exact) return { kind: "hit", certId: exact };
@@ -114,6 +140,14 @@ export function VerifyTool() {
   }
 
   function submitQuery(): void {
+    // Codes are checked first: an 8-character code is never a valid address or
+    // hash, so this can only claim inputs the other paths would have rejected.
+    const code = normalizeValidationCode(query);
+    if (code) {
+      void run(() => resolveCode(code));
+      return;
+    }
+
     const parsed = classifyVerifyInput(query);
     if (parsed.kind === "empty" || parsed.kind === "unknown") {
       setStatus("notfound");
@@ -134,7 +168,7 @@ export function VerifyTool() {
         className="flex flex-col gap-2 sm:flex-row sm:items-end"
       >
         <div className="flex-1 space-y-1.5">
-          <Label htmlFor="verify-query">{t("verify.inputPlaceholder")}</Label>
+          <Label htmlFor="verify-query">{t("verify.tool.inputLabel")}</Label>
           <Input
             id="verify-query"
             value={query}
@@ -143,7 +177,10 @@ export function VerifyTool() {
               if (status === "notfound" || status === "error")
                 setStatus("idle");
             }}
-            placeholder={t("verify.inputPlaceholder")}
+            placeholder={t("verify.tool.inputPlaceholder")}
+            autoCapitalize="characters"
+            autoComplete="off"
+            spellCheck={false}
             disabled={busy}
           />
         </div>
@@ -171,15 +208,17 @@ export function VerifyTool() {
         }`}
       >
         <Upload className="size-6 text-muted-foreground" aria-hidden="true" />
-        <span className="text-sm font-medium">{t("verify.dropPrompt")}</span>
+        <span className="text-sm font-medium">
+          {t("verify.tool.dropPrompt")}
+        </span>
         <span className="text-xs text-muted-foreground">
-          {t("verify.dropHint")}
+          {t("verify.tool.dropHint")}
         </span>
         <input
           id="verify-file"
           ref={fileInputRef}
           type="file"
-          accept="image/png,image/jpeg"
+          accept="application/pdf,image/png,image/jpeg"
           className="sr-only"
           disabled={busy}
           onChange={(e) => {

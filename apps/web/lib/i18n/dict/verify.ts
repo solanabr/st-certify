@@ -42,7 +42,6 @@ const pt = {
   "verify.signers.name": "Signatário",
   "verify.signers.role": "Cargo",
   "verify.signers.signedAt": "Assinado em",
-  "verify.signers.tx": "Transação",
   "verify.signers.signed": "assinado",
   "verify.signers.awaiting": "aguardando assinatura",
   "verify.stamp.checking": "Verificando on-chain…",
@@ -51,10 +50,35 @@ const pt = {
   "verify.stamp.revoked":
     "Revogado on-chain — este certificado não é mais válido.",
   "verify.stamp.verified": "verificado onchain",
-  "verify.stamp.slot": "· slot {slot}",
   "verify.stamp.viewNft": "Ver registro on-chain (intransferível)",
   "verify.stamp.drift":
     "A rede tem uma atualização mais recente — exibindo o estado on-chain.",
+  "verify.tool.inputLabel": "Código, endereço ou link do certificado",
+  "verify.tool.inputPlaceholder": "Ex.: K7M2QX9T",
+  "verify.tool.dropPrompt":
+    "Solte o PDF ou a imagem aqui, ou clique para enviar",
+  "verify.tool.dropHint":
+    "O arquivo é conferido no seu navegador — nada é enviado para nossos servidores.",
+  "verify.tool.threeWays":
+    "Três formas de conferir: o código de 8 caracteres impresso no PDF, o endereço do certificado, ou o próprio arquivo.",
+  "verify.detail.code": "Código de validação",
+  "verify.issuer.title": "Emitido por",
+  "verify.issuer.contact": "Site do emissor",
+  "verify.issuer.cnpj": "CNPJ",
+  "verify.issuer.note":
+    "Em caso de dúvida, confirme este certificado diretamente com o emissor.",
+  "verify.pdf.download": "Baixar PDF",
+  "verify.print": "Imprimir",
+  "verify.tech.title": "Detalhes técnicos",
+  "verify.tech.hint":
+    "Endereços e transações públicas, para quem quiser conferir o registro por conta própria.",
+  "verify.tech.certAddress": "Endereço do certificado",
+  "verify.tech.editionAddress": "Endereço da edição",
+  "verify.tech.asset": "Ativo on-chain",
+  "verify.tech.sha256": "SHA-256 da imagem do certificado",
+  "verify.tech.slot": "Slot conferido",
+  "verify.tech.signerTxs": "Transações de assinatura",
+  "verify.tech.unavailable": "Indisponível no momento",
   "system.error.title": "Algo deu errado",
   "system.error.body":
     "Ocorreu um erro inesperado ao carregar esta página. Tente novamente.",
@@ -106,7 +130,6 @@ export const verifyDict: Record<Locale, Record<verifyKey, string>> = {
     "verify.signers.name": "Signer",
     "verify.signers.role": "Role",
     "verify.signers.signedAt": "Signed at",
-    "verify.signers.tx": "Transaction",
     "verify.signers.signed": "signed",
     "verify.signers.awaiting": "awaiting signature",
     "verify.stamp.checking": "Verifying on-chain…",
@@ -115,10 +138,34 @@ export const verifyDict: Record<Locale, Record<verifyKey, string>> = {
     "verify.stamp.revoked":
       "Revoked on-chain — this certificate is no longer valid.",
     "verify.stamp.verified": "verified onchain",
-    "verify.stamp.slot": "· slot {slot}",
     "verify.stamp.viewNft": "View on-chain record (non-transferable)",
     "verify.stamp.drift":
       "The network has a more recent update — showing the on-chain state.",
+    "verify.tool.inputLabel": "Certificate code, address or link",
+    "verify.tool.inputPlaceholder": "e.g. K7M2QX9T",
+    "verify.tool.dropPrompt": "Drop the PDF or image here, or click to upload",
+    "verify.tool.dropHint":
+      "The file is checked in your browser — nothing is sent to our servers.",
+    "verify.tool.threeWays":
+      "Three ways to check: the 8-character code printed on the PDF, the certificate address, or the file itself.",
+    "verify.detail.code": "Validation code",
+    "verify.issuer.title": "Issued by",
+    "verify.issuer.contact": "Issuer website",
+    "verify.issuer.cnpj": "Company ID (CNPJ)",
+    "verify.issuer.note":
+      "If in doubt, confirm this certificate directly with the issuer.",
+    "verify.pdf.download": "Download PDF",
+    "verify.print": "Print",
+    "verify.tech.title": "Technical details",
+    "verify.tech.hint":
+      "Public addresses and transactions, for anyone who wants to check the record themselves.",
+    "verify.tech.certAddress": "Certificate address",
+    "verify.tech.editionAddress": "Edition address",
+    "verify.tech.asset": "On-chain asset",
+    "verify.tech.sha256": "Certificate image SHA-256",
+    "verify.tech.slot": "Slot checked",
+    "verify.tech.signerTxs": "Signature transactions",
+    "verify.tech.unavailable": "Unavailable right now",
     "system.error.title": "Something went wrong",
     "system.error.body":
       "An unexpected error occurred while loading this page. Please try again.",
@@ -165,7 +212,6 @@ export const verifyDict: Record<Locale, Record<verifyKey, string>> = {
     "verify.signers.name": "Firmante",
     "verify.signers.role": "Cargo",
     "verify.signers.signedAt": "Firmado el",
-    "verify.signers.tx": "Transacción",
     "verify.signers.signed": "firmado",
     "verify.signers.awaiting": "esperando firma",
     "verify.stamp.checking": "Verificando on-chain…",
@@ -174,10 +220,35 @@ export const verifyDict: Record<Locale, Record<verifyKey, string>> = {
     "verify.stamp.revoked":
       "Revocado on-chain — este certificado ya no es válido.",
     "verify.stamp.verified": "verificado onchain",
-    "verify.stamp.slot": "· slot {slot}",
     "verify.stamp.viewNft": "Ver registro on-chain (intransferible)",
     "verify.stamp.drift":
       "La red tiene una actualización más reciente — mostrando el estado on-chain.",
+    "verify.tool.inputLabel": "Código, dirección o enlace del certificado",
+    "verify.tool.inputPlaceholder": "Ej.: K7M2QX9T",
+    "verify.tool.dropPrompt":
+      "Suelta el PDF o la imagen aquí, o haz clic para subirlo",
+    "verify.tool.dropHint":
+      "El archivo se comprueba en tu navegador — no se envía nada a nuestros servidores.",
+    "verify.tool.threeWays":
+      "Tres formas de comprobar: el código de 8 caracteres impreso en el PDF, la dirección del certificado, o el propio archivo.",
+    "verify.detail.code": "Código de validación",
+    "verify.issuer.title": "Emitido por",
+    "verify.issuer.contact": "Sitio del emisor",
+    "verify.issuer.cnpj": "CNPJ",
+    "verify.issuer.note":
+      "Ante cualquier duda, confirma este certificado directamente con el emisor.",
+    "verify.pdf.download": "Descargar PDF",
+    "verify.print": "Imprimir",
+    "verify.tech.title": "Detalles técnicos",
+    "verify.tech.hint":
+      "Direcciones y transacciones públicas, para quien quiera comprobar el registro por su cuenta.",
+    "verify.tech.certAddress": "Dirección del certificado",
+    "verify.tech.editionAddress": "Dirección de la edición",
+    "verify.tech.asset": "Activo on-chain",
+    "verify.tech.sha256": "SHA-256 de la imagen del certificado",
+    "verify.tech.slot": "Slot comprobado",
+    "verify.tech.signerTxs": "Transacciones de firma",
+    "verify.tech.unavailable": "No disponible ahora mismo",
     "system.error.title": "Algo salió mal",
     "system.error.body":
       "Ocurrió un error inesperado al cargar esta página. Inténtalo de nuevo.",

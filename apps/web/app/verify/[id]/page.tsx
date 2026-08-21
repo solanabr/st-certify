@@ -13,13 +13,38 @@ import {
   type VerifyCertView,
 } from "@/lib/db/claim-verify-queries";
 import { getClaimByAssetId } from "@/lib/db/attendance-queries";
-import { getT } from "@/lib/i18n/server";
+import { translate } from "@/lib/i18n/dictionaries";
+import { LocaleProvider } from "@/lib/i18n/provider";
+import { getLocale } from "@/lib/i18n/server";
+import { isLocale, type Locale } from "@/lib/i18n/locales";
 
 // Verify is inherently dynamic (chain-truthful; a cert can be claimed/revoked
 // between visits) — never serve a stale cached verdict.
 export const dynamic = "force-dynamic";
 
 const BASE58 = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+
+/**
+ * A verdict is shared far more often than it is browsed to, and the person it
+ * is sent to may not read the sender's language — so `?lang=` beats the cookie
+ * here, making a link that renders the same way for everyone who opens it.
+ */
+async function resolveLocale(lang: string | undefined): Promise<Locale> {
+  return isLocale(lang) ? lang : await getLocale();
+}
+
+/**
+ * Print rules for the verdict, scoped to this page instead of globals.css: the
+ * chrome and the interactive affordances go away, and what is left is the thing
+ * a registrar files — the verdict, the identity, and the signatures.
+ */
+const PRINT_CSS = `@media print{
+  nav,footer{display:none!important}
+  body{background:#fff!important;color:#000!important}
+  main{padding:0!important}
+  a[href]::after{content:""}
+  .verify-print-root{max-width:none;padding:0}
+}`;
 
 /** Resolve an id (cert PDA first, then asset) to its mirror verdict. */
 async function resolveView(id: string): Promise<VerifyCertView | null> {
@@ -31,12 +56,20 @@ async function resolveView(id: string): Promise<VerifyCertView | null> {
 
 export async function generateMetadata({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ lang?: string }>;
 }): Promise<Metadata> {
-  const { id } = await params;
-  const view = await resolveView(id);
-  const { t } = await getT();
+  const [{ id }, { lang }] = await Promise.all([params, searchParams]);
+  const [view, locale] = await Promise.all([
+    resolveView(id),
+    resolveLocale(lang),
+  ]);
+  const t = (
+    key: Parameters<typeof translate>[1],
+    p?: Record<string, string>,
+  ) => translate(locale, key, p);
 
   if (!view) {
     return {
@@ -66,14 +99,15 @@ export async function generateMetadata({
 }
 
 /** Fallback when the mirror can't resolve the id — still runs the live chain-check. */
-async function ChainOnlyFallback({ id }: { id: string }) {
-  const { t } = await getT();
+function ChainOnlyFallback({ id, locale }: { id: string; locale: Locale }) {
   const looksLikeAddress = BASE58.test(id);
   return (
     <div className="space-y-6">
       <Alert>
-        <AlertTitle>{t("verify.fallback.title")}</AlertTitle>
-        <AlertDescription>{t("verify.fallback.body")}</AlertDescription>
+        <AlertTitle>{translate(locale, "verify.fallback.title")}</AlertTitle>
+        <AlertDescription>
+          {translate(locale, "verify.fallback.body")}
+        </AlertDescription>
       </Alert>
       {looksLikeAddress && (
         <Card>
@@ -91,11 +125,14 @@ export default async function VerifyIdPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ reencode?: string }>;
+  searchParams: Promise<{ reencode?: string; lang?: string }>;
 }) {
   const { id } = await params;
-  const { reencode } = await searchParams;
-  const view = await resolveView(id);
+  const { reencode, lang } = await searchParams;
+  const [view, locale] = await Promise.all([
+    resolveView(id),
+    resolveLocale(lang),
+  ]);
 
   // Certificate miss: the id may instead be an attendance NFT's asset id, whose
   // public surface is /nft/[assetId]. Only checked on the miss path so the
@@ -104,23 +141,31 @@ export default async function VerifyIdPage({
     redirect(`/nft/${id}`);
   }
 
-  const { t } = await getT();
-
   return (
-    <div className="mx-auto max-w-3xl px-4 py-12">
-      <Link
-        href="/verify"
-        className="mb-6 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-      >
-        <ArrowLeft className="size-4" aria-hidden="true" />
-        {t("verify.verifyAnother")}
-      </Link>
+    // The nested provider is what makes `?lang=` hold for the client islands
+    // too (chain stamp, action buttons); without it they would keep rendering
+    // in the visitor's cookie language while the page around them switched.
+    <LocaleProvider initialLocale={locale}>
+      <style>{PRINT_CSS}</style>
+      <div className="verify-print-root mx-auto max-w-3xl px-4 py-12">
+        <Link
+          href="/verify"
+          className="mb-6 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground print:hidden"
+        >
+          <ArrowLeft className="size-4" aria-hidden="true" />
+          {translate(locale, "verify.verifyAnother")}
+        </Link>
 
-      {view ? (
-        <VerifyResult view={view} reencode={reencode === "1"} />
-      ) : (
-        <ChainOnlyFallback id={id} />
-      )}
-    </div>
+        {view ? (
+          <VerifyResult
+            view={view}
+            locale={locale}
+            reencode={reencode === "1"}
+          />
+        ) : (
+          <ChainOnlyFallback id={id} locale={locale} />
+        )}
+      </div>
+    </LocaleProvider>
   );
 }
