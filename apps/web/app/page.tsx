@@ -95,7 +95,7 @@ export default async function Home() {
             <span className="stbr-eyebrow">{t("common.devnet")}</span>
           </span>
           <h1
-            className={`text-5xl font-semibold tracking-tight text-balance sm:text-6xl lg:text-7xl ${MOUNT_RISE} [animation-delay:80ms]`}
+            className={`text-glow text-5xl font-semibold tracking-tight text-balance sm:text-6xl lg:text-7xl ${MOUNT_RISE} [animation-delay:80ms]`}
           >
             {t("landing.heroTitlePre")}{" "}
             <span className="text-primary">Superteam Brasil</span>
@@ -108,7 +108,11 @@ export default async function Home() {
           <div
             className={`mt-12 flex flex-col items-center justify-center gap-3 sm:flex-row ${MOUNT_RISE} [animation-delay:240ms]`}
           >
-            <Button asChild size="lg">
+            <Button
+              asChild
+              size="lg"
+              className="transition-shadow duration-200 ease-[var(--ease-spring)] hover:shadow-[0_0_0_1px_rgba(10,162,90,0.5),0_0_28px_-4px_rgba(10,162,90,0.55),0_0_64px_-12px_rgba(10,162,90,0.4)]"
+            >
               <Link href="/verify">{t("landing.verifyCta")}</Link>
             </Button>
             <LandingCta />
@@ -127,7 +131,7 @@ export default async function Home() {
               <Card
                 key={intent.href}
                 style={{ animationDelay: `${i * 90}ms` }}
-                className={`group hover-lift p-6 sm:p-8 ${MOUNT_RISE}`}
+                className={`group gradient-border hover-lift p-6 sm:p-8 ${MOUNT_RISE}`}
               >
                 <CardContent className="flex h-full flex-col p-0">
                   <div className="flex size-12 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/15 via-primary/5 to-brand-yellow/20 text-primary ring-1 ring-inset ring-primary/20 transition-[transform,box-shadow] duration-200 ease-[var(--ease-spring)] group-hover:shadow-[0_10px_28px_-10px_rgba(0,139,76,0.5)] motion-safe:group-hover:scale-110 motion-safe:group-hover:-rotate-3">

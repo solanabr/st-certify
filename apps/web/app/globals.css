@@ -633,3 +633,87 @@ body {
     );
   }
 }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Neon accent system (v4) — vivid glow for the crypto-native look.
+   Decoration ONLY (box/text-shadow + masked gradient borders): never lowers
+   text contrast. Glows read on the dark ground; light mode degrades to a
+   crisp vivid edge. All motion is reduced-motion guarded.
+   ─────────────────────────────────────────────────────────────────────────── */
+@property --gb-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@keyframes gb-spin {
+  to {
+    --gb-angle: 360deg;
+  }
+}
+
+@layer utilities {
+  /* Emerald glow bloom — tight core + wide soft halo. */
+  .neon-emerald {
+    box-shadow:
+      0 0 0 1px rgba(0, 139, 76, 0.35),
+      0 0 18px -3px rgba(0, 139, 76, 0.4),
+      0 0 44px -10px rgba(0, 139, 76, 0.28);
+  }
+  .dark .neon-emerald {
+    box-shadow:
+      0 0 0 1px rgba(10, 162, 90, 0.55),
+      0 0 22px -2px rgba(10, 162, 90, 0.5),
+      0 0 60px -10px rgba(10, 162, 90, 0.4);
+  }
+  .neon-yellow {
+    box-shadow:
+      0 0 0 1px rgba(217, 166, 8, 0.4),
+      0 0 18px -3px rgba(255, 210, 63, 0.4),
+      0 0 44px -10px rgba(255, 210, 63, 0.26);
+  }
+
+  /* Display-heading glow — dark mode only, large text only (never body). */
+  .dark .text-glow {
+    text-shadow: 0 0 28px rgba(10, 162, 90, 0.35);
+  }
+
+  /* Masked animated gradient border (emerald↔yellow). Border rests static;
+     it spins only on hover, and only when motion is allowed. */
+  .gradient-border {
+    position: relative;
+    isolation: isolate;
+  }
+  .gradient-border::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    /* No negative z-index: the ring must paint ABOVE the card's opaque bg.
+       Paint order (bg → ::before → children) keeps it under the content. */
+    padding: 1.5px;
+    border-radius: inherit;
+    pointer-events: none;
+    background: conic-gradient(
+      from var(--gb-angle),
+      rgba(0, 139, 76, 0.9),
+      rgba(255, 210, 63, 0.85),
+      rgba(10, 162, 90, 0.9),
+      rgba(0, 139, 76, 0.9)
+    );
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    opacity: 0.55;
+    transition: opacity 220ms var(--ease-spring);
+  }
+  .gradient-border:hover::before {
+    opacity: 1;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .gradient-border:hover::before {
+      animation: gb-spin 6s linear infinite;
+    }
+  }
+}
