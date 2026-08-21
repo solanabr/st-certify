@@ -134,7 +134,7 @@ export function CertCard({ cert }: { cert: CertificateForOwner }) {
   const { t } = useT();
 
   return (
-    <Card>
+    <Card className="hover-lift">
       <CardHeader className="flex-row items-start justify-between gap-3">
         <div>
           <p className="text-sm text-muted-foreground">{cert.editionName}</p>

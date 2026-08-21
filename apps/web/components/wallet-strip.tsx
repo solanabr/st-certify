@@ -31,7 +31,7 @@ export function WalletStrip({ wallet }: { wallet: string }) {
   const lowBalance = balance !== undefined && balance < LOW_BALANCE_LAMPORTS;
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3">
+    <div className="elevate flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3">
       <div className="flex items-center gap-3">
         <span className="font-mono text-sm" title={wallet}>
           {truncateAddress(wallet)}

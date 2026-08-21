@@ -36,9 +36,9 @@ export async function EditionCard({
   return (
     <Link
       href={`/certificates/${edition.slug}`}
-      className="group block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+      className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
     >
-      <Card className="h-full gap-4 overflow-hidden py-0 transition-colors group-hover:border-primary/50">
+      <Card className="hover-lift h-full gap-4 overflow-hidden py-0">
         <div
           className="gradient-solana-accent flex aspect-video w-full items-center justify-center text-3xl font-semibold text-background"
           aria-hidden="true"

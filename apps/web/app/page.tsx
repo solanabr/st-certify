@@ -68,20 +68,20 @@ export default async function Home() {
 
   return (
     <div className="flex flex-col">
-      <section className="relative overflow-hidden border-b border-border">
+      <section className="hero-glow relative overflow-hidden border-b border-border">
         <div className="gradient-solana-accent absolute inset-x-0 top-0 h-1" />
-        <div className="mx-auto max-w-6xl px-4 py-20 text-center sm:py-28">
-          <Badge variant="outline" className="mb-6">
+        <div className="mx-auto max-w-6xl px-4 py-24 text-center sm:py-32">
+          <Badge variant="outline" className="mb-8">
             {t("common.devnet")}
           </Badge>
-          <h1 className="text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
+          <h1 className="text-5xl font-semibold tracking-tight text-balance sm:text-6xl">
             {t("landing.heroTitlePre")}{" "}
             <span className="text-primary">Superteam Brasil</span>
           </h1>
-          <p className="mx-auto mt-6 max-w-2xl text-lg text-muted-foreground text-balance">
+          <p className="mx-auto mt-6 max-w-2xl text-lg text-muted-foreground text-balance sm:text-xl">
             {t("landing.heroSubtitle")}
           </p>
-          <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
+          <div className="mt-12 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Button asChild size="lg">
               <Link href="/verify">{t("landing.verifyCta")}</Link>
             </Button>
@@ -90,7 +90,7 @@ export default async function Home() {
         </div>
       </section>
 
-      <section className="mx-auto w-full max-w-6xl px-4 py-20">
+      <section className="mx-auto w-full max-w-6xl px-4 py-24">
         <h2 className="text-center text-2xl font-semibold tracking-tight">
           {t("landing.chooseTitle")}
         </h2>
@@ -98,13 +98,10 @@ export default async function Home() {
           {INTENTS.map((intent) => {
             const Icon = intent.icon;
             return (
-              <Card
-                key={intent.href}
-                className="group transition-colors hover:border-primary/50"
-              >
+              <Card key={intent.href} className="group hover-lift">
                 <CardContent className="flex h-full flex-col pt-2">
-                  <div className="flex size-11 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                    <Icon className="size-5" aria-hidden="true" />
+                  <div className="flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-1 ring-inset ring-primary/15 transition-transform duration-200 ease-[var(--ease-spring)] motion-safe:group-hover:scale-105">
+                    <Icon className="size-6" aria-hidden="true" />
                   </div>
                   <h3 className="mt-4 text-lg font-semibold">
                     {t(intent.titleKey)}
@@ -133,7 +130,7 @@ export default async function Home() {
       </section>
 
       <section className="border-t border-border bg-card/50">
-        <div className="mx-auto w-full max-w-6xl px-4 py-20">
+        <div className="mx-auto w-full max-w-6xl px-4 py-24">
           <h2 className="text-center text-2xl font-semibold tracking-tight">
             {t("landing.howItWorks")}
           </h2>
