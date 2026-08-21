@@ -45,6 +45,16 @@ const INTENTS: ReadonlyArray<{
   },
 ];
 
+/**
+ * First-load entrance: a gentle fade + 0.5rem rise, reusing the existing
+ * reduced-motion-safe animate-in vocabulary (it self-disables under
+ * prefers-reduced-motion). `animation-fill-mode:backwards` holds the pre-delay
+ * frame so staggered items don't flash at full opacity before their turn.
+ * Callers add a per-item `[animation-delay:*]` (or inline delay) for the stagger.
+ */
+const MOUNT_RISE =
+  "animate-in fade-in slide-in-from-bottom-2 duration-500 [animation-fill-mode:backwards]";
+
 export default async function Home() {
   const { t } = await getT();
 
@@ -69,23 +79,35 @@ export default async function Home() {
   return (
     <div className="flex flex-col">
       <section className="aurora relative overflow-hidden">
+        <div
+          aria-hidden="true"
+          className="noise pointer-events-none absolute inset-0 -z-10"
+        />
         <div className="gradient-solana-accent absolute inset-x-0 top-0 h-1" />
         <div className="mx-auto max-w-6xl px-4 py-28 text-center sm:py-36">
-          <span className="mb-8 inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-1.5 ring-1 ring-inset ring-primary/20">
+          <span
+            className={`mb-8 inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-1.5 ring-1 ring-inset ring-primary/20 ${MOUNT_RISE}`}
+          >
             <span
-              className="size-1.5 rounded-full bg-primary"
+              className="status-pulse size-1.5 rounded-full bg-primary"
               aria-hidden="true"
             />
             <span className="stbr-eyebrow">{t("common.devnet")}</span>
           </span>
-          <h1 className="text-5xl font-semibold tracking-tight text-balance sm:text-6xl lg:text-7xl">
+          <h1
+            className={`text-5xl font-semibold tracking-tight text-balance sm:text-6xl lg:text-7xl ${MOUNT_RISE} [animation-delay:80ms]`}
+          >
             {t("landing.heroTitlePre")}{" "}
             <span className="text-primary">Superteam Brasil</span>
           </h1>
-          <p className="mx-auto mt-6 max-w-2xl text-lg text-muted-foreground text-balance sm:text-xl">
+          <p
+            className={`mx-auto mt-6 max-w-2xl text-lg text-muted-foreground text-balance sm:text-xl ${MOUNT_RISE} [animation-delay:160ms]`}
+          >
             {t("landing.heroSubtitle")}
           </p>
-          <div className="mt-12 flex flex-col items-center justify-center gap-3 sm:flex-row">
+          <div
+            className={`mt-12 flex flex-col items-center justify-center gap-3 sm:flex-row ${MOUNT_RISE} [animation-delay:240ms]`}
+          >
             <Button asChild size="lg">
               <Link href="/verify">{t("landing.verifyCta")}</Link>
             </Button>
@@ -99,10 +121,14 @@ export default async function Home() {
           {t("landing.chooseTitle")}
         </h2>
         <div className="mt-12 grid gap-6 sm:grid-cols-3 sm:gap-8">
-          {INTENTS.map((intent) => {
+          {INTENTS.map((intent, i) => {
             const Icon = intent.icon;
             return (
-              <Card key={intent.href} className="group hover-lift p-6 sm:p-8">
+              <Card
+                key={intent.href}
+                style={{ animationDelay: `${i * 90}ms` }}
+                className={`group hover-lift p-6 sm:p-8 ${MOUNT_RISE}`}
+              >
                 <CardContent className="flex h-full flex-col p-0">
                   <div className="flex size-12 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/15 via-primary/5 to-brand-yellow/20 text-primary ring-1 ring-inset ring-primary/20 transition-[transform,box-shadow] duration-200 ease-[var(--ease-spring)] group-hover:shadow-[0_10px_28px_-10px_rgba(0,139,76,0.5)] motion-safe:group-hover:scale-110 motion-safe:group-hover:-rotate-3">
                     <Icon className="size-6" aria-hidden="true" />

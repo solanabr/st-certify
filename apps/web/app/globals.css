@@ -310,6 +310,41 @@ body {
   }
 }
 
+/* ───────────────────────────────────────────────────────────────────────────
+   Idle / ambient keyframes (decorative)
+
+   Slow, GPU-cheap loops consumed by the utilities below (aurora backdrop,
+   live-status dot). Transform/opacity only — never box-shadow or filter — so
+   they composite without repaint. Each consumer gates itself behind
+   `prefers-reduced-motion: no-preference`; the global reset above is a second
+   backstop.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* Aurora "breathing" — a barely-there drift + swell of the hero blob field. */
+@keyframes aurora-drift {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 0.9;
+  }
+  to {
+    transform: translate3d(-2%, 1.5%, 0) scale(1.04);
+    opacity: 1;
+  }
+}
+
+/* Live-network dot — a gentle heartbeat that reads as "online", not decoration. */
+@keyframes status-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(0.82);
+  }
+}
+
 @utility animate-in {
   animation-name: enter;
   animation-duration: var(--tw-duration, 150ms);
@@ -540,6 +575,39 @@ body {
       rgba(10, 162, 90, 0.12),
       transparent 70%
     );
+  }
+
+  /* Ambient drift on the blob field only (::before). The blur/gradients stay
+     static — we animate transform+opacity, so the browser transforms a cached
+     layer rather than re-blurring. Off entirely under reduced motion; the
+     parent's overflow-hidden + z-index:-1 keep it from shifting layout. */
+  @media (prefers-reduced-motion: no-preference) {
+    .aurora::before {
+      animation: aurora-drift 26s ease-in-out infinite alternate;
+    }
+  }
+
+  /* Tactile grain overlay — an inline feTurbulence field for the hero and
+     footer bands. Callers render it as a bare, aria-hidden layer pinned behind
+     content (`absolute inset-0 -z-10 pointer-events-none`), so at 3–4.5% it
+     adds depth without ever touching text contrast. Pure data-URI: no request,
+     seamless via stitchTiles. */
+  .noise {
+    background-image: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='140'%20height='140'%3E%3Cfilter%20id='n'%3E%3CfeTurbulence%20type='fractalNoise'%20baseFrequency='0.82'%20numOctaves='2'%20stitchTiles='stitch'/%3E%3C/filter%3E%3Crect%20width='140'%20height='140'%20filter='url(%23n)'/%3E%3C/svg%3E");
+    background-repeat: repeat;
+    background-size: 140px 140px;
+    opacity: 0.03;
+  }
+  .dark .noise {
+    opacity: 0.045;
+  }
+
+  /* Live-status dot heartbeat (the DEVNET pill). Gated so reduced-motion users
+     get a plain, steady dot. */
+  @media (prefers-reduced-motion: no-preference) {
+    .status-pulse {
+      animation: status-pulse 2.6s ease-in-out infinite;
+    }
   }
 
   /* Brand hairline divider — a fading emerald→yellow rule between landing
