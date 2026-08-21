@@ -45,9 +45,35 @@ const greatVibes = localFont({
 
 export async function generateMetadata(): Promise<Metadata> {
   const { t } = await getT();
+  const title = "Superteam Certify";
+  const description = t("meta.description");
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
   return {
-    title: "Superteam Certify",
-    description: t("meta.description"),
+    metadataBase: new URL(appUrl),
+    title: { default: title, template: `%s · ${title}` },
+    description,
+    applicationName: title,
+    // app/icon.svg (favicon) + app/opengraph-image.tsx are auto-wired by Next's
+    // file conventions; the explicit icons block adds the legacy .ico fallback.
+    icons: {
+      icon: [
+        { url: "/icon.svg", type: "image/svg+xml" },
+        { url: "/favicon.ico", sizes: "any" },
+      ],
+    },
+    openGraph: {
+      type: "website",
+      siteName: title,
+      title,
+      description,
+      url: appUrl,
+      locale: "pt_BR",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+    },
   };
 }
 
