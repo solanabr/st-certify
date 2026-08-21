@@ -11,11 +11,20 @@ import "server-only";
 // magic-link tokens themselves. Callers project what a surface may show.
 
 import { fail } from "@/lib/errors";
+import { isUiMock } from "@/lib/mock/flag";
+import {
+  mockDraft,
+  mockDrafts,
+  mockInviteByToken,
+  mockInvites,
+  mockInvitesForDrafts,
+} from "@/lib/mock/fixtures";
 import { dbConfigured, getServiceClient } from "./mutations";
 import type { EditionDraftRow, SignerInviteRow } from "./types";
 
 /** One draft by id — the wizard's autosave target and the management page's source. */
 export async function getDraft(id: string): Promise<EditionDraftRow | null> {
+  if (isUiMock()) return mockDraft(id);
   if (!dbConfigured) return null;
   const supabase = getServiceClient();
   const { data, error } = await supabase
@@ -38,6 +47,7 @@ export async function getDraft(id: string): Promise<EditionDraftRow | null> {
  * show those as editions instead.
  */
 export async function listDrafts(): Promise<EditionDraftRow[]> {
+  if (isUiMock()) return mockDrafts();
   if (!dbConfigured) return [];
   const supabase = getServiceClient();
   const { data, error } = await supabase
@@ -70,6 +80,7 @@ export type SignerInviteWithDraft = SignerInviteRow & {
 export async function getInviteByToken(
   token: string,
 ): Promise<SignerInviteWithDraft | null> {
+  if (isUiMock()) return mockInviteByToken(token);
   if (!dbConfigured) return null;
   const supabase = getServiceClient();
   const { data, error } = await supabase
@@ -103,6 +114,7 @@ export async function getInviteByToken(
 export async function listInvitesForDrafts(
   draftIds: string[],
 ): Promise<SignerInviteRow[]> {
+  if (isUiMock()) return mockInvitesForDrafts(draftIds);
   if (!dbConfigured || draftIds.length === 0) return [];
   const supabase = getServiceClient();
   const { data, error } = await supabase
@@ -121,6 +133,7 @@ export async function listInvitesForDrafts(
 
 /** A draft's seats in the order they were created — the seat list and the "all accepted?" gate. */
 export async function listInvites(draftId: string): Promise<SignerInviteRow[]> {
+  if (isUiMock()) return mockInvites(draftId);
   if (!dbConfigured) return [];
   const supabase = getServiceClient();
   const { data, error } = await supabase

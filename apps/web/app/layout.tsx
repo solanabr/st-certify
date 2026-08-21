@@ -6,8 +6,10 @@ import { Providers } from "./providers";
 import { Footer } from "@/components/footer";
 import { Nav } from "@/components/nav";
 import { ThemeProvider } from "@/components/theme-provider";
+import { MockRoleSwitcher } from "@/components/dev/mock-role-switcher";
 import { LocaleProvider } from "@/lib/i18n";
 import { getLocale, getT } from "@/lib/i18n/server";
+import { isUiMock } from "@/lib/mock";
 
 const inter = localFont({
   src: [
@@ -81,6 +83,8 @@ export default async function RootLayout({
                 </main>
                 <Footer />
               </div>
+              {/* Dev-only: never reaches a production build (see lib/mock/flag.ts). */}
+              {isUiMock() && <MockRoleSwitcher />}
             </Providers>
           </LocaleProvider>
         </ThemeProvider>

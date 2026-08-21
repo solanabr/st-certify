@@ -12,6 +12,16 @@ import "server-only";
 // directly on an unconfigured DB.
 
 import { fail } from "@/lib/errors";
+import { isUiMock } from "@/lib/mock/flag";
+import {
+  mockAttendanceClaimsForOwner,
+  mockAttendanceEventById,
+  mockAttendanceEventByToken,
+  mockAttendanceEvents,
+  mockClaimByAssetId,
+  mockClaimByEventWallet,
+  mockClaimsForEvent,
+} from "@/lib/mock/fixtures";
 import { dbConfigured, getServiceClient } from "./mutations";
 import type {
   AttendanceClaimRow,
@@ -21,6 +31,7 @@ import type {
 
 /** All attendance events for the creator dashboard, newest first. */
 export async function listAttendanceEvents(): Promise<AttendanceEventRow[]> {
+  if (isUiMock()) return mockAttendanceEvents();
   if (!dbConfigured) return [];
   const supabase = getServiceClient();
   const { data, error } = await supabase
@@ -40,6 +51,7 @@ export async function listAttendanceEvents(): Promise<AttendanceEventRow[]> {
 export async function getEventByToken(
   token: string,
 ): Promise<AttendanceEventRow | null> {
+  if (isUiMock()) return mockAttendanceEventByToken(token);
   if (!dbConfigured) return null;
   const supabase = getServiceClient();
   const { data, error } = await supabase
@@ -60,6 +72,7 @@ export async function getEventByToken(
 export async function getEventById(
   id: string,
 ): Promise<AttendanceEventRow | null> {
+  if (isUiMock()) return mockAttendanceEventById(id);
   if (!dbConfigured) return null;
   const supabase = getServiceClient();
   const { data, error } = await supabase
@@ -81,6 +94,7 @@ export async function getClaimByEventWallet(
   eventId: string,
   wallet: string,
 ): Promise<AttendanceClaimRow | null> {
+  if (isUiMock()) return mockClaimByEventWallet(eventId);
   if (!dbConfigured) return null;
   const supabase = getServiceClient();
   const { data, error } = await supabase
@@ -134,6 +148,7 @@ interface ClaimPublicJoinRow {
 export async function getClaimByAssetId(
   assetId: string,
 ): Promise<AttendanceClaimPublicView | null> {
+  if (isUiMock()) return mockClaimByAssetId(assetId);
   if (!dbConfigured) return null;
   const supabase = getServiceClient();
   const { data, error } = await supabase
@@ -205,6 +220,7 @@ interface ClaimOwnerJoinRow {
 export async function listAttendanceClaimsForWallets(
   wallets: string[],
 ): Promise<AttendanceClaimForOwner[]> {
+  if (isUiMock()) return mockAttendanceClaimsForOwner();
   if (!dbConfigured || wallets.length === 0) return [];
   const supabase = getServiceClient();
   const { data, error } = await supabase
@@ -253,6 +269,7 @@ export interface AttendanceClaimListRow {
 export async function listClaimsForEvent(
   eventId: string,
 ): Promise<AttendanceClaimListRow[]> {
+  if (isUiMock()) return mockClaimsForEvent();
   if (!dbConfigured) return [];
   const supabase = getServiceClient();
   const { data, error } = await supabase

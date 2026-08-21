@@ -3,6 +3,8 @@ import "server-only";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { fail } from "@/lib/errors";
 import { verifyCode } from "@/lib/verify-code";
+import { isUiMock } from "@/lib/mock/flag";
+import { mockAdminEvents } from "@/lib/mock/fixtures";
 import type {
   CertificateStatusValue,
   EditionSignerRow,
@@ -148,6 +150,7 @@ export async function hasProcessedSignature(
 export async function listRecentEventsForAdmin(
   limit = 20,
 ): Promise<EventRow[]> {
+  if (isUiMock()) return mockAdminEvents(limit);
   const supabase = getServiceClient();
   const { data, error } = await supabase
     .from("events")
