@@ -773,3 +773,133 @@ body {
     }
   }
 }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Landing interactivity (v6) — pointer tilt, seal parallax, connector sweep,
+   verify-demo flourish. Additive; transform/opacity only (GPU-cheap, no layout
+   shift). Every effect is a no-op under prefers-reduced-motion, and each degrades
+   to a correct resting state (identity transform / fully-revealed) so nothing is
+   left mid-animation. The client hooks only write the CSS custom properties the
+   rules below read — <TiltCard>, <Parallax>, <StepConnector> in components/landing.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+@keyframes verify-flourish-in {
+  from {
+    opacity: 0;
+    transform: translateY(3px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* The handoff arrow's gentle advance — reads as "moving to the next screen"
+   during the brief window before the route push. */
+@keyframes verify-arrow-nudge {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(3px);
+  }
+}
+
+@layer utilities {
+  /* Pointer-follow tilt for the bento/intent cards. <TiltCard> writes
+     --tilt-rx/--tilt-ry from the cursor; this only consumes them, on a wrapper,
+     so the inner card's own .hover-lift translate/scale composes on top instead
+     of being overwritten. The perspective() lives in the transform itself, so no
+     ancestor perspective is needed. While the pointer is inside
+     (data-tilting="true") the transition is dropped for a crisp follow; on leave
+     it eases the card back to rest. Fully off under reduced motion. */
+  .tilt-card {
+    transform: perspective(900px) rotateX(var(--tilt-rx, 0deg))
+      rotateY(var(--tilt-ry, 0deg));
+    will-change: transform;
+  }
+  .tilt-card[data-tilting="false"] {
+    transition: transform 500ms var(--ease-spring);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .tilt-card {
+      transform: none;
+      transition: none;
+    }
+  }
+
+  /* Scroll parallax on the hero seal — <Parallax> writes --parallax-y from the
+     element's position in the viewport. Transform only, so it drifts over the
+     aurora with no layout or repaint. Off under reduced motion (the listener
+     never attaches and this collapses to no transform). */
+  .parallax-y {
+    transform: translate3d(0, var(--parallax-y, 0px), 0);
+    will-change: transform;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .parallax-y {
+      transform: none;
+    }
+  }
+
+  /* How-it-works connector: a brighter emerald→yellow fill that sweeps
+     left→right over the faint base .rule-gradient once the timeline scrolls in,
+     with the two arrow nodes brightening in its wake. <StepConnector> flips
+     data-shown once (IntersectionObserver), so this runs a single time. */
+  .step-connector-fill {
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 1px;
+    transform: scaleX(0);
+    transform-origin: left center;
+    background: linear-gradient(
+      90deg,
+      rgba(0, 139, 76, 0.85),
+      rgba(255, 210, 63, 0.7)
+    );
+    transition: transform 1000ms var(--ease-spring);
+  }
+  .dark .step-connector-fill {
+    background: linear-gradient(
+      90deg,
+      rgba(10, 162, 90, 0.9),
+      rgba(255, 210, 63, 0.65)
+    );
+  }
+  .step-connector[data-shown="true"] .step-connector-fill {
+    transform: scaleX(1);
+  }
+  .step-connector-node {
+    opacity: 0.5;
+    transition: opacity 550ms var(--ease-spring);
+  }
+  .step-connector[data-shown="true"] .step-connector-node {
+    opacity: 1;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .step-connector-fill {
+      transform: scaleX(1);
+      transition: none;
+    }
+    .step-connector-node {
+      opacity: 1;
+      transition: none;
+    }
+  }
+
+  /* Verify-demo handoff line — a small settle as the "opening…" row appears.
+     Asserts nothing; the route push to /verify happens regardless. */
+  .verify-flourish {
+    animation: verify-flourish-in 320ms var(--ease-spring);
+  }
+  .verify-arrow {
+    animation: verify-arrow-nudge 1s ease-in-out infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .verify-flourish,
+    .verify-arrow {
+      animation: none;
+    }
+  }
+}

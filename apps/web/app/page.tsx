@@ -23,7 +23,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { LandingCta } from "@/components/landing-cta";
 import { HeroSeal } from "@/components/landing/hero-seal";
+import { HeroVerifyDemo } from "@/components/landing/hero-verify-demo";
+import { Parallax } from "@/components/landing/parallax";
 import { Reveal } from "@/components/landing/reveal";
+import { StepConnector } from "@/components/landing/step-connector";
+import { TiltCard } from "@/components/landing/tilt-card";
 import { getT } from "@/lib/i18n/server";
 import type { TranslationKey } from "@/lib/i18n";
 
@@ -265,12 +269,29 @@ export default async function Home() {
             </ul>
           </div>
 
-          <div className={`mt-2 lg:mt-0 ${MOUNT_RISE} [animation-delay:200ms]`}>
-            <HeroSeal
-              docTitle={t("landing.seal.docTitle")}
-              badgeLabel={t("landing.seal.badge")}
-              signedByLabel={t("landing.seal.signedBy")}
-            />
+          <div
+            className={`mt-2 flex flex-col gap-6 lg:mt-0 ${MOUNT_RISE} [animation-delay:200ms]`}
+          >
+            <Parallax>
+              <HeroSeal
+                docTitle={t("landing.seal.docTitle")}
+                badgeLabel={t("landing.seal.badge")}
+                signedByLabel={t("landing.seal.signedBy")}
+              />
+            </Parallax>
+            <div className="mx-auto w-full max-w-sm lg:mx-0 lg:ml-auto">
+              <HeroVerifyDemo
+                tag={t("landing.verify.demo.tag")}
+                title={t("landing.verify.demo.title")}
+                label={t("landing.verify.demo.label")}
+                placeholder={t("landing.verify.demo.placeholder")}
+                cta={t("landing.verify.demo.cta")}
+                checking={t("landing.verify.demo.checking")}
+                opening={t("landing.verify.demo.opening")}
+                hint={t("landing.verify.demo.hint")}
+                fallback={t("landing.verify.demo.fallback")}
+              />
+            </div>
           </div>
         </div>
       </section>
@@ -296,67 +317,69 @@ export default async function Home() {
             );
             return (
               <Reveal key={intent.href} className={intent.span} delay={i * 90}>
-                <Card className="group gradient-border hover-lift h-full p-6 sm:p-8">
-                  {intent.wide ? (
-                    <CardContent className="flex h-full flex-col gap-6 p-0 sm:flex-row sm:items-center">
-                      <div className="flex items-center gap-4">
-                        <div className={ICON_CHIP}>
-                          <Icon className="size-6" aria-hidden="true" />
+                <TiltCard>
+                  <Card className="group gradient-border hover-lift h-full p-6 sm:p-8">
+                    {intent.wide ? (
+                      <CardContent className="flex h-full flex-col gap-6 p-0 sm:flex-row sm:items-center">
+                        <div className="flex items-center gap-4">
+                          <div className={ICON_CHIP}>
+                            <Icon className="size-6" aria-hidden="true" />
+                          </div>
+                          <div className="flex flex-col items-start gap-1.5">
+                            {tag}
+                            <h3 className="text-lg font-semibold">
+                              {t(intent.titleKey)}
+                            </h3>
+                          </div>
                         </div>
-                        <div className="flex flex-col items-start gap-1.5">
+                        <p className="grow text-sm text-muted-foreground">
+                          {t(intent.descKey)}
+                        </p>
+                        <Button
+                          asChild
+                          variant="ghost"
+                          className="self-start px-2 sm:self-center"
+                        >
+                          <Link href={intent.href}>
+                            {t(intent.ctaKey)}
+                            <ArrowRight
+                              className="transition-transform group-hover:translate-x-0.5"
+                              aria-hidden="true"
+                            />
+                          </Link>
+                        </Button>
+                      </CardContent>
+                    ) : (
+                      <CardContent className="flex h-full flex-col p-0">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className={ICON_CHIP}>
+                            <Icon className="size-6" aria-hidden="true" />
+                          </div>
                           {tag}
-                          <h3 className="text-lg font-semibold">
-                            {t(intent.titleKey)}
-                          </h3>
                         </div>
-                      </div>
-                      <p className="grow text-sm text-muted-foreground">
-                        {t(intent.descKey)}
-                      </p>
-                      <Button
-                        asChild
-                        variant="ghost"
-                        className="self-start px-2 sm:self-center"
-                      >
-                        <Link href={intent.href}>
-                          {t(intent.ctaKey)}
-                          <ArrowRight
-                            className="transition-transform group-hover:translate-x-0.5"
-                            aria-hidden="true"
-                          />
-                        </Link>
-                      </Button>
-                    </CardContent>
-                  ) : (
-                    <CardContent className="flex h-full flex-col p-0">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className={ICON_CHIP}>
-                          <Icon className="size-6" aria-hidden="true" />
-                        </div>
-                        {tag}
-                      </div>
-                      <h3 className="mt-5 text-lg font-semibold">
-                        {t(intent.titleKey)}
-                      </h3>
-                      <p className="mt-2 grow text-sm text-muted-foreground">
-                        {t(intent.descKey)}
-                      </p>
-                      <Button
-                        asChild
-                        variant="ghost"
-                        className="mt-5 self-start px-2"
-                      >
-                        <Link href={intent.href}>
-                          {t(intent.ctaKey)}
-                          <ArrowRight
-                            className="transition-transform group-hover:translate-x-0.5"
-                            aria-hidden="true"
-                          />
-                        </Link>
-                      </Button>
-                    </CardContent>
-                  )}
-                </Card>
+                        <h3 className="mt-5 text-lg font-semibold">
+                          {t(intent.titleKey)}
+                        </h3>
+                        <p className="mt-2 grow text-sm text-muted-foreground">
+                          {t(intent.descKey)}
+                        </p>
+                        <Button
+                          asChild
+                          variant="ghost"
+                          className="mt-5 self-start px-2"
+                        >
+                          <Link href={intent.href}>
+                            {t(intent.ctaKey)}
+                            <ArrowRight
+                              className="transition-transform group-hover:translate-x-0.5"
+                              aria-hidden="true"
+                            />
+                          </Link>
+                        </Button>
+                      </CardContent>
+                    )}
+                  </Card>
+                </TiltCard>
               </Reveal>
             );
           })}
@@ -388,31 +411,33 @@ export default async function Home() {
                 className={feature.span}
                 delay={i * 80}
               >
-                <Card className="group gradient-border hover-lift h-full p-6 sm:p-8">
-                  <CardContent className="flex h-full flex-col p-0">
-                    <div className={ICON_CHIP}>
-                      <Icon className="size-6" aria-hidden="true" />
-                    </div>
-                    <h3 className="mt-5 text-base font-semibold sm:text-lg">
-                      {t(feature.titleKey)}
-                    </h3>
-                    <p className="mt-2 text-sm text-muted-foreground">
-                      {t(feature.descKey)}
-                    </p>
-                    {isMarquee && (
-                      <div
-                        aria-hidden="true"
-                        className="mt-auto flex items-center gap-2 pt-6"
-                      >
-                        <span className="size-2.5 rounded-full bg-primary/60" />
-                        <span className="h-px w-10 bg-primary/25" />
-                        <span className="size-2.5 rounded-full bg-primary/60" />
-                        <span className="h-px w-10 bg-primary/25" />
-                        <span className="size-2.5 rounded-full bg-primary/60" />
+                <TiltCard>
+                  <Card className="group gradient-border hover-lift h-full p-6 sm:p-8">
+                    <CardContent className="flex h-full flex-col p-0">
+                      <div className={ICON_CHIP}>
+                        <Icon className="size-6" aria-hidden="true" />
                       </div>
-                    )}
-                  </CardContent>
-                </Card>
+                      <h3 className="mt-5 text-base font-semibold sm:text-lg">
+                        {t(feature.titleKey)}
+                      </h3>
+                      <p className="mt-2 text-sm text-muted-foreground">
+                        {t(feature.descKey)}
+                      </p>
+                      {isMarquee && (
+                        <div
+                          aria-hidden="true"
+                          className="mt-auto flex items-center gap-2 pt-6"
+                        >
+                          <span className="size-2.5 rounded-full bg-primary/60" />
+                          <span className="h-px w-10 bg-primary/25" />
+                          <span className="size-2.5 rounded-full bg-primary/60" />
+                          <span className="h-px w-10 bg-primary/25" />
+                          <span className="size-2.5 rounded-full bg-primary/60" />
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </TiltCard>
               </Reveal>
             );
           })}
@@ -465,19 +490,9 @@ export default async function Home() {
           </Reveal>
           <div className="relative mt-14 grid gap-8 sm:grid-cols-3">
             {/* Connector line + node arrows — lg only, behind the cards; the
-                opaque cards mask it so it reads only across the gaps. */}
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-x-[16.67%] top-[3.75rem] z-0 hidden lg:block"
-            >
-              <div className="rule-gradient" />
-              <span className="absolute left-1/4 top-1/2 flex size-6 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-card text-primary/70 ring-1 ring-inset ring-border">
-                <ArrowRight className="size-3.5" />
-              </span>
-              <span className="absolute left-3/4 top-1/2 flex size-6 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-card text-primary/70 ring-1 ring-inset ring-border">
-                <ArrowRight className="size-3.5" />
-              </span>
-            </div>
+                opaque cards mask it so it reads only across the gaps. A brighter
+                fill sweeps across it as the timeline scrolls into view. */}
+            <StepConnector />
             {steps.map((step, i) => {
               const Icon = step.icon;
               return (

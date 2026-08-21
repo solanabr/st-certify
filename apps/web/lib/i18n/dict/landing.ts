@@ -15,6 +15,17 @@ const pt = {
     "Assinados por quem responde pelo curso, verificáveis por qualquer pessoa, com trilha de auditoria completa.",
   "landing.verifyCta": "Verificar um documento",
 
+  "landing.verify.demo.tag": "Demonstração",
+  "landing.verify.demo.title": "Verificar um certificado",
+  "landing.verify.demo.label": "Código de validação ou endereço on-chain",
+  "landing.verify.demo.placeholder": "Cole o código ou o endereço",
+  "landing.verify.demo.cta": "Verificar",
+  "landing.verify.demo.checking": "Verificando…",
+  "landing.verify.demo.opening": "Abrindo verificação…",
+  "landing.verify.demo.hint":
+    "Prévia interativa — a verificação real abre na tela de verificação.",
+  "landing.verify.demo.fallback": "Abrir verificação completa",
+
   "landing.chooseTitle": "Por onde você quer começar?",
   "landing.card.issue.title": "Emitir certificados",
   "landing.card.issue.desc":
@@ -112,6 +123,17 @@ export const landingDict: Record<Locale, Record<LandingKey, string>> = {
       "Signed by the people accountable for the course, verifiable by anyone, with a complete audit trail.",
     "landing.verifyCta": "Verify a document",
 
+    "landing.verify.demo.tag": "Live demo",
+    "landing.verify.demo.title": "Verify a certificate",
+    "landing.verify.demo.label": "Validation code or on-chain address",
+    "landing.verify.demo.placeholder": "Paste the code or address",
+    "landing.verify.demo.cta": "Verify",
+    "landing.verify.demo.checking": "Verifying…",
+    "landing.verify.demo.opening": "Opening verification…",
+    "landing.verify.demo.hint":
+      "Interactive preview — the real check opens on the verification screen.",
+    "landing.verify.demo.fallback": "Open full verification",
+
     "landing.chooseTitle": "Where would you like to start?",
     "landing.card.issue.title": "Issue certificates",
     "landing.card.issue.desc":
@@ -203,6 +225,17 @@ export const landingDict: Record<Locale, Record<LandingKey, string>> = {
     "landing.heroSubtitle":
       "Firmados por quienes responden por el curso, verificables por cualquier persona, con traza de auditoría completa.",
     "landing.verifyCta": "Verificar un documento",
+
+    "landing.verify.demo.tag": "Demostración",
+    "landing.verify.demo.title": "Verificar un certificado",
+    "landing.verify.demo.label": "Código de validación o dirección on-chain",
+    "landing.verify.demo.placeholder": "Pega el código o la dirección",
+    "landing.verify.demo.cta": "Verificar",
+    "landing.verify.demo.checking": "Verificando…",
+    "landing.verify.demo.opening": "Abriendo la verificación…",
+    "landing.verify.demo.hint":
+      "Vista previa interactiva — la verificación real se abre en la pantalla de verificación.",
+    "landing.verify.demo.fallback": "Abrir la verificación completa",
 
     "landing.chooseTitle": "¿Por dónde quieres empezar?",
     "landing.card.issue.title": "Emitir certificados",
