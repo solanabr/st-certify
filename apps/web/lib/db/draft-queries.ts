@@ -96,6 +96,29 @@ export async function getInviteByToken(
   return { ...invite, draft };
 }
 
+/**
+ * Seats for several drafts at once — the studio list would otherwise issue one
+ * query per draft. Callers group by `draft_id` themselves.
+ */
+export async function listInvitesForDrafts(
+  draftIds: string[],
+): Promise<SignerInviteRow[]> {
+  if (!dbConfigured || draftIds.length === 0) return [];
+  const supabase = getServiceClient();
+  const { data, error } = await supabase
+    .from("signer_invites")
+    .select("*")
+    .in("draft_id", draftIds)
+    .order("invited_at", { ascending: true });
+  if (error) {
+    fail("INTERNAL", "Falha ao buscar signatários.", {
+      detail: error.message,
+      retryable: true,
+    });
+  }
+  return (data ?? []) as SignerInviteRow[];
+}
+
 /** A draft's seats in the order they were created — the seat list and the "all accepted?" gate. */
 export async function listInvites(draftId: string): Promise<SignerInviteRow[]> {
   if (!dbConfigured) return [];
