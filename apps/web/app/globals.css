@@ -717,3 +717,59 @@ body {
     }
   }
 }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Landing restructure (v5) — scroll-reveal + hero seal float.
+   Additive: new keyframe + two utilities. Transform/opacity only (GPU-cheap,
+   no layout shift). Both self-disable under prefers-reduced-motion, and the
+   reveal degrades to fully-visible so content is never stranded hidden.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* Hero certificate/seal — a slow vertical bob so the visual anchor feels alive
+   without pulling focus. One element only (not a field of many), transform-only. */
+@keyframes seal-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@layer utilities {
+  @media (prefers-reduced-motion: no-preference) {
+    .animate-seal-bob {
+      animation: seal-bob 6s ease-in-out infinite;
+    }
+  }
+
+  /* Scroll-reveal — below-the-fold sections/cards fade + rise once as they
+     enter the viewport. The client <Reveal> wrapper (components/landing/reveal)
+     flips data-shown via a single IntersectionObserver, then disconnects; a
+     per-item transition-delay (set inline) staggers siblings. Opacity+transform
+     only, so the element keeps its box the whole time (no reflow).
+
+     Robustness: the wrapper sets data-shown immediately when motion is reduced
+     OR IntersectionObserver is unavailable, and in-viewport elements resolve on
+     first observe — so nothing is left stuck at opacity 0. The media block below
+     is a second backstop: reduced-motion renders revealed even before hydration. */
+  .reveal {
+    opacity: 0;
+    transform: translateY(1.5rem);
+    transition:
+      opacity 600ms var(--ease-spring),
+      transform 600ms var(--ease-spring);
+  }
+  .reveal[data-shown="true"] {
+    opacity: 1;
+    transform: none;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .reveal {
+      opacity: 1;
+      transform: none;
+      transition: none;
+    }
+  }
+}
