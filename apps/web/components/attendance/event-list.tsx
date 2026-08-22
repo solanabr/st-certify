@@ -138,7 +138,7 @@ function EventQrDialog({
 
 /** Minted-vs-cap display: a colored capacity meter for capped events, plain count otherwise. */
 function ClaimedCell({ event }: { event: AttendanceEventView }) {
-  const { t } = useT();
+  const { t, locale } = useT();
   if (event.maxSupply === null) {
     return (
       <span className="tabular-nums">
@@ -150,6 +150,7 @@ function ClaimedCell({ event }: { event: AttendanceEventView }) {
     <CapacityMeter
       value={event.mintedCount}
       max={event.maxSupply}
+      locale={locale}
       className="min-w-36"
     />
   );
