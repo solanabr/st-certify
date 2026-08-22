@@ -20,6 +20,11 @@ async function loadSend() {
   return import("../send");
 }
 
+/** Everything a console.error spy saw, flattened for substring assertions. */
+function loggedText(spy: { mock: { calls: unknown[][] } }): string {
+  return spy.mock.calls.map((call) => call.join(" ")).join("\n");
+}
+
 const PAYLOAD = {
   signerName: "João",
   editionName: "Turma A",
@@ -100,7 +105,7 @@ describe("sendEmail", () => {
   });
 
   it("reports a provider error without throwing", async () => {
-    vi.spyOn(console, "error").mockImplementation(() => {});
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
     send.mockResolvedValue({
       data: null as unknown as { id: string },
       error: { message: "domain is not verified" },
@@ -115,16 +120,20 @@ describe("sendEmail", () => {
     );
 
     expect(result).toEqual({ sent: false, reason: "domain is not verified" });
+    expect(loggedText(error)).toContain("signer-invite");
+    // Retained platform logs must not carry the recipient (R4).
+    expect(loggedText(error)).not.toContain("signer@example.test");
   });
 
   it("swallows a thrown provider failure", async () => {
-    vi.spyOn(console, "error").mockImplementation(() => {});
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
     send.mockRejectedValue(new Error("network down"));
     const { sendEmail } = await loadSend();
 
     await expect(
       sendEmail("signer@example.test", "signer-invite", "pt-BR", PAYLOAD),
     ).resolves.toEqual({ sent: false, reason: "network down" });
+    expect(loggedText(error)).not.toContain("signer@example.test");
   });
 
   it("refuses an empty recipient", async () => {
