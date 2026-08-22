@@ -23,10 +23,18 @@ import {
   RejectDialog,
   type RejectTarget,
 } from "@/components/certificator/reject-dialog";
+import { BatchDone } from "@/components/sign/batch-done";
+import {
+  nextSignStep,
+  summarizeBatch,
+  type BatchSummary,
+} from "@/components/sign/ceremony";
+import { ConsentPanel } from "@/components/sign/consent-panel";
 import { onAppError } from "@/lib/on-app-error";
 import { callerSignerWallet } from "@/lib/db/certificator-queries";
 import { useT } from "@/lib/i18n";
 import { useMassSign } from "@/hooks/useMassSign";
+import { useMe } from "@/hooks/useMe";
 import { usePendingInbox } from "@/hooks/usePendingInbox";
 import { useReject } from "@/hooks/useReject";
 
@@ -36,6 +44,7 @@ export default function CertificatorPage() {
   const { t } = useT();
   const massSign = useMassSign();
   const reject = useReject();
+  const { data: me } = useMe();
   const { data, isLoading, isError, refetch } = usePendingInbox(
     massSign.progress.running,
   );
@@ -43,6 +52,11 @@ export default function CertificatorPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [rejectTarget, setRejectTarget] = useState<RejectTarget | null>(null);
+  // The consent disclosure gates the first wallet prompt of the session, so
+  // the acknowledgement lives here rather than per batch (§6.4).
+  const [consented, setConsented] = useState(false);
+  const [consentOpen, setConsentOpen] = useState(false);
+  const [lastBatch, setLastBatch] = useState<BatchSummary | null>(null);
 
   const groups = useMemo(() => data ?? [], [data]);
   const totalPending = groups.reduce((n, g) => n + g.certificates.length, 0);
@@ -104,15 +118,32 @@ export default function CertificatorPage() {
     selectedByEdition.map((x) => callerSignerWallet(x.group)),
   ).size;
 
+  /** Opens the consent disclosure the first time, the confirm dialog after that. */
+  function startSign() {
+    if (nextSignStep(consented) === "consent") setConsentOpen(true);
+    else setConfirmOpen(true);
+  }
+
   async function runSign() {
     setConfirmOpen(false);
-    await massSign.run({
-      groups: selectedByEdition.map((x) => ({
-        editionAddress: x.group.editionAddress,
-        signerWallet: callerSignerWallet(x.group),
-        certificateAddresses: x.certs.map((c) => c.address),
+    // Snapshot the batch before the run: `selected` is cleared below, and the
+    // completion state has to name the editions that were actually signed.
+    const batch = selectedByEdition.map((x) => ({
+      editionAddress: x.group.editionAddress,
+      editionName: x.group.editionName,
+      certificateAddresses: x.certs.map((c) => c.address),
+    }));
+
+    const outcome = await massSign.run({
+      groups: batch.map((group, i) => ({
+        editionAddress: group.editionAddress,
+        signerWallet: callerSignerWallet(selectedByEdition[i].group),
+        certificateAddresses: group.certificateAddresses,
       })),
     });
+
+    const summary = summarizeBatch(batch, outcome);
+    setLastBatch(summary.signed + summary.failed > 0 ? summary : null);
     setSelected(new Set());
   }
 
@@ -151,6 +182,15 @@ export default function CertificatorPage() {
           {t("certificator.subtitle")}
         </p>
       </div>
+
+      {/* What the last batch accomplished — replaced, not stacked, per run. */}
+      {lastBatch && !massSign.progress.running && (
+        <BatchDone
+          summary={lastBatch}
+          showEditionLinks={me?.role === "sysadmin"}
+          onDismiss={() => setLastBatch(null)}
+        />
+      )}
 
       {/* Truthful batch progress, announced politely. */}
       {massSign.progress.running && massSign.progress.totalChunks > 0 && (
@@ -256,7 +296,7 @@ export default function CertificatorPage() {
                 {t("certificator.clear")}
               </Button>
               <Button
-                onClick={() => setConfirmOpen(true)}
+                onClick={startSign}
                 disabled={massSign.progress.running || hasUnresolvedSigner}
               >
                 {massSign.progress.running
@@ -272,6 +312,16 @@ export default function CertificatorPage() {
           </div>
         </div>
       )}
+
+      <ConsentPanel
+        open={consentOpen}
+        onOpenChange={setConsentOpen}
+        onAgree={() => {
+          setConsented(true);
+          setConsentOpen(false);
+          setConfirmOpen(true);
+        }}
+      />
 
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent>

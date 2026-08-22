@@ -49,6 +49,14 @@ function withState(
 }
 
 /**
+ * `run` resolves with this so the caller can render a completion state from
+ * what actually happened. It has to be a return value rather than a read of
+ * `progress`: the caller awaits `run` inside a closure that captured the
+ * pre-run `progress`, and would summarize an empty batch.
+ */
+export type MassSignOutcome = Record<string, CertSignState>;
+
+/**
  * The mass-sign flow (plan §"Mass sign" + appendix §2): build one
  * `sign_certificate` ix per selected cert, chunk 20/tx per edition off ONE
  * blockhash, then sign per DISTINCT signer wallet — a certifier is usually
@@ -66,7 +74,7 @@ function withState(
  * certs have already vanished from the query).
  */
 export function useMassSign(): {
-  run: (input: MassSignInput) => Promise<void>;
+  run: (input: MassSignInput) => Promise<MassSignOutcome>;
   progress: MassSignProgress;
   reset: () => void;
 } {
@@ -78,9 +86,9 @@ export function useMassSign(): {
   const reset = useCallback(() => setProgress(IDLE), []);
 
   const run = useCallback(
-    async (input: MassSignInput): Promise<void> => {
+    async (input: MassSignInput): Promise<MassSignOutcome> => {
       const allCerts = input.groups.flatMap((g) => g.certificateAddresses);
-      if (allCerts.length === 0) return;
+      if (allCerts.length === 0) return {};
 
       // Fail fast if any of the distinct wallets this batch needs isn't
       // connected — before any RPC round trip, same as the old single-wallet
@@ -96,16 +104,24 @@ export function useMassSign(): {
         const signFeature = wallet?.features["solana:signTransaction"];
         if (!wallet || !account || !signFeature) {
           toast.error(t("certificator.walletNotFound"));
-          return;
+          return {};
         }
       }
+
+      // The run's authoritative per-cert map. `setProgress` renders a copy of
+      // it; this one survives the run so `run` can resolve with it.
+      let certState = withState({}, allCerts, "idle");
+      const mark = (addrs: string[], state: CertSignState): void => {
+        certState = withState(certState, addrs, state);
+        setProgress((p) => ({ ...p, certState }));
+      };
 
       setProgress({
         running: true,
         totalCerts: allCerts.length,
         totalChunks: 0,
         confirmedChunks: 0,
-        certState: withState({}, allCerts, "idle"),
+        certState,
       });
 
       let plans;
@@ -114,14 +130,11 @@ export function useMassSign(): {
       } catch (err) {
         onAppError(err);
         setProgress(IDLE);
-        return;
+        return {};
       }
 
-      setProgress((p) => ({
-        ...p,
-        totalChunks: plans.length,
-        certState: withState(p.certState, allCerts, "signing"),
-      }));
+      setProgress((p) => ({ ...p, totalChunks: plans.length }));
+      mark(allCerts, "signing");
 
       // One variadic sign call PER DISTINCT signer wallet — one popup in the
       // common single-wallet case, N popups only when N wallets are actually
@@ -146,14 +159,10 @@ export function useMassSign(): {
         const signFeature = wallet?.features["solana:signTransaction"];
         if (!wallet || !account || !signFeature) {
           // Validated above — stays defensive against a mid-flow disconnect.
-          setProgress((p) => ({
-            ...p,
-            certState: withState(
-              p.certState,
-              indices.flatMap((i) => plans[i].certificateAddresses),
-              "failed",
-            ),
-          }));
+          mark(
+            indices.flatMap((i) => plans[i].certificateAddresses),
+            "failed",
+          );
           continue;
         }
         try {
@@ -170,20 +179,19 @@ export function useMassSign(): {
         } catch (err) {
           if (isUserRejection(err)) toast(t("certificator.signatureCancelled"));
           else onAppError(err);
-          setProgress((p) => ({
-            ...p,
-            certState: withState(
-              p.certState,
-              indices.flatMap((i) => plans[i].certificateAddresses),
-              "failed",
-            ),
-          }));
+          mark(
+            indices.flatMap((i) => plans[i].certificateAddresses),
+            "failed",
+          );
         }
       }
 
+      // Nothing was even submitted — usually a cancelled wallet popup, which
+      // already spoke for itself. Resolve empty so the caller shows no
+      // completion state for a batch the signer deliberately called off.
       if (signedByIndex.size === 0) {
         setProgress(IDLE);
-        return;
+        return {};
       }
 
       // Serial submit, truthful per-chunk progress (refetch as each confirms).
@@ -210,25 +218,14 @@ export function useMassSign(): {
           setProgress((p) => ({
             ...p,
             confirmedChunks: p.confirmedChunks + 1,
-            certState: withState(
-              p.certState,
-              plan.certificateAddresses,
-              "confirmed",
-            ),
           }));
+          mark(plan.certificateAddresses, "confirmed");
           void queryClient.invalidateQueries({
             queryKey: ["certificator", "pending"],
           });
         } catch {
           failedCount += plan.certificateAddresses.length;
-          setProgress((p) => ({
-            ...p,
-            certState: withState(
-              p.certState,
-              plan.certificateAddresses,
-              "failed",
-            ),
-          }));
+          mark(plan.certificateAddresses, "failed");
         }
       }
 
@@ -247,6 +244,7 @@ export function useMassSign(): {
       void queryClient.invalidateQueries({
         queryKey: ["certificator", "pending"],
       });
+      return certState;
     },
     [wallets, queryClient, t],
   );
