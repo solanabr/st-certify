@@ -128,19 +128,15 @@ export default function CertificatorPage() {
     setConfirmOpen(false);
     // Snapshot the batch before the run: `selected` is cleared below, and the
     // completion state has to name the editions that were actually signed.
+    // Carries `editionName` for that summary; the run itself ignores it.
     const batch = selectedByEdition.map((x) => ({
       editionAddress: x.group.editionAddress,
       editionName: x.group.editionName,
+      signerWallet: callerSignerWallet(x.group),
       certificateAddresses: x.certs.map((c) => c.address),
     }));
 
-    const outcome = await massSign.run({
-      groups: batch.map((group, i) => ({
-        editionAddress: group.editionAddress,
-        signerWallet: callerSignerWallet(selectedByEdition[i].group),
-        certificateAddresses: group.certificateAddresses,
-      })),
-    });
+    const outcome = await massSign.run({ groups: batch });
 
     const summary = summarizeBatch(batch, outcome);
     setLastBatch(summary.signed + summary.failed > 0 ? summary : null);
