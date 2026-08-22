@@ -226,6 +226,10 @@ function translateGeometry(
  * `container-type: size` on the surface is what makes the `cqh`
  * (container-query height) units in `squareToStyle` and the font sizes
  * resolve — see `geometry.ts` for why that unit specifically.
+ *
+ * Must be rendered inside the `TemplateDesigner`'s `DndContext`: it is the
+ * drop target for palette chips and listens for their drop via
+ * `useDndMonitor`, which throws outside one.
  */
 export function DesignerCanvas({
   imageUrl,
@@ -534,6 +538,7 @@ export function DesignerCanvas({
               primary={primaryId === id}
               onSelect={handleSelect}
               onNudge={onNudge}
+              inert={armedId !== null}
             >
               <TextFieldContent field={field} text={text} />
             </DesignerBox>
@@ -550,6 +555,7 @@ export function DesignerCanvas({
               primary={primaryId === id}
               onSelect={handleSelect}
               onNudge={onNudge}
+              inert={armedId !== null}
             >
               <QrContent />
             </DesignerBox>
@@ -569,6 +575,7 @@ export function DesignerCanvas({
             primary={primaryId === id}
             onSelect={handleSelect}
             onNudge={onNudge}
+            inert={armedId !== null}
           >
             <SignatureContent
               box={box}
@@ -596,7 +603,7 @@ export function DesignerCanvas({
           <Moveable
             ref={moveableRef}
             className="designer-moveable"
-            target={singleTarget ?? targets}
+            target={armedId ? [] : (singleTarget ?? targets)}
             container={surfaceEl}
             draggable
             resizable={targets.length === 1}

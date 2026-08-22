@@ -22,6 +22,8 @@ export interface DesignerBoxProps {
    * stays ignorant of rect-vs-square and aspect math.
    */
   onNudge: (dxSteps: number, dySteps: number, step: number) => void;
+  /** Pointer-inert while the canvas is armed for click-to-place, so a tap lands on the canvas. */
+  inert?: boolean;
   children?: ReactNode;
 }
 
@@ -40,6 +42,7 @@ export function DesignerBox({
   primary,
   onSelect,
   onNudge,
+  inert = false,
   children,
 }: DesignerBoxProps): React.JSX.Element {
   const { t } = useT();
@@ -73,11 +76,17 @@ export function DesignerBox({
           ? "border-ring bg-ring/10"
           : "border-white/40 hover:border-white/70",
         primary && "border-ring",
+        inert && "pointer-events-none",
       )}
       style={style}
       onPointerDown={(e) => onSelect(id, e.shiftKey || e.metaKey || e.ctrlKey)}
       onKeyDown={handleKeyDown}
-      onFocus={() => onSelect(id, false)}
+      // Only when focus ARRIVES on an unselected box: a shift-click both
+      // extends the selection and focuses, and re-selecting here would
+      // immediately collapse the multi-selection it just made.
+      onFocus={() => {
+        if (!selected) onSelect(id, false);
+      }}
     >
       <span
         className={cn(
