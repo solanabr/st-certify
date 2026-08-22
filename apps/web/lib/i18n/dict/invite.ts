@@ -54,6 +54,9 @@ const pt = {
   "invite.dead.contactUnknown":
     "Responda ao e-mail do convite para falar com quem organizou a edição.",
   "invite.dead.home": "Voltar ao início",
+  "invite.dead.wrongAccountTitle": "Convite enviado para outro e-mail",
+  "invite.dead.wrongAccountBody":
+    "Este convite foi enviado para outro endereço de e-mail. Saia desta conta e entre com o e-mail que recebeu o convite para confirmar seu assento.",
 };
 
 export type inviteKey = keyof typeof pt;
@@ -110,6 +113,9 @@ export const inviteDict: Record<Locale, Record<inviteKey, string>> = {
     "invite.dead.contactUnknown":
       "Reply to the invitation e-mail to reach whoever organised the edition.",
     "invite.dead.home": "Back to home",
+    "invite.dead.wrongAccountTitle": "Invitation sent to another e-mail",
+    "invite.dead.wrongAccountBody":
+      "This invitation was sent to a different e-mail address. Sign out and sign back in with the e-mail that received it to confirm your seat.",
   },
   es: {
     "invite.meta.title": "Invitación para firmar · Superteam Certify",
@@ -160,5 +166,8 @@ export const inviteDict: Record<Locale, Record<inviteKey, string>> = {
     "invite.dead.contactUnknown":
       "Responde al correo de la invitación para hablar con quien organizó la edición.",
     "invite.dead.home": "Volver al inicio",
+    "invite.dead.wrongAccountTitle": "La invitación se envió a otro correo",
+    "invite.dead.wrongAccountBody":
+      "Esta invitación se envió a otra dirección de correo. Cierra sesión y vuelve a entrar con el correo que la recibió para confirmar tu puesto.",
   },
 };

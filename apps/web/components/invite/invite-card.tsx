@@ -10,6 +10,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { api } from "@/lib/api-client";
+import { toAppError } from "@/lib/errors";
 import { onAppError } from "@/lib/on-app-error";
 import { useMe } from "@/hooks/useMe";
 import { useT } from "@/lib/i18n";
@@ -37,6 +38,10 @@ const DEAD_COPY: Record<
     title: "invite.dead.closedTitle",
     body: "invite.dead.closedBody",
   },
+  wrongAccount: {
+    title: "invite.dead.wrongAccountTitle",
+    body: "invite.dead.wrongAccountBody",
+  },
 };
 
 /**
@@ -60,6 +65,7 @@ export function InviteCard({
   const queryClient = useQueryClient();
   const { data: me } = useMe();
   const [pending, setPending] = useState<"accept" | "wallet" | null>(null);
+  const [wrongAccount, setWrongAccount] = useState(false);
 
   const { data: invite } = useQuery({
     queryKey: ["invite", token],
@@ -74,6 +80,7 @@ export function InviteCard({
     invite: invite ?? null,
     authenticated: me?.authenticated ?? false,
     wallets,
+    wrongAccount,
   });
 
   async function accept(wallet: string): Promise<void> {
@@ -84,6 +91,13 @@ export function InviteCard({
       });
       queryClient.setQueryData(["invite", token], updated);
     } catch (err) {
+      // The seat is fine; this account just isn't the one it was sent to. That
+      // is a dead end with its own instructions, not a transient failure worth
+      // a toast and a re-read.
+      if (toAppError(err).code === "INVITE_EMAIL_MISMATCH") {
+        setWrongAccount(true);
+        return;
+      }
       onAppError(err);
       // The seat may have moved on (accepted elsewhere, edition created) —
       // re-read so the page shows the state that actually blocked us.

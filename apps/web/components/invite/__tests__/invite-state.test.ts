@@ -79,6 +79,30 @@ describe("inviteStage", () => {
     }
   });
 
+  it("stops asking for a wallet once the server refused this account", () => {
+    expect(
+      inviteStage({
+        invite: view(),
+        authenticated: true,
+        wallets: [WALLET],
+        wrongAccount: true,
+      }),
+    ).toBe("wrongAccount");
+  });
+
+  it("still reports the seat's own state ahead of the wrong account", () => {
+    // Someone signed in as the wrong person on an already-accepted seat is
+    // looking at a confirmed seat, not at a refusal.
+    expect(
+      inviteStage({
+        invite: view({ status: "accepted", wallet: WALLET }),
+        authenticated: true,
+        wallets: [WALLET],
+        wrongAccount: true,
+      }),
+    ).toBe("accepted");
+  });
+
   it("keeps an accepted seat readable even after the edition is created", () => {
     expect(
       inviteStage({
@@ -91,7 +115,7 @@ describe("inviteStage", () => {
 });
 
 describe("isDeadEnd", () => {
-  it.each<InviteStage>(["notFound", "expired", "closed"])(
+  it.each<InviteStage>(["notFound", "expired", "closed", "wrongAccount"])(
     "%s has no next step",
     (stage) => {
       expect(isDeadEnd(stage)).toBe(true);

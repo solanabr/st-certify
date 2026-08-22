@@ -11,6 +11,8 @@ export type InviteStage =
   | "expired"
   /** The edition went on-chain before this seat was confirmed. */
   | "closed"
+  /** Signed in as someone other than the person the invite was addressed to. */
+  | "wrongAccount"
   /** The seat is bound to a wallet — the success state, and the repeat-visit state. */
   | "accepted"
   /** A live seat, but we don't know who is holding the link yet. */
@@ -26,6 +28,12 @@ export interface InviteStageState {
   authenticated: boolean;
   /** The Solana wallets Privy has linked to the session. */
   wallets: readonly string[];
+  /**
+   * Set once the server has refused this session as the wrong identity. Only
+   * the server can tell: the invite payload deliberately omits the e-mail the
+   * link was sent to, so the page learns it from the rejected acceptance.
+   */
+  wrongAccount?: boolean;
 }
 
 /**
@@ -41,11 +49,20 @@ export function inviteStage(state: InviteStageState): InviteStage {
   if (invite.status === "accepted") return "accepted";
   if (invite.status === "expired") return "expired";
   if (invite.frozen) return "closed";
+  // Below the terminal states but above every prompt: re-offering the wallet
+  // picker to an account the server has already refused only produces the same
+  // refusal again.
+  if (state.wrongAccount) return "wrongAccount";
   if (!state.authenticated) return "login";
   return state.wallets.length > 0 ? "chooseWallet" : "createWallet";
 }
 
 /** The stages that end the journey here — the ones that must show issuer contact instead of a next step. */
 export function isDeadEnd(stage: InviteStage): boolean {
-  return stage === "notFound" || stage === "expired" || stage === "closed";
+  return (
+    stage === "notFound" ||
+    stage === "expired" ||
+    stage === "closed" ||
+    stage === "wrongAccount"
+  );
 }

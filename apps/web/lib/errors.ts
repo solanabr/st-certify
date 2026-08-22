@@ -24,6 +24,8 @@ export type AppErrorCode =
   | "ATTENDANCE_NOT_CREATOR"
   | "SIWS_NONCE_EXPIRED"
   | "SIWS_INVALID_SIGNATURE"
+  /** The session belongs to someone other than the person the invite was sent to. */
+  | "INVITE_EMAIL_MISMATCH"
   | "INTERNAL";
 
 export type AppErrorAction = "airdrop" | "retry" | "login" | "goto-me";

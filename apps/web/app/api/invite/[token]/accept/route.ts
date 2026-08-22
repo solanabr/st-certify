@@ -16,6 +16,35 @@ type Params = { params: Promise<{ token: string }> };
 const acceptSchema = z.object({ wallet: walletAddressSchema });
 
 /**
+ * A seat may only be confirmed by the person it was addressed to.
+ *
+ * The session proving *someone* is logged in is not enough: a forwarded
+ * invite e-mail would otherwise let any account bind its own wallet to the
+ * seat and sign in that Signatário's name. Privy verifies the e-mail it
+ * reports, so comparing it to the address the invite was sent to is what ties
+ * the two identities together. A wallet-only login carries no e-mail at all
+ * and is refused for the same reason — there is nothing to compare.
+ *
+ * Seats created through the manual-wallet escape hatch carry no e-mail
+ * (`email: ''`) and are born accepted, so they never reach this check.
+ */
+function requireInvitedIdentity(
+  invitedEmail: string,
+  sessionEmail: string | null,
+): void {
+  const invited = invitedEmail.trim().toLowerCase();
+  if (invited === "") {
+    return;
+  }
+  if ((sessionEmail ?? "").trim().toLowerCase() !== invited) {
+    fail(
+      "INVITE_EMAIL_MISMATCH",
+      "Este convite foi enviado para outro e-mail. Entre com a conta que recebeu o convite para confirmar este assento.",
+    );
+  }
+}
+
+/**
  * Binds the signer's chosen wallet to their seat.
  *
  * The token proves which seat is being claimed; the Privy session proves who
@@ -66,6 +95,7 @@ export async function POST(
         "Esta edição já foi criada on-chain e não aceita mais confirmações.",
       );
     }
+    requireInvitedIdentity(invite.email, session.email);
     if (!session.wallets.includes(wallet)) {
       fail("FORBIDDEN", "Esta carteira não está vinculada à sua conta.", {
         field: "wallet",

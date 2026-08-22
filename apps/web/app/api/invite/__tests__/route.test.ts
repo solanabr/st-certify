@@ -27,6 +27,7 @@ const accept = await import("../[token]/accept/route");
 const DRAFT_ID = "11111111-1111-4111-8111-111111111111";
 const SEAT_ID = "22222222-2222-4222-8222-222222222222";
 const TOKEN = "tok-ana";
+const INVITED_EMAIL = "ana@example.org";
 const MINE = "AwaLLet11111111111111111111111111111111111";
 const SOMEONE_ELSE = "BwaLLet22222222222222222222222222222222222";
 const DID = "did:privy:ana";
@@ -56,7 +57,7 @@ function seatRow(over: Partial<SignerInviteRow> = {}): SignerInviteRow {
     draft_id: DRAFT_ID,
     name: "Ana Beatriz",
     role: "Coordenadora",
-    email: "ana@example.org",
+    email: INVITED_EMAIL,
     token: TOKEN,
     status: "invited",
     wallet: null,
@@ -89,12 +90,20 @@ const postAccept = (body: unknown, token = TOKEN) =>
     params(token),
   ) as unknown as Promise<FakeResponse>;
 
-beforeEach(() => {
-  vi.clearAllMocks();
+/** The session the seat was addressed to, unless a test says otherwise. */
+function givenSession(
+  over: { email?: string | null; wallets?: string[] } = {},
+) {
   vi.mocked(requireUser).mockResolvedValue({
     did: DID,
-    wallets: [MINE],
+    email: "email" in over ? (over.email ?? null) : INVITED_EMAIL,
+    wallets: over.wallets ?? [MINE],
   } as Awaited<ReturnType<typeof requireUser>>);
+}
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  givenSession();
 });
 
 afterEach(() => {
@@ -130,7 +139,7 @@ describe("GET /api/invite/[token]", () => {
     // The bearer capability and the signer's e-mail must never come back out.
     const serialized = JSON.stringify(response.body);
     expect(serialized).not.toContain(TOKEN);
-    expect(serialized).not.toContain("ana@example.org");
+    expect(serialized).not.toContain(INVITED_EMAIL);
     expect(serialized).not.toContain(DRAFT_ID);
   });
 
@@ -253,6 +262,61 @@ describe("POST /api/invite/[token]/accept", () => {
 
     expect(response.status).toBe(409);
     expect(acceptInvite).not.toHaveBeenCalled();
+  });
+
+  it("refuses an account other than the one the invite was sent to", async () => {
+    // The forwarded-invite case: a real session, a real seat, the wrong person.
+    vi.mocked(getInviteByToken).mockResolvedValue(invite());
+    givenSession({ email: "bruno@example.org" });
+
+    const response = await postAccept({ wallet: MINE });
+
+    expect(response.status).toBe(403);
+    expect(response.body.error?.code).toBe("INVITE_EMAIL_MISMATCH");
+    expect(acceptInvite).not.toHaveBeenCalled();
+  });
+
+  it("refuses a wallet-only session on an emailed seat", async () => {
+    // Nothing to compare against: a login with no e-mail cannot be shown to be
+    // the invited signer, so it is refused rather than assumed.
+    vi.mocked(getInviteByToken).mockResolvedValue(invite());
+    givenSession({ email: null });
+
+    const response = await postAccept({ wallet: MINE });
+
+    expect(response.status).toBe(403);
+    expect(response.body.error?.code).toBe("INVITE_EMAIL_MISMATCH");
+    expect(acceptInvite).not.toHaveBeenCalled();
+  });
+
+  it("accepts the invited e-mail however it was capitalised or padded", async () => {
+    vi.mocked(getInviteByToken).mockResolvedValue(
+      invite({ email: " Ana@Example.ORG " }),
+    );
+    givenSession({ email: "ana@EXAMPLE.org" });
+    vi.mocked(acceptInvite).mockResolvedValue(
+      seatRow({ status: "accepted", wallet: MINE }),
+    );
+
+    const response = await postAccept({ wallet: MINE });
+
+    expect(response.status).toBe(200);
+    expect(acceptInvite).toHaveBeenCalledWith(SEAT_ID, MINE);
+  });
+
+  it("lets a manual-wallet seat through, since it was addressed to nobody", async () => {
+    // Seats bound by raw wallet carry no e-mail and are born accepted; the
+    // identity check must not turn that empty string into a mismatch.
+    vi.mocked(getInviteByToken).mockResolvedValue(invite({ email: "" }));
+    givenSession({ email: null });
+    vi.mocked(acceptInvite).mockResolvedValue(
+      seatRow({ email: "", status: "accepted", wallet: MINE }),
+    );
+
+    const response = await postAccept({ wallet: MINE });
+
+    expect(response.status).toBe(200);
+    expect(acceptInvite).toHaveBeenCalledWith(SEAT_ID, MINE);
   });
 
   it("refuses to bind a wallet the session does not own", async () => {
