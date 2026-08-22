@@ -49,7 +49,10 @@ import {
   markCertificateClaimed,
   setCertificateArtifact,
 } from "@/lib/db/claim-verify-mutations";
-import { syncCertificateMirrorFromChain } from "@/lib/db/mutations";
+import {
+  recordCertificateCluster,
+  syncCertificateMirrorFromChain,
+} from "@/lib/db/mutations";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const TEMPLATE_PATH = path.join(
@@ -82,6 +85,20 @@ function appUrl(): string {
     fail("STORAGE_FAILED", "NEXT_PUBLIC_APP_URL não configurado.");
   }
   return "http://localhost:3000";
+}
+
+/**
+ * The network this claim is being recorded on. Read once here and stamped on
+ * the mirror, because the exported PDF prints the network and links its
+ * explorer from it — asking the environment at export time would let a mainnet
+ * cutover silently re-attribute every devnet certificate ever issued. The
+ * fallback in lib/pdf/source.ts mirrors this rule for rows written before
+ * migration 0006.
+ */
+function currentCluster(): string {
+  return (process.env.NEXT_PUBLIC_RPC_URL ?? "").includes("devnet")
+    ? "devnet"
+    : "mainnet-beta";
 }
 
 function assertClaimReady(): void {
@@ -323,6 +340,9 @@ export async function prepareClaim(
     imageUrl: stored.pngUrl,
     metadataUrl: stored.metadataUrl,
   });
+  // Separate, best-effort statement: migration 0006 may not be applied, and a
+  // missing column must not be able to block a claim.
+  await recordCertificateCluster(input.certificateAddress, currentCluster());
 
   // Build the notary-partially-signed claim tx (student completes it).
   const [configPda] = await findConfigPda();
@@ -471,6 +491,7 @@ export async function submitClaim(
       signedMask: onchainCert.signedMask,
       certNumber: onchainCert.certNumber,
       asset: onchainCert.asset,
+      artifactHash: onchainCert.artifactHash,
     });
     const cert = await getCertificateByAddress(input.certificateAddress);
     return {
