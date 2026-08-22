@@ -150,17 +150,31 @@ export function offsetSquare(
   return clampSquare({ ...square, x: square.x + dx, y: square.y + dy }, aspect);
 }
 
-/** Sets a rect's size outright (resize handles report an absolute size, not a delta). */
-export function sizeRect(rect: FracRect, w: number, h: number): FracRect {
-  return clampRect({ ...rect, w, h });
+/**
+ * Applies a resize gesture: a handle on any edge or corner changes position
+ * AND size together, so both arrive as one already-final rect and get
+ * clamped exactly once. Clamping the translation first (with the *old* size)
+ * and the size second would wrongly pin a box being dragged open from its
+ * left or top edge.
+ */
+export function resizeRectTo(
+  start: FracRect,
+  dx: number,
+  dy: number,
+  w: number,
+  h: number,
+): FracRect {
+  return clampRect({ x: start.x + dx, y: start.y + dy, w, h });
 }
 
-export function sizeSquare(
-  square: FracSquare,
+export function resizeSquareTo(
+  start: FracSquare,
+  dx: number,
+  dy: number,
   size: number,
   aspect: number,
 ): FracSquare {
-  return clampSquare({ ...square, size }, aspect);
+  return clampSquare({ x: start.x + dx, y: start.y + dy, size }, aspect);
 }
 
 /** Centres a box on a point — what tapping the canvas in click-to-place mode means. */

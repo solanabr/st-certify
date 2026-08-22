@@ -15,8 +15,8 @@ import {
   nudgeSquare,
   offsetRect,
   offsetSquare,
-  sizeRect,
-  sizeSquare,
+  resizeRectTo,
+  resizeSquareTo,
   centerRectAt,
   centerSquareAt,
   rectToPercentStyle,
@@ -296,27 +296,75 @@ describe("offsetRect / offsetSquare (gesture-relative translation)", () => {
   });
 });
 
-describe("sizeRect / sizeSquare (absolute resize)", () => {
-  it("sets width and height outright", () => {
-    const resized = sizeRect({ x: 0.1, y: 0.1, w: 0.2, h: 0.2 }, 0.5, 0.4);
-    expect(resized.w).toBeCloseTo(0.5);
-    expect(resized.h).toBeCloseTo(0.4);
+describe("resizeRectTo / resizeSquareTo (handle-driven resize)", () => {
+  it("sets position and size together from a bottom-right handle", () => {
+    const resized = resizeRectTo(
+      { x: 0.1, y: 0.1, w: 0.2, h: 0.2 },
+      0,
+      0,
+      0.5,
+      0.4,
+    );
+    expect(resized).toEqual({ x: 0.1, y: 0.1, w: 0.5, h: 0.4 });
   });
 
-  it("floors at MIN_FRAC and pulls x/y back when growing past the edge", () => {
-    const tiny = sizeRect({ x: 0.1, y: 0.1, w: 0.2, h: 0.2 }, 0, 0);
+  it("dragging a top-left handle moves the origin and shrinks in one clamp", () => {
+    // The failure mode this guards: clamping the translation against the OLD
+    // width first would pin x at 1 - 0.5 = 0.5 and lose the resize.
+    const resized = resizeRectTo(
+      { x: 0.5, y: 0.5, w: 0.5, h: 0.5 },
+      0.2,
+      0.2,
+      0.3,
+      0.3,
+    );
+    expect(resized.x).toBeCloseTo(0.7);
+    expect(resized.y).toBeCloseTo(0.7);
+    expect(resized.w).toBeCloseTo(0.3);
+    expect(resized.h).toBeCloseTo(0.3);
+  });
+
+  it("floors size at MIN_FRAC and keeps the box on canvas", () => {
+    const tiny = resizeRectTo({ x: 0.1, y: 0.1, w: 0.2, h: 0.2 }, 0, 0, 0, 0);
     expect(tiny.w).toBe(MIN_FRAC);
     expect(tiny.h).toBe(MIN_FRAC);
 
-    const huge = sizeRect({ x: 0.9, y: 0.9, w: 0.05, h: 0.05 }, 0.5, 0.5);
+    const huge = resizeRectTo(
+      { x: 0.9, y: 0.9, w: 0.05, h: 0.05 },
+      0,
+      0,
+      0.5,
+      0.5,
+    );
     expect(huge.x).toBeCloseTo(0.5);
     expect(huge.y).toBeCloseTo(0.5);
+    expect(huge.x + huge.w).toBeLessThanOrEqual(1 + 1e-9);
   });
 
-  it("keeps a square square by taking a single size", () => {
+  it("a square resize takes a single size and stays square", () => {
     const aspect = 1600 / 1131;
-    const resized = sizeSquare({ x: 0.1, y: 0.1, size: 0.1 }, 0.3, aspect);
+    const resized = resizeSquareTo(
+      { x: 0.1, y: 0.1, size: 0.1 },
+      0.05,
+      0.05,
+      0.3,
+      aspect,
+    );
     expect(resized.size).toBeCloseTo(0.3);
+    expect(resized.x).toBeCloseTo(0.15);
+    expect(resized.y).toBeCloseTo(0.15);
+  });
+
+  it("a square resize respects aspect on the x bound", () => {
+    const aspect = 2;
+    const resized = resizeSquareTo(
+      { x: 0.95, y: 0, size: 0.1 },
+      0,
+      0,
+      0.8,
+      aspect,
+    );
+    expect(resized.x).toBeCloseTo(1 - 0.8 / aspect);
   });
 });
 

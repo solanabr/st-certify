@@ -11,21 +11,17 @@ import type { UseFormReturn } from "react-hook-form";
 import { AlertTriangle } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { DesignerCanvas } from "@/components/designer/designer-canvas";
-import { FieldEditorPanel } from "@/components/designer/field-editor-panel";
+import { TemplateDesigner } from "@/components/designer/template-designer";
 import { TemplateUploadCard } from "@/components/designer/template-upload-card";
 import type { UseTemplateDesignerUpload } from "@/components/designer/use-template-upload";
 import type {
   DesignerLayoutDraft,
   SelectedBox,
-  TextFieldKey,
 } from "@/components/designer/types";
 import {
   editionReadyLayoutSchema,
   type Layout,
-  type QrField,
   type SignatureBox,
-  type TextField,
 } from "@/lib/render/layout";
 import { useT } from "@/lib/i18n";
 import type { EditionWizardInput } from "@/lib/schemas";
@@ -185,36 +181,6 @@ export function WizardDesignerStep({
     [signers, t],
   );
 
-  function updateField(key: TextFieldKey, patch: Partial<TextField>): void {
-    onDraftChange((prev) =>
-      prev
-        ? {
-            ...prev,
-            fields: {
-              ...prev.fields,
-              [key]: { ...prev.fields[key], ...patch },
-            },
-          }
-        : prev,
-    );
-  }
-
-  function updateQr(patch: Partial<QrField>): void {
-    onDraftChange((prev) =>
-      prev ? { ...prev, qr: { ...prev.qr, ...patch } } : prev,
-    );
-  }
-
-  function updateSignature(index: number, patch: Partial<SignatureBox>): void {
-    onDraftChange((prev) => {
-      if (!prev) return prev;
-      const signatures = prev.signatures.map((box, i) =>
-        i === index ? { ...box, ...patch } : box,
-      );
-      return { ...prev, signatures };
-    });
-  }
-
   function handleContinue(): void {
     if (!asset || !draft) return;
     setSubmitErrorState(null);
@@ -280,45 +246,33 @@ export function WizardDesignerStep({
       )}
 
       {asset && draft && (
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
-          <div className="space-y-2">
-            <DesignerCanvas
-              imageUrl={asset.previewUrl}
-              canvasWidth={asset.width}
-              canvasHeight={asset.height}
-              draft={draft}
-              selected={selected}
-              onSelect={onSelectedChange}
-              onChangeField={updateField}
-              onChangeQr={updateQr}
-              onChangeSignature={updateSignature}
-              sampleValues={{
-                studentName: "Maria da Silva",
-                dateText: SAMPLE_DATE_TEXT,
-                certId: "CERT-PREVIEW",
-              }}
-              signerPreviews={signerPreviews}
-            />
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                resetUpload();
-                onSelectedChange(null);
-              }}
-            >
-              {t("admin.designer.changeImage")}
-            </Button>
-          </div>
-          <FieldEditorPanel
-            selected={selected}
+        <div className="space-y-3">
+          <TemplateDesigner
+            imageUrl={asset.previewUrl}
+            canvasWidth={asset.width}
+            canvasHeight={asset.height}
             draft={draft}
-            aspect={asset.width / asset.height}
-            onChangeField={updateField}
-            onChangeQr={updateQr}
-            onChangeSignature={updateSignature}
+            onDraftChange={onDraftChange}
+            selected={selected}
+            onSelectedChange={onSelectedChange}
+            sampleValues={{
+              studentName: "Maria da Silva",
+              dateText: SAMPLE_DATE_TEXT,
+              certId: "CERT-PREVIEW",
+            }}
+            signerPreviews={signerPreviews}
           />
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              resetUpload();
+              onSelectedChange(null);
+            }}
+          >
+            {t("admin.designer.changeImage")}
+          </Button>
         </div>
       )}
 

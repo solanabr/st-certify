@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, type CSSProperties, type ReactNode } from "react";
+import { type CSSProperties, type ReactNode } from "react";
 import { NUDGE_STEP, NUDGE_STEP_SHIFT } from "./geometry";
 import { useT } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
@@ -9,99 +9,40 @@ export interface DesignerBoxProps {
   id: string;
   label: string;
   style: CSSProperties;
+  /** In the current selection — drawn with the accent outline. */
   selected: boolean;
-  onSelect: () => void;
-  /** Incremental pointer-move delta (px, since the previous event — not since drag start). */
-  onMove: (dxPx: number, dyPx: number) => void;
-  onResize: (dxPx: number, dyPx: number) => void;
+  /** The one the field-editor panel is bound to (last one selected). */
+  primary: boolean;
+  /** `additive` is shift/ctrl/cmd-click: extend the selection instead of replacing it. */
+  onSelect: (id: string, additive: boolean) => void;
   /**
-   * Arrow-key nudge (WCAG 2.5.7 drag alternative) — fires whenever the box
-   * has DOM focus, no pointer required. `dxSteps`/`dySteps` are raw -1/0/1
-   * direction, `step` is `NUDGE_STEP` or `NUDGE_STEP_SHIFT` (shift held);
-   * deliberately NOT pre-multiplied here so the caller applies the same
-   * `nudgeRect`/`nudgeSquare` from `geometry.ts` it uses for every other
-   * mutation — this component stays ignorant of rect-vs-square/aspect math.
+   * Arrow-key nudge (WCAG 2.5.7 drag alternative). Raw -1/0/1 directions plus
+   * the step size, never pre-multiplied — the canvas applies the same
+   * `geometry.ts` helpers it uses for pointer gestures, so this component
+   * stays ignorant of rect-vs-square and aspect math.
    */
   onNudge: (dxSteps: number, dySteps: number, step: number) => void;
   children?: ReactNode;
 }
 
 /**
- * A single absolutely-positioned, draggable, resizable, keyboard-nudgeable
- * box on the designer canvas. Pure interaction chrome — callers decide what
- * renders inside (sample certificate text, a QR placeholder, ...) via
- * `children`, and own the actual geometry state; this component only ever
- * reports *deltas* (pointer movement, nudge steps), never absolute
- * positions, so it has no opinion on clamping or the fraction/px mapping.
- *
- * Hand-rolled Pointer Events drag (no react-rnd/konva — see M6 brief: React
- * 19 peer risk + unnecessary for ~100 LOC of drag math).
+ * One box on the canvas. Pointer drag and resize belong to react-moveable
+ * (which targets this element by its `data-designer-box` id and renders its
+ * own ≥44px handles outside it), so what's left here is selection, the
+ * keyboard path, and accessible naming — plus `touch-action: none`, without
+ * which a touch drag scrolls the page instead of moving the box.
  */
 export function DesignerBox({
   id,
   label,
   style,
   selected,
+  primary,
   onSelect,
-  onMove,
-  onResize,
   onNudge,
   children,
 }: DesignerBoxProps): React.JSX.Element {
   const { t } = useT();
-  const dragOrigin = useRef<{ x: number; y: number } | null>(null);
-  const resizeOrigin = useRef<{ x: number; y: number } | null>(null);
-
-  function handleBodyPointerDown(e: React.PointerEvent<HTMLDivElement>): void {
-    if (e.button !== 0) return;
-    onSelect();
-    e.currentTarget.setPointerCapture(e.pointerId);
-    dragOrigin.current = { x: e.clientX, y: e.clientY };
-  }
-
-  function handleBodyPointerMove(e: React.PointerEvent<HTMLDivElement>): void {
-    const origin = dragOrigin.current;
-    if (!origin) return;
-    const dx = e.clientX - origin.x;
-    const dy = e.clientY - origin.y;
-    dragOrigin.current = { x: e.clientX, y: e.clientY };
-    onMove(dx, dy);
-  }
-
-  function endBodyDrag(e: React.PointerEvent<HTMLDivElement>): void {
-    if (!dragOrigin.current) return;
-    dragOrigin.current = null;
-    e.currentTarget.releasePointerCapture(e.pointerId);
-  }
-
-  function handleResizePointerDown(
-    e: React.PointerEvent<HTMLDivElement>,
-  ): void {
-    if (e.button !== 0) return;
-    e.stopPropagation();
-    onSelect();
-    e.currentTarget.setPointerCapture(e.pointerId);
-    resizeOrigin.current = { x: e.clientX, y: e.clientY };
-  }
-
-  function handleResizePointerMove(
-    e: React.PointerEvent<HTMLDivElement>,
-  ): void {
-    const origin = resizeOrigin.current;
-    if (!origin) return;
-    e.stopPropagation();
-    const dx = e.clientX - origin.x;
-    const dy = e.clientY - origin.y;
-    resizeOrigin.current = { x: e.clientX, y: e.clientY };
-    onResize(dx, dy);
-  }
-
-  function endResizeDrag(e: React.PointerEvent<HTMLDivElement>): void {
-    if (!resizeOrigin.current) return;
-    e.stopPropagation();
-    resizeOrigin.current = null;
-    e.currentTarget.releasePointerCapture(e.pointerId);
-  }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLDivElement>): void {
     const step = e.shiftKey ? NUDGE_STEP_SHIFT : NUDGE_STEP;
@@ -113,13 +54,14 @@ export function DesignerBox({
     else if (e.key === "ArrowDown") dy = 1;
     else return;
     e.preventDefault();
-    onSelect();
+    e.stopPropagation();
     onNudge(dx, dy, step);
   }
 
   return (
     <div
       id={`designer-box-${id}`}
+      data-designer-box={id}
       role="button"
       tabIndex={0}
       aria-label={t("designer.box.aria", { label })}
@@ -130,14 +72,12 @@ export function DesignerBox({
         selected
           ? "border-ring bg-ring/10"
           : "border-white/40 hover:border-white/70",
+        primary && "border-ring",
       )}
       style={style}
-      onPointerDown={handleBodyPointerDown}
-      onPointerMove={handleBodyPointerMove}
-      onPointerUp={endBodyDrag}
-      onPointerCancel={endBodyDrag}
+      onPointerDown={(e) => onSelect(id, e.shiftKey || e.metaKey || e.ctrlKey)}
       onKeyDown={handleKeyDown}
-      onFocus={onSelect}
+      onFocus={() => onSelect(id, false)}
     >
       <span
         className={cn(
@@ -152,33 +92,6 @@ export function DesignerBox({
 
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         {children}
-      </div>
-
-      {/*
-        Hidden from AT (aria-hidden) rather than made keyboard-operable:
-        resizing this way is a pointer-only convenience, and the FULL
-        equivalent function already exists as labeled W/H numeric inputs in
-        the field-editor panel (WCAG 2.5.7) — presenting a drag-only handle
-        as if it were meaningfully keyboard-reachable would be worse than
-        just pointing AT users at the real alternative.
-
-        The hit target is a size-6 (24px) box — WCAG 2.5.8's minimum —
-        wrapping a smaller size-3 visible dot, so the resize affordance
-        stays visually unobtrusive without shrinking the actual target.
-      */}
-      <div
-        role="presentation"
-        aria-hidden="true"
-        className={cn(
-          "absolute -right-2 -bottom-2 flex size-6 touch-none cursor-nwse-resize items-center justify-center",
-          selected ? "opacity-100" : "opacity-0 group-hover:opacity-100",
-        )}
-        onPointerDown={handleResizePointerDown}
-        onPointerMove={handleResizePointerMove}
-        onPointerUp={endResizeDrag}
-        onPointerCancel={endResizeDrag}
-      >
-        <span className="size-3 rounded-full border-2 border-background bg-ring" />
       </div>
     </div>
   );
