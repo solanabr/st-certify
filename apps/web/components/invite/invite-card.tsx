@@ -55,7 +55,7 @@ export function InviteCard({
   initialInvite: InviteView | null;
 }) {
   const { t } = useT();
-  const { login } = usePrivy();
+  const { login, linkWallet } = usePrivy();
   const { createWallet } = useCreateWallet();
   const queryClient = useQueryClient();
   const { data: me } = useMe();
@@ -103,6 +103,16 @@ export function InviteCard({
     } finally {
       setPending(null);
     }
+  }
+
+  /**
+   * Privy provisions an embedded wallet on login (`createOnLogin:
+   * "users-without-wallets"`), and the session read that follows can land
+   * before it finishes — leaving someone who already has a wallet looking at
+   * an offer to create one. Re-reading the session is the whole fix.
+   */
+  function recheckSession(): void {
+    void queryClient.invalidateQueries({ queryKey: ["me"] });
   }
 
   if (isDeadEnd(stage)) {
@@ -155,16 +165,24 @@ export function InviteCard({
               <p className="mt-2 text-sm text-muted-foreground">
                 {t("invite.createWallet.body")}
               </p>
-              <Button
-                className="mt-4"
-                onClick={() => void addWallet()}
-                disabled={pending !== null}
-                aria-busy={pending === "wallet"}
-              >
-                {pending === "wallet"
-                  ? t("invite.createWallet.creating")
-                  : t("invite.createWallet.cta")}
-              </Button>
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                <Button
+                  onClick={() => void addWallet()}
+                  disabled={pending !== null}
+                  aria-busy={pending === "wallet"}
+                >
+                  {pending === "wallet"
+                    ? t("invite.createWallet.creating")
+                    : t("invite.createWallet.cta")}
+                </Button>
+                <Button
+                  variant="ghost"
+                  onClick={recheckSession}
+                  disabled={pending !== null}
+                >
+                  {t("invite.createWallet.link")}
+                </Button>
+              </div>
             </section>
           )}
           {stage === "chooseWallet" && (
@@ -172,6 +190,7 @@ export function InviteCard({
               wallets={wallets}
               pending={pending === "accept"}
               onAccept={(wallet) => void accept(wallet)}
+              onLinkWallet={() => linkWallet()}
             />
           )}
         </>
@@ -184,10 +203,13 @@ function WalletChoice({
   wallets,
   pending,
   onAccept,
+  onLinkWallet,
 }: {
   wallets: readonly string[];
   pending: boolean;
   onAccept: (wallet: string) => void;
+  /** For a signer whose intended signing wallet isn't linked to the account yet. */
+  onLinkWallet: () => void;
 }) {
   const { t } = useT();
   const [selected, setSelected] = useState<string>(wallets[0] ?? "");
@@ -228,14 +250,18 @@ function WalletChoice({
         ))}
       </fieldset>
 
-      <Button
-        className="mt-4"
-        onClick={() => onAccept(selected)}
-        disabled={pending || selected === ""}
-        aria-busy={pending}
-      >
-        {pending ? t("invite.wallet.confirming") : t("invite.wallet.confirm")}
-      </Button>
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <Button
+          onClick={() => onAccept(selected)}
+          disabled={pending || selected === ""}
+          aria-busy={pending}
+        >
+          {pending ? t("invite.wallet.confirming") : t("invite.wallet.confirm")}
+        </Button>
+        <Button variant="ghost" onClick={onLinkWallet} disabled={pending}>
+          {t("invite.wallet.addAnother")}
+        </Button>
+      </div>
     </section>
   );
 }
