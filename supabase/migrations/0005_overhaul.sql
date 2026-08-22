@@ -68,7 +68,8 @@ do $$
 begin
   if not exists (
     select 1 from pg_indexes
-    where indexname = 'certificates_verify_code_uidx'
+    where schemaname = 'public'
+      and indexname = 'certificates_verify_code_uidx'
   ) then
     create unique index certificates_verify_code_uidx
       on public.certificates (verify_code) where verify_code is not null;
