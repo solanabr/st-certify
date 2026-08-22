@@ -1,5 +1,6 @@
 import "server-only";
 
+import { createHash } from "node:crypto";
 import { pdflibAddPlaceholder } from "@signpdf/placeholder-pdf-lib";
 import { P12Signer } from "@signpdf/signer-p12";
 import { SignPdf, Signer } from "@signpdf/signpdf";
@@ -46,6 +47,37 @@ const WIDGET_H = 46;
 /** True when a signing certificate is configured; false means "export unsealed". */
 export function sealConfigured(): boolean {
   return Boolean(process.env.SEAL_P12_BASE64);
+}
+
+let fingerprintCache: { encoded: string; fingerprint: string } | null = null;
+
+/**
+ * A short, stable identifier for the *signing key currently configured* — the
+ * first 12 hex of sha256 over the decoded `.p12`. Callers that content-address
+ * a sealed document have to include it: the signature is a function of the key,
+ * so two exports of the same certificate under two keys are different files,
+ * and a cache that cannot tell them apart keeps serving the rotated-out one
+ * forever. Not a secret (a fingerprint of a certificate bundle whose public
+ * half travels in every signature) and not a passphrase check — rotating only
+ * `SEAL_P12_PASSPHRASE` does not change the key.
+ *
+ * Memoized on the env value, so the hash runs once per key per process while a
+ * test (or a hot reload) that swaps the variable still sees the new one.
+ */
+export function sealFingerprint(): string {
+  const encoded = process.env.SEAL_P12_BASE64;
+  if (!encoded) {
+    fail("INTERNAL", "Certificado de selo não configurado (SEAL_P12_BASE64).");
+  }
+  if (fingerprintCache?.encoded === encoded) {
+    return fingerprintCache.fingerprint;
+  }
+  const fingerprint = createHash("sha256")
+    .update(Buffer.from(encoded, "base64"))
+    .digest("hex")
+    .slice(0, 12);
+  fingerprintCache = { encoded, fingerprint };
+  return fingerprint;
 }
 
 /** The self-managed `.p12` source, from `SEAL_P12_BASE64` + `SEAL_P12_PASSPHRASE`. */

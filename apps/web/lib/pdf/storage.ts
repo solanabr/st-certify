@@ -7,21 +7,27 @@ import "server-only";
 
 import { dbConfigured, getServiceClient } from "@/lib/db/mutations";
 import type { Locale } from "@/lib/i18n/locales";
+import { sealFingerprint } from "./seal";
 
 const BUCKET = "metadata";
 
 /**
- * Content-addressed by the artifact hash, plus the two things that change the
- * bytes for the same certificate: the language of the audit trail, and whether
- * a seal was applied. A cached object is therefore always the exact file the
- * builder would produce right now.
+ * Content-addressed by the artifact hash, plus everything else that changes the
+ * bytes for the same certificate: the language of the audit trail, and — when
+ * sealed — which key signed it. The key belongs in the path because a signature
+ * is a function of it: without the fingerprint, rotating `SEAL_P12_BASE64`
+ * (after an expiry, or a compromise) leaves every already-cached export served
+ * under the retired key indefinitely, which is exactly the case rotation
+ * exists to end. A cached object is therefore always the exact file the builder
+ * would produce right now.
  */
 export function pdfCachePath(
   artifactSha256Hex: string,
   locale: Locale,
   sealed: boolean,
 ): string {
-  return `certs-pdf/${artifactSha256Hex}-${locale}${sealed ? "-sealed" : ""}.pdf`;
+  const seal = sealed ? `-sealed-${sealFingerprint()}` : "";
+  return `certs-pdf/${artifactSha256Hex}-${locale}${seal}.pdf`;
 }
 
 /** The cached export, or null on any miss — a cache is never worth a 500. */
