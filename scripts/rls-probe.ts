@@ -72,7 +72,7 @@ const RUN_ID = `rlsprobe_${Date.now()}_${Math.random().toString(36).slice(2, 8)}
  * migration adding a public column forgets.
  */
 const CERT_PUBLIC_COLUMNS =
-  "address, edition_address, student_name, status, signer_bitmap, sha256, image_url, metadata_url, asset, cert_number, signer_txs, revoke_reason, completed_at, created_at, verify_code";
+  "address, edition_address, student_name, status, signer_bitmap, sha256, image_url, metadata_url, asset, cert_number, signer_txs, revoke_reason, completed_at, created_at, verify_code, cluster";
 
 /** Columns the same migration deliberately withholds from anon. */
 const CERT_WITHHELD_COLUMNS = ["name_salt", "owner_did", "owner_wallet"];

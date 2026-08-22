@@ -75,7 +75,7 @@ export interface VerifyCertView {
 // error, not a silent null, so a drift between the two lists takes the whole
 // verify page down. scripts/rls-probe.ts keeps a hand-synced copy.
 const CERT_PUBLIC_COLUMNS =
-  "address, edition_address, student_name, status, signer_bitmap, sha256, image_url, metadata_url, asset, cert_number, signer_txs, revoke_reason, completed_at, created_at, verify_code";
+  "address, edition_address, student_name, status, signer_bitmap, sha256, image_url, metadata_url, asset, cert_number, signer_txs, revoke_reason, completed_at, created_at, verify_code, cluster";
 
 interface CertPublicRow {
   address: string;
@@ -94,6 +94,8 @@ interface CertPublicRow {
   created_at: string;
   /** Null on certificates issued before 0005's backfill ran. */
   verify_code: string | null;
+  /** Where the claim was recorded (0006); null pre-backfill. */
+  cluster: string | null;
 }
 
 async function assembleView(
