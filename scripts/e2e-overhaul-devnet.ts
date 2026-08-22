@@ -11,7 +11,10 @@
  * that was committed on-chain by `claim_certificate` and stored as the
  * certificate PNG in the `certs` bucket. Three independent copies of one hash —
  * chain, storage, document — proven equal in a single pass. Anything that
- * silently re-renders, re-hashes or mis-mirrors the artifact breaks here.
+ * silently re-renders, re-hashes or mis-mirrors the artifact breaks here: the
+ * artifact is produced by the app's OWN renderer from the claim pipeline's own
+ * inputs, and the export re-runs that renderer and refuses to print anything
+ * that comes out different.
  *
  * Conventions (same as scripts/e2e-devnet.ts and scripts/seed-demo.ts):
  *   - chain writes go through @certify/client; the mirror is written directly
@@ -19,12 +22,14 @@
  *     lives behind the `@/` path alias, so it cannot be imported from a bare
  *     Node script — the column shapes here mirror lib/db/mutations.ts and
  *     lib/db/draft-mutations.ts by hand, exactly as seed-demo.ts does.
- *   - the two pure app modules that ARE importable (no `server-only`, no `@/`)
- *     are imported by relative path rather than copied, following
- *     scripts/gen-default-template.ts: `layout.ts` (canonical layout + spec
- *     hash input) and `verify-code.ts`. A divergent copy of either would make
- *     the mirror disagree with the chain, or the printed code disagree with
- *     the lookup — the precise failures this script exists to catch.
+ *   - app modules whose output has to agree byte-for-byte with the server's are
+ *     imported by relative path rather than copied: `layout.ts` (canonical
+ *     layout + spec hash input), `verify-code.ts`, and `render/render.ts` (the
+ *     artifact itself — see the registerHooks block below for what importing a
+ *     `server-only` module from bare Node takes). A divergent copy of any of
+ *     them would make the mirror disagree with the chain, the printed code
+ *     disagree with the lookup, or the document disagree with its own hash —
+ *     the precise failures this script exists to catch.
  *   - keypairs come from .keys/{deployer,operator,notary}.json; the deployer
  *     is the fee payer everywhere and funds the throwaway student wallets by
  *     transfer, never by faucet airdrop (devnet's faucet rate-limits hard and
@@ -46,7 +51,9 @@
 
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
+import { registerHooks } from "node:module";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 
 import {
   AccountRole,
@@ -106,8 +113,13 @@ import {
   type Layout,
 } from "../apps/web/lib/render/layout";
 import { verifyCode } from "../apps/web/lib/verify-code";
+import type {
+  RenderCertificateInput,
+  RenderCertificateResult,
+} from "../apps/web/lib/render/render";
 
 const ROOT = join(import.meta.dirname, "..");
+const WEB = join(ROOT, "apps/web");
 
 try {
   process.loadEnvFile(join(ROOT, ".env"));
@@ -115,14 +127,41 @@ try {
   // No .env found — assume the environment is already configured.
 }
 
+// The renderer is the third module borrowed from apps/web, and the only one
+// that is `server-only` — it is imported anyway, because a lookalike would
+// defeat the point of this script: the hash it produces is what goes on-chain,
+// into storage and into the exported PDF, and the PDF route now refuses to
+// export a certificate it cannot re-render to the same hash. Two things a Next
+// server gives it for free are arranged here instead:
+//
+//   - `server-only` throws unless the `react-server` export condition is
+//     active. registerHooks points that one specifier at the package's own
+//     empty module — the same substitution apps/web/vitest.config.ts makes with
+//     a Vite alias.
+//   - the fonts are read from `process.cwd()/assets/fonts`, resolved when the
+//     module is evaluated, so apps/web has to be the working directory by then.
+//
+// Everything else in this file addresses files through ROOT, so the chdir is
+// invisible to it. Both must precede the import, which is why it is dynamic
+// (`renderCanonicalArtifact` below) — a static one would be hoisted above them.
+registerHooks({
+  resolve(specifier, context, next) {
+    if (specifier === "server-only") {
+      return {
+        url: pathToFileURL(join(WEB, "node_modules/server-only/empty.js")).href,
+        shortCircuit: true,
+      };
+    }
+    return next(specifier, context);
+  },
+});
+process.chdir(WEB);
+
 const TEMPLATE_PATH = join(
-  ROOT,
-  "apps/web/assets/templates/default-superteam-br.png",
+  WEB,
+  "assets/templates/default-superteam-br.png",
 );
-const DEFAULT_LAYOUT_PATH = join(
-  ROOT,
-  "apps/web/assets/templates/default-layout.json",
-);
+const DEFAULT_LAYOUT_PATH = join(WEB, "assets/templates/default-layout.json");
 
 /** Marks every row this run writes to the shared project. */
 const RUN_ID = `e2eoverhaul_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -148,6 +187,42 @@ function readSecret(name: string): Uint8Array {
   return Uint8Array.from(
     JSON.parse(readFileSync(join(ROOT, ".keys", `${name}.json`), "utf8")),
   );
+}
+
+let renderer: ((i: RenderCertificateInput) => Promise<RenderCertificateResult>) | null =
+  null;
+
+/**
+ * The canonical artifact, rendered by the app's own renderer (see the
+ * registerHooks block above for why the import is dynamic).
+ */
+async function renderCanonicalArtifact(
+  input: RenderCertificateInput,
+): Promise<RenderCertificateResult> {
+  renderer ??= (
+    await import(join(WEB, "lib/render/render.ts"))
+  ).renderCertificate;
+  return renderer(input);
+}
+
+/**
+ * Mirrors apps/web/lib/chain/claim.ts#appUrl — the base of the verify URL that
+ * gets rendered into the QR, and therefore an input to the artifact hash. If
+ * this disagrees with the running server's value the PDF hop fails on purpose:
+ * that mismatch is exactly the drift the export's integrity check exists for.
+ */
+function appUrl(): string {
+  return process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+}
+
+/** Mirrors apps/web/lib/chain/claim.ts#certDateText. */
+function certDateText(completionDate: string): string {
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(completionDate));
 }
 
 /** Mirrors apps/web/lib/chain/rpc.ts#resolveRpcUrl — Helius when keyed, else the public URL. */
@@ -715,21 +790,41 @@ async function main(): Promise<void> {
     console.log(`   both certificates FullySigned (mask 0b11) ✓`);
 
     // -------------------------------------------------------------------
-    // [6] claim the first certificate — the canonical artifact is committed
-    // on-chain, stored in `certs/`, and mirrored. Unique per run: the program
-    // refuses a duplicate artifact_hash (HashIndex is `init`, never
-    // `init_if_needed`), and trailing bytes after PNG's IEND are ignored by
-    // every mainstream decoder, so the object still renders (same trick
-    // seed-demo.ts uses).
+    // [6] claim the first certificate — the canonical artifact is RENDERED by
+    // apps/web/lib/render/render.ts from the same inputs the claim pipeline
+    // feeds it (lib/chain/claim.ts#buildClaimArtifact), then committed
+    // on-chain, stored in `certs/` and mirrored. Rendering for real is what
+    // makes the PDF hop in [7] mean something: the export re-runs this renderer
+    // and refuses to print a document whose re-render hashes differently.
+    //
+    // Unique per run without any padding trick — the certificate PDA is drawn
+    // into the artwork, and it is derived from a fresh edition and a fresh
+    // student keypair — so the program's duplicate-artifact_hash refusal
+    // (HashIndex is `init`, never `init_if_needed`) is never provoked.
     // -------------------------------------------------------------------
     const cert = certs[0];
     console.log(`\n[6] claim_certificate ${cert}`);
-    const artifactBytes = Buffer.concat([
-      templateBytes,
-      Buffer.from(`\n<!--certify-e2e:${RUN_ID}:${cert}-->`),
-    ]);
+    const rendered = await renderCanonicalArtifact({
+      templatePng: templateBytes,
+      layout,
+      values: {
+        studentName: holders[0].name,
+        dateText: certDateText(meta.completionDate),
+        certId: cert,
+        verifyUrl: `${appUrl()}/verify/${cert}`,
+      },
+      signers: seats.map((s) => ({ name: s.name, role: s.role })),
+    });
+    const artifactBytes = rendered.png;
+    artifactHashHex = rendered.sha256hex;
     const artifactHash = sha256(artifactBytes);
-    artifactHashHex = hex(artifactHash);
+    assert(
+      hex(artifactHash) === artifactHashHex,
+      "the renderer's own sha256 disagrees with the bytes it returned",
+    );
+    console.log(
+      `   rendered ${artifactBytes.byteLength} bytes -> ${artifactHashHex.slice(0, 16)}…`,
+    );
     const [hashIndex] = await findHashIndexPda(artifactHash);
 
     const claimSig = await send(
