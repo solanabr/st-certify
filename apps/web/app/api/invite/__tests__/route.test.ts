@@ -145,6 +145,24 @@ describe("GET /api/invite/[token]", () => {
     expect(response.body).toMatchObject({ status: "accepted", wallet: MINE });
   });
 
+  it("hands a link the accessor aged out to both surfaces as a dead one", async () => {
+    // getInviteByToken derives 'expired' from invited_at — nothing ever writes
+    // that status — so a stale magic link arrives here already spent, and
+    // neither reading it nor accepting it may revive the seat.
+    vi.mocked(getInviteByToken).mockResolvedValue(
+      invite({ status: "expired", invited_at: "2026-06-01T00:00:00Z" }),
+    );
+
+    const [read, accepted] = await Promise.all([
+      getInvite(),
+      postAccept({ wallet: MINE }),
+    ]);
+
+    expect(read.body).toMatchObject({ status: "expired", wallet: null });
+    expect(accepted.status).toBe(409);
+    expect(acceptInvite).not.toHaveBeenCalled();
+  });
+
   it("carries the configured issuer so a dead link names someone to contact", async () => {
     process.env.ISSUER_NAME = "Superteam Brasil";
     process.env.ISSUER_CONTACT_URL = "https://superteam.fun/br";

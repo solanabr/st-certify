@@ -22,6 +22,35 @@ import {
 import { dbConfigured, getServiceClient } from "./mutations";
 import type { EditionDraftRow, SignerInviteRow } from "./types";
 
+/**
+ * Spec §6.1: a magic link stops working 14 days after it was sent.
+ *
+ * Nothing ever writes `status = 'expired'` — a seat is only ever `invited` or
+ * `accepted` in the table — so the deadline is derived here, at the read
+ * boundary every invite surface already goes through, and enforced a second
+ * time inside `acceptInvite`'s UPDATE. Deriving beats a sweeper job: a cron
+ * that silently stops running would quietly reopen every aged-out link.
+ */
+export const INVITE_EXPIRY_DAYS = 14;
+const INVITE_EXPIRY_MS = INVITE_EXPIRY_DAYS * 24 * 60 * 60 * 1000;
+
+/** The oldest `invited_at` still acceptable — `acceptInvite` filters the UPDATE on it. */
+export function inviteExpiryCutoff(now: number = Date.now()): string {
+  return new Date(now - INVITE_EXPIRY_MS).toISOString();
+}
+
+/** `invited` past the deadline reads as `expired`; every other status passes through. */
+function withDerivedExpiry<T extends SignerInviteRow>(row: T): T {
+  if (row.status !== "invited") return row;
+  const invitedAt = Date.parse(row.invited_at);
+  // An unreadable timestamp is a data bug, not an expiry: leave the seat live
+  // rather than stranding a signer whose row was written oddly.
+  if (Number.isNaN(invitedAt) || Date.now() - invitedAt <= INVITE_EXPIRY_MS) {
+    return row;
+  }
+  return { ...row, status: "expired" };
+}
+
 /** One draft by id — the wizard's autosave target and the management page's source. */
 export async function getDraft(id: string): Promise<EditionDraftRow | null> {
   if (isUiMock()) return mockDraft(id);
@@ -75,7 +104,8 @@ export type SignerInviteWithDraft = SignerInviteRow & {
  * Resolves a magic link to its seat plus the edition context the invite page
  * shows. Returns the row whatever its status — the caller decides whether an
  * already-accepted or aged-out invite gets the dead-state, since only it knows
- * which of those to say (`invited_at` carries the age).
+ * which of those to say. A seat past `INVITE_EXPIRY_DAYS` comes back as
+ * `expired` even though the stored status still says `invited`.
  */
 export async function getInviteByToken(
   token: string,
@@ -104,7 +134,7 @@ export async function getInviteByToken(
     : edition_drafts;
   if (!draft) return null;
 
-  return { ...invite, draft };
+  return withDerivedExpiry({ ...invite, draft });
 }
 
 /**

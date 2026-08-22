@@ -11,6 +11,10 @@ import "server-only";
 // the actor may touch this draft.
 
 import { fail } from "@/lib/errors";
+// The invite deadline is one rule with two enforcement points: derived when a
+// seat is read, filtered when it is written. Both live next to the read
+// boundary that owns it, so they can never drift apart.
+import { inviteExpiryCutoff } from "./draft-queries";
 import { dbConfigured, getServiceClient } from "./mutations";
 import type {
   EditionDraftMeta,
@@ -145,8 +149,10 @@ export async function insertInvites(
  * along with the UPDATE so Postgres arbitrates: a second accept (a re-opened
  * magic link, two tabs, a forwarded email) matches zero rows and lands in the
  * CONFLICT branch instead of silently re-binding the seat to a different
- * wallet. Callers that need to distinguish "already accepted" from "expired"
- * read the row first via getInviteByToken.
+ * wallet. The `invited_at` cutoff rides along for the same reason — the
+ * 14-day deadline is derived on read (getInviteByToken), so without it here a
+ * caller that skipped the read could still bind an aged-out seat. Callers that
+ * need to distinguish "already accepted" from "expired" read the row first.
  */
 export async function acceptInvite(
   id: string,
@@ -163,6 +169,7 @@ export async function acceptInvite(
     })
     .eq("id", id)
     .eq("status", "invited")
+    .gt("invited_at", inviteExpiryCutoff())
     .select()
     .maybeSingle();
   if (error) {

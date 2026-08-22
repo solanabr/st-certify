@@ -9,8 +9,11 @@ vi.mock("../mutations", () => ({
 }));
 
 const { getServiceClient } = await import("../mutations");
+const { INVITE_EXPIRY_DAYS } = await import("../draft-queries");
 const { acceptInvite, insertDraft, insertInvites, updateDraft } =
   await import("../draft-mutations");
+
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 interface Terminal {
   data: unknown;
@@ -21,6 +24,8 @@ interface Recorded {
   table: string | null;
   payload: unknown;
   filters: Array<[string, unknown]>;
+  /** `.gt()` filters, kept apart so an equality assertion stays readable. */
+  greaterThan: Array<[string, unknown]>;
 }
 
 /**
@@ -31,7 +36,12 @@ interface Recorded {
  * every `.eq()` filter so the tests can assert on what would hit the wire.
  */
 function fakeClient(terminal: Terminal): Recorded {
-  const recorded: Recorded = { table: null, payload: undefined, filters: [] };
+  const recorded: Recorded = {
+    table: null,
+    payload: undefined,
+    filters: [],
+    greaterThan: [],
+  };
   const builder = {
     insert(payload: unknown) {
       recorded.payload = payload;
@@ -43,6 +53,10 @@ function fakeClient(terminal: Terminal): Recorded {
     },
     eq(column: string, value: unknown) {
       recorded.filters.push([column, value]);
+      return builder;
+    },
+    gt(column: string, value: unknown) {
+      recorded.greaterThan.push([column, value]);
       return builder;
     },
     select: () => builder,
@@ -202,6 +216,22 @@ describe("acceptInvite", () => {
       ["id", INVITE_ID],
       ["status", "invited"],
     ]);
+  });
+
+  it("carries the 14-day cutoff into the UPDATE as well", async () => {
+    // The read boundary derives 'expired', but only this filter stops a caller
+    // that never read the row from binding a wallet to an aged-out seat.
+    const recorded = fakeClient({ data: { id: INVITE_ID }, error: null });
+    const before = Date.now();
+
+    await acceptInvite(INVITE_ID, WALLET);
+
+    expect(recorded.greaterThan).toHaveLength(1);
+    const [column, cutoff] = recorded.greaterThan[0];
+    expect(column).toBe("invited_at");
+    const age = before - Date.parse(cutoff as string);
+    expect(age).toBeGreaterThanOrEqual(INVITE_EXPIRY_DAYS * DAY_MS);
+    expect(age).toBeLessThan((INVITE_EXPIRY_DAYS + 1) * DAY_MS);
   });
 
   it("rejects an invite that was already accepted or expired", async () => {
