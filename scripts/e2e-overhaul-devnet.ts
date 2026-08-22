@@ -157,10 +157,7 @@ registerHooks({
 });
 process.chdir(WEB);
 
-const TEMPLATE_PATH = join(
-  WEB,
-  "assets/templates/default-superteam-br.png",
-);
+const TEMPLATE_PATH = join(WEB, "assets/templates/default-superteam-br.png");
 const DEFAULT_LAYOUT_PATH = join(WEB, "assets/templates/default-layout.json");
 
 /** Marks every row this run writes to the shared project. */
@@ -189,7 +186,8 @@ function readSecret(name: string): Uint8Array {
   );
 }
 
-let renderer: ((i: RenderCertificateInput) => Promise<RenderCertificateResult>) | null =
+let renderer:
+  ((i: RenderCertificateInput) => Promise<RenderCertificateResult>) | null =
   null;
 
 /**
@@ -199,9 +197,8 @@ let renderer: ((i: RenderCertificateInput) => Promise<RenderCertificateResult>) 
 async function renderCanonicalArtifact(
   input: RenderCertificateInput,
 ): Promise<RenderCertificateResult> {
-  renderer ??= (
-    await import(join(WEB, "lib/render/render.ts"))
-  ).renderCertificate;
+  renderer ??= (await import(join(WEB, "lib/render/render.ts")))
+    .renderCertificate;
   return renderer(input);
 }
 
