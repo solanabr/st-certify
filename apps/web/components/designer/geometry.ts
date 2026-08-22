@@ -12,7 +12,7 @@
 
 export const MIN_FRAC = 0.02;
 export const NUDGE_STEP = 0.005; // 0.5%, arrow key
-export const NUDGE_STEP_SHIFT = 0.02; // 2%, shift+arrow
+export const NUDGE_STEP_SHIFT = 0.05; // 5%, shift+arrow — Figma's 10x coarse step
 
 export function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
@@ -130,6 +130,58 @@ export function resizeSquare(
   );
 }
 
+/**
+ * Translates a box by a delta already expressed in fractions. This is the
+ * primitive the gesture-based paths use: a drag converts its total screen
+ * travel once (via `viewport.ts`) and re-applies it to the rect captured at
+ * gesture start, so a long drag can't accumulate rounding drift the way
+ * summing per-event `moveRect` deltas would.
+ */
+export function offsetRect(rect: FracRect, dx: number, dy: number): FracRect {
+  return clampRect({ ...rect, x: rect.x + dx, y: rect.y + dy });
+}
+
+export function offsetSquare(
+  square: FracSquare,
+  dx: number,
+  dy: number,
+  aspect: number,
+): FracSquare {
+  return clampSquare({ ...square, x: square.x + dx, y: square.y + dy }, aspect);
+}
+
+/** Sets a rect's size outright (resize handles report an absolute size, not a delta). */
+export function sizeRect(rect: FracRect, w: number, h: number): FracRect {
+  return clampRect({ ...rect, w, h });
+}
+
+export function sizeSquare(
+  square: FracSquare,
+  size: number,
+  aspect: number,
+): FracSquare {
+  return clampSquare({ ...square, size }, aspect);
+}
+
+/** Centres a box on a point — what tapping the canvas in click-to-place mode means. */
+export function centerRectAt(rect: FracRect, cx: number, cy: number): FracRect {
+  return clampRect({ ...rect, x: cx - rect.w / 2, y: cy - rect.h / 2 });
+}
+
+/** Square variant: its on-screen width is `size / aspect` (see `clampSquare`). */
+export function centerSquareAt(
+  square: FracSquare,
+  cx: number,
+  cy: number,
+  aspect: number,
+): FracSquare {
+  const widthFrac = aspect > 0 ? square.size / aspect : square.size;
+  return clampSquare(
+    { ...square, x: cx - widthFrac / 2, y: cy - square.size / 2 },
+    aspect,
+  );
+}
+
 /** Arrow-key nudge (WCAG 2.5.7 drag alternative, on-box variant). `dxSteps`/`dySteps` are -1/0/1; `step` is `NUDGE_STEP` or `NUDGE_STEP_SHIFT`. */
 export function nudgeRect(
   rect: FracRect,
@@ -137,11 +189,7 @@ export function nudgeRect(
   dySteps: number,
   step: number,
 ): FracRect {
-  return clampRect({
-    ...rect,
-    x: rect.x + dxSteps * step,
-    y: rect.y + dySteps * step,
-  });
+  return offsetRect(rect, dxSteps * step, dySteps * step);
 }
 
 export function nudgeSquare(
@@ -151,10 +199,7 @@ export function nudgeSquare(
   step: number,
   aspect: number,
 ): FracSquare {
-  return clampSquare(
-    { ...square, x: square.x + dxSteps * step, y: square.y + dySteps * step },
-    aspect,
-  );
+  return offsetSquare(square, dxSteps * step, dySteps * step, aspect);
 }
 
 /** CSS percentages for a rect box — plain `%` is correct here because `left`/`width` resolve against the container's width and `top`/`height` against its height, which is exactly how x/w and y/h are defined. */
