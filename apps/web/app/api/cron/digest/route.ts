@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "node:crypto";
 import type { NextRequest } from "next/server";
 import { apiRoute } from "@/lib/api";
 import { getPendingForSigner } from "@/lib/db/certificator-queries";
@@ -74,10 +75,27 @@ export async function GET(request: NextRequest) {
   });
 }
 
+/**
+ * Fails closed when `CRON_SECRET` is unset — an unguarded digest endpoint is
+ * an open mail relay for anyone who can name a signer.
+ *
+ * The comparison is constant-time: `===` on strings stops at the first
+ * differing byte, and this header is attacker-supplied and retryable at will,
+ * which is the shape a timing oracle needs to recover a secret byte by byte.
+ * `timingSafeEqual` requires equal lengths, so a length mismatch — which the
+ * response time leaks regardless — is rejected before it.
+ */
 function requireCronSecret(request: NextRequest): void {
   const secret = process.env.CRON_SECRET;
-  const provided = request.headers.get("authorization");
-  if (!secret || provided !== `Bearer ${secret}`) {
+  if (!secret) {
+    fail("UNAUTHORIZED", "Acesso negado.");
+  }
+  const expected = Buffer.from(`Bearer ${secret}`);
+  const provided = Buffer.from(request.headers.get("authorization") ?? "");
+  if (
+    provided.length !== expected.length ||
+    !timingSafeEqual(provided, expected)
+  ) {
     fail("UNAUTHORIZED", "Acesso negado.");
   }
 }
