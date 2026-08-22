@@ -5,15 +5,57 @@ gate-verified (build/test/review) before the next started; full briefs,
 reports, and reviews are in
 `.superpowers/sdd/you-are-going-to-foamy-stallman/`.
 
+## 2026-08-22 — Hardening: four-lens adversarial review, 15 findings fixed
+
+A money-path/chain-integrity, RLS/database, API-authorization and
+UX-copy-compliance review over the full overhaul diff (64 commits), every
+finding refute-first verified before adjudication. All 15 survivors fixed:
+
+- fix(pdf): the export now re-renders the artifact at canonical scale and
+  refuses to print when the hash disagrees with the one recorded on-chain —
+  it used to stamp that hash in four places without ever checking it, so
+  environment drift could make a genuine certificate read as forged.
+- fix(pdf): sealed exports are cached under the signing key's fingerprint;
+  rotating `SEAL_P12_BASE64` stops serving the retired key's signatures.
+- fix(pdf): revoking sweeps the public bucket's cached exports (all locales
+  and key shapes); before, the pre-revocation PDF stayed fetchable straight
+  from storage forever.
+- fix(db): the claim records its cluster and reconciles the mirror's
+  `sha256` from the on-chain value after confirmation (migration `0006`).
+- fix(studio): `create-onchain` is idempotent — a per-draft claim sentinel
+  precedes the chain write, a retry after a failed mirror insert repairs the
+  mirror instead of minting a second edition, and autosaves can no longer
+  race a create (`chain_address` compare-and-swap).
+- fix(studio): duplicate signer wallets are refused at every layer — accept
+  guard, pre-create assertion, and a partial unique index (migration
+  `0007`) — because the program credits a signature to the FIRST slot
+  holding a pubkey, so a duplicate-wallet edition could never reach
+  FullySigned and the signer array is immutable.
+- fix(invite): the spec's 14-day expiry is now real (derived at the read
+  boundary + enforced inside the accept's atomic UPDATE), and acceptance is
+  bound to the invited e-mail — a leaked link alone no longer seats an
+  arbitrary Privy account as an on-chain signer.
+- fix(email): `notifyOnce` claims its ledger row before sending (unique
+  index in migration `0008`), closing the concurrent double-send window;
+  recipient addresses no longer appear in error logs.
+- fix(cron): the digest bearer token is compared in constant time.
+- test(e2e): the overhaul e2e renders the canonical artifact with the app's
+  own renderer instead of a synthetic blob, so the chain/storage/document
+  hash equality it asserts now exercises the real pipeline.
+
+Migrations `0006`–`0008` are written, re-runnable and committed but **not
+applied** (user-gated, same protocol as `0005`); every code path tolerates
+the pre-apply state and tightens once they land.
+
 ## 2026-08-21 — Overhaul: two-door IA, DocuSign-grade certificates, sealed PDF export, mobile/PWA
 
 The certificate product's UX overhaul, from
 `docs/superpowers/specs/2026-08-20-overhaul-design.md` and its companion
 plan. All off-chain — zero program changes, zero new audit cycle; the claim
 transaction still pays with the student's own wallet (recorded limitation,
-not fixed here). Migration `0005_overhaul.sql` is written and re-runnable
-but, unlike `0003`/`0004`, **not yet applied to production** — pending
-explicit user approval, same protocol as before.
+not fixed here). Migration `0005_overhaul.sql` was applied to production on
+2026-08-20 with explicit user approval (rls-probe green before and after;
+`backfill-verify-codes` stamped the pre-existing rows).
 
 **Information architecture**
 
