@@ -26,6 +26,10 @@ let warnedUnconfigured = false;
  *
  * Unconfigured environments (local dev, CI, preview) skip delivery with a
  * single warning, mirroring `dbConfigured`'s degrade-don't-crash posture.
+ *
+ * Failures log the kind, never the address: these lines land in retained
+ * platform logs, and the recipient is the one part of an email that is
+ * personal data. Callers already log kind + refId, which identifies the send.
  */
 export async function sendEmail<K extends EmailKind>(
   to: string,
@@ -60,13 +64,13 @@ export async function sendEmail<K extends EmailKind>(
       text,
     });
     if (error) {
-      console.error(`[email] ${kind} to ${to} failed:`, error.message);
+      console.error(`[email] ${kind} failed:`, error.message);
       return { sent: false, reason: error.message };
     }
     return { sent: true };
   } catch (err) {
     const reason = err instanceof Error ? err.message : String(err);
-    console.error(`[email] ${kind} to ${to} threw:`, reason);
+    console.error(`[email] ${kind} threw:`, reason);
     return { sent: false, reason };
   }
 }

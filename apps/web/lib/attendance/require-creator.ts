@@ -3,6 +3,8 @@ import "server-only";
 import { cookies } from "next/headers";
 import { fail } from "@/lib/errors";
 import { getSessionUser, parseAllowlist } from "@/lib/auth";
+import { isUiMock, mockRole } from "@/lib/mock";
+import { MOCK_WALLET_CREATOR } from "@/lib/mock/fixtures";
 import { openSession, SESSION_COOKIE } from "./session";
 
 export function creatorAllowlist(): Set<string> {
@@ -11,6 +13,11 @@ export function creatorAllowlist(): Set<string> {
 
 /** Creator identity: attendance session cookie, or a Privy session whose wallet is allowlisted. */
 export async function getCreatorWallet(): Promise<string | null> {
+  if (isUiMock()) {
+    const role = await mockRole();
+    return role === "creator" || role === "admin" ? MOCK_WALLET_CREATOR : null;
+  }
+
   const allow = creatorAllowlist();
   const secret = process.env.ATTENDANCE_SESSION_SECRET;
   if (secret) {

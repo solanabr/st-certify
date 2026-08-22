@@ -6,6 +6,12 @@
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { fail } from "@/lib/errors";
+import { isUiMock } from "@/lib/mock/flag";
+import {
+  mockCertificateByVerifyCode,
+  mockVerifyView,
+  mockVerifyViewByAsset,
+} from "@/lib/mock/fixtures";
 import type {
   CertificateStatusValue,
   SignerTxEntry,
@@ -15,7 +21,9 @@ import type {
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-export const dbConfigured = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
+/** True in UI-mock mode: the verify page gates its whole lookup on this. */
+export const dbConfigured =
+  isUiMock() || Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
 
 let anonClient: SupabaseClient | null = null;
 function db(): SupabaseClient {
@@ -67,7 +75,7 @@ export interface VerifyCertView {
 // error, not a silent null, so a drift between the two lists takes the whole
 // verify page down. scripts/rls-probe.ts keeps a hand-synced copy.
 const CERT_PUBLIC_COLUMNS =
-  "address, edition_address, student_name, status, signer_bitmap, sha256, image_url, metadata_url, asset, cert_number, signer_txs, revoke_reason, completed_at, created_at, verify_code";
+  "address, edition_address, student_name, status, signer_bitmap, sha256, image_url, metadata_url, asset, cert_number, signer_txs, revoke_reason, completed_at, created_at, verify_code, cluster";
 
 interface CertPublicRow {
   address: string;
@@ -86,6 +94,8 @@ interface CertPublicRow {
   created_at: string;
   /** Null on certificates issued before 0005's backfill ran. */
   verify_code: string | null;
+  /** Where the claim was recorded (0006); null pre-backfill. */
+  cluster: string | null;
 }
 
 async function assembleView(
@@ -157,6 +167,7 @@ async function assembleView(
 export async function getVerifyView(
   certificateAddress: string,
 ): Promise<VerifyCertView | null> {
+  if (isUiMock()) return mockVerifyView(certificateAddress);
   if (!dbConfigured) return null;
   const supabase = db();
   const { data, error } = await supabase
@@ -189,6 +200,7 @@ export async function getVerifyView(
 export async function getCertificateByVerifyCode(
   code: string,
 ): Promise<{ address: string } | null> {
+  if (isUiMock()) return mockCertificateByVerifyCode(code);
   if (!dbConfigured) return null;
   const supabase = db();
   const { data, error } = await supabase
@@ -210,6 +222,7 @@ export async function getCertificateByVerifyCode(
 export async function getVerifyViewByAsset(
   asset: string,
 ): Promise<VerifyCertView | null> {
+  if (isUiMock()) return mockVerifyViewByAsset(asset);
   if (!dbConfigured) return null;
   const supabase = db();
   const { data, error } = await supabase

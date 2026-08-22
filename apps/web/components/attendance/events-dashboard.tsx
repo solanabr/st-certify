@@ -25,7 +25,7 @@ const CREATOR_GATE_CODES: ReadonlySet<AppErrorCode> = new Set([
  * loading state, then the sign-in, never a usable dashboard.
  */
 export function EventsDashboard() {
-  const { t } = useT();
+  const { t, locale } = useT();
   const {
     data: events,
     isPending,
@@ -93,6 +93,7 @@ export function EventsDashboard() {
           value={totalMinted}
           max={ATTENDANCE_TREE_CAPACITY}
           label={t("attendance.events.capacity")}
+          locale={locale}
           className="mt-6 max-w-md"
         />
       )}

@@ -11,11 +11,82 @@ import "server-only";
 // magic-link tokens themselves. Callers project what a surface may show.
 
 import { fail } from "@/lib/errors";
+import { isUiMock } from "@/lib/mock/flag";
+import {
+  mockDraft,
+  mockDrafts,
+  mockInviteByToken,
+  mockInvites,
+  mockInvitesForDrafts,
+} from "@/lib/mock/fixtures";
 import { dbConfigured, getServiceClient } from "./mutations";
 import type { EditionDraftRow, SignerInviteRow } from "./types";
 
+/**
+ * Spec §6.1: a magic link stops working 14 days after it was sent.
+ *
+ * Nothing ever writes `status = 'expired'` — a seat is only ever `invited` or
+ * `accepted` in the table — so the deadline is derived here, at the read
+ * boundary every invite surface already goes through, and enforced a second
+ * time inside `acceptInvite`'s UPDATE. Deriving beats a sweeper job: a cron
+ * that silently stops running would quietly reopen every aged-out link.
+ */
+export const INVITE_EXPIRY_DAYS = 14;
+const INVITE_EXPIRY_MS = INVITE_EXPIRY_DAYS * 24 * 60 * 60 * 1000;
+
+/** The oldest `invited_at` still acceptable — `acceptInvite` filters the UPDATE on it. */
+export function inviteExpiryCutoff(now: number = Date.now()): string {
+  return new Date(now - INVITE_EXPIRY_MS).toISOString();
+}
+
+/** `invited` past the deadline reads as `expired`; every other status passes through. */
+function withDerivedExpiry<T extends SignerInviteRow>(row: T): T {
+  if (row.status !== "invited") return row;
+  const invitedAt = Date.parse(row.invited_at);
+  // An unreadable timestamp is a data bug, not an expiry: leave the seat live
+  // rather than stranding a signer whose row was written oddly.
+  if (Number.isNaN(invitedAt) || Date.now() - invitedAt <= INVITE_EXPIRY_MS) {
+    return row;
+  }
+  return { ...row, status: "expired" };
+}
+
+/**
+ * `chain_address` doubles as the create lock: a draft is stamped with this
+ * sentinel for the duration of the on-chain write (see `claimDraftForCreate`),
+ * because the real address only exists once `create_edition` confirms and a
+ * retry in between would mint a second edition. The draft id rides along
+ * because the column is UNIQUE — one shared constant would make every
+ * in-flight create block every other draft's.
+ */
+const CREATE_CLAIM_PREFIX = "pending:";
+
+/** The sentinel a draft holds while its create is in flight. */
+export function createClaimFor(draftId: string): string {
+  return `${CREATE_CLAIM_PREFIX}${draftId}`;
+}
+
+/** True while a create is in flight. Never a real address — base58 has no `:`. */
+export function isCreateClaim(chainAddress: string | null): boolean {
+  return chainAddress !== null && chainAddress.startsWith(CREATE_CLAIM_PREFIX);
+}
+
+/**
+ * The claim is bookkeeping, not an address, and it must never reach a caller:
+ * `chain_address` is what every surface reads as "this edition exists now"
+ * (the wizard freezes, the invite page closes its seats, the studio links to
+ * an explorer). Stripping it here is what keeps that sentinel out of all of
+ * them — a draft mid-create simply reads as not created yet.
+ */
+function withoutCreateClaim<T extends EditionDraftRow>(row: T): T {
+  return isCreateClaim(row.chain_address)
+    ? { ...row, chain_address: null }
+    : row;
+}
+
 /** One draft by id — the wizard's autosave target and the management page's source. */
 export async function getDraft(id: string): Promise<EditionDraftRow | null> {
+  if (isUiMock()) return mockDraft(id);
   if (!dbConfigured) return null;
   const supabase = getServiceClient();
   const { data, error } = await supabase
@@ -29,7 +100,7 @@ export async function getDraft(id: string): Promise<EditionDraftRow | null> {
       retryable: true,
     });
   }
-  return data as EditionDraftRow | null;
+  return data ? withoutCreateClaim(data as EditionDraftRow) : null;
 }
 
 /**
@@ -38,6 +109,7 @@ export async function getDraft(id: string): Promise<EditionDraftRow | null> {
  * show those as editions instead.
  */
 export async function listDrafts(): Promise<EditionDraftRow[]> {
+  if (isUiMock()) return mockDrafts();
   if (!dbConfigured) return [];
   const supabase = getServiceClient();
   const { data, error } = await supabase
@@ -50,7 +122,7 @@ export async function listDrafts(): Promise<EditionDraftRow[]> {
       retryable: true,
     });
   }
-  return (data ?? []) as EditionDraftRow[];
+  return ((data ?? []) as EditionDraftRow[]).map(withoutCreateClaim);
 }
 
 interface InviteJoinRow extends SignerInviteRow {
@@ -65,11 +137,13 @@ export type SignerInviteWithDraft = SignerInviteRow & {
  * Resolves a magic link to its seat plus the edition context the invite page
  * shows. Returns the row whatever its status — the caller decides whether an
  * already-accepted or aged-out invite gets the dead-state, since only it knows
- * which of those to say (`invited_at` carries the age).
+ * which of those to say. A seat past `INVITE_EXPIRY_DAYS` comes back as
+ * `expired` even though the stored status still says `invited`.
  */
 export async function getInviteByToken(
   token: string,
 ): Promise<SignerInviteWithDraft | null> {
+  if (isUiMock()) return mockInviteByToken(token);
   if (!dbConfigured) return null;
   const supabase = getServiceClient();
   const { data, error } = await supabase
@@ -93,7 +167,7 @@ export async function getInviteByToken(
     : edition_drafts;
   if (!draft) return null;
 
-  return { ...invite, draft };
+  return withDerivedExpiry({ ...invite, draft: withoutCreateClaim(draft) });
 }
 
 /**
@@ -103,6 +177,7 @@ export async function getInviteByToken(
 export async function listInvitesForDrafts(
   draftIds: string[],
 ): Promise<SignerInviteRow[]> {
+  if (isUiMock()) return mockInvitesForDrafts(draftIds);
   if (!dbConfigured || draftIds.length === 0) return [];
   const supabase = getServiceClient();
   const { data, error } = await supabase
@@ -121,6 +196,7 @@ export async function listInvitesForDrafts(
 
 /** A draft's seats in the order they were created — the seat list and the "all accepted?" gate. */
 export async function listInvites(draftId: string): Promise<SignerInviteRow[]> {
+  if (isUiMock()) return mockInvites(draftId);
   if (!dbConfigured) return [];
   const supabase = getServiceClient();
   const { data, error } = await supabase

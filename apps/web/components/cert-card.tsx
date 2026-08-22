@@ -1,7 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { AlertTriangle, Download, ExternalLink } from "lucide-react";
+import {
+  AlertTriangle,
+  Download,
+  ExternalLink,
+  ScrollText,
+} from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -107,6 +112,17 @@ function ActionZone({ cert }: { cert: CertificateForOwner }) {
               </a>
             </Button>
           )}
+          {/* Sealed PDF (Wave 3) — the route serves claimed certs only and
+              builds/caches on demand; guarded here on the same Claimed status. */}
+          <Button asChild variant="outline" size="sm">
+            <a
+              href={`/api/certificates/${cert.address}/pdf`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Download /> {t("me.claim.downloadPdf")}
+            </a>
+          </Button>
           <CopyLinkButton
             path={`/verify/${cert.address}`}
             label={t("claim.copyLink")}
@@ -134,11 +150,16 @@ export function CertCard({ cert }: { cert: CertificateForOwner }) {
   const { t } = useT();
 
   return (
-    <Card>
+    <Card className="hover-lift">
       <CardHeader className="flex-row items-start justify-between gap-3">
-        <div>
-          <p className="text-sm text-muted-foreground">{cert.editionName}</p>
-          <h3 className="font-semibold">{cert.studentName}</h3>
+        <div className="flex items-start gap-3">
+          <span className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary/15 via-primary/5 to-brand-yellow/20 text-primary ring-1 ring-inset ring-primary/20">
+            <ScrollText className="size-5" aria-hidden="true" />
+          </span>
+          <div className="min-w-0">
+            <p className="text-sm text-muted-foreground">{cert.editionName}</p>
+            <h3 className="font-semibold">{cert.studentName}</h3>
+          </div>
         </div>
         <Badge variant={STATUS_VARIANT[cert.status]}>
           {t(STATUS_LABEL_KEY[cert.status])}

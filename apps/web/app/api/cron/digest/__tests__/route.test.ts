@@ -122,6 +122,18 @@ describe("GET /api/cron/digest — authorization", () => {
     expect(notifyOnce).not.toHaveBeenCalled();
   });
 
+  it("rejects a same-length near miss", async () => {
+    // The case the constant-time comparison exists for: only the final byte
+    // differs, so a short-circuiting `===` would answer measurably sooner.
+    const nearMiss = `${SECRET.slice(0, -1)}X`;
+
+    const response = await get(`Bearer ${nearMiss}`);
+
+    expect(nearMiss).toHaveLength(SECRET.length);
+    expect(response.status).toBe(401);
+    expect(notifyOnce).not.toHaveBeenCalled();
+  });
+
   it("rejects every request when CRON_SECRET is unset", async () => {
     vi.stubEnv("CRON_SECRET", "");
 

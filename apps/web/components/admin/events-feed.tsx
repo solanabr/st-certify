@@ -1,5 +1,17 @@
 "use client";
 
+import {
+  Activity,
+  BadgeCheck,
+  Ban,
+  Circle,
+  FilePlus2,
+  FileText,
+  PenLine,
+  Settings2,
+  X,
+  type LucideIcon,
+} from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useT, type TranslationKey } from "@/lib/i18n";
@@ -15,6 +27,20 @@ const EVENT_LABEL_KEY: Record<string, TranslationKey> = {
   certificate_rejected: "admin.event.certificateRejected",
   certificate_revoked: "admin.event.certificateRevoked",
 };
+
+/** A quiet glyph per event type — scannability without color-coding the feed. */
+const EVENT_ICON: Record<string, LucideIcon> = {
+  edition_created: FilePlus2,
+  edition_status_changed: Settings2,
+  certificate_requested: FileText,
+  certificate_signed: PenLine,
+  certificate_claimed: BadgeCheck,
+  certificate_rejected: X,
+  certificate_revoked: Ban,
+};
+
+const HEADER_CHIP =
+  "flex size-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-primary/15 via-primary/5 to-brand-yellow/20 text-primary ring-1 ring-inset ring-primary/20";
 
 export function EventsFeed({
   events,
@@ -33,7 +59,12 @@ export function EventsFeed({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{t("admin.recentActivity")}</CardTitle>
+        <CardTitle className="flex items-center gap-2.5">
+          <span className={HEADER_CHIP}>
+            <Activity className="size-5" aria-hidden="true" />
+          </span>
+          {t("admin.recentActivity")}
+        </CardTitle>
       </CardHeader>
       <CardContent>
         {isLoading ? (
@@ -46,17 +77,25 @@ export function EventsFeed({
           <p className="text-sm text-muted-foreground">{t("admin.noEvents")}</p>
         ) : (
           <ul className="divide-y divide-border">
-            {events.map((event) => (
-              <li
-                key={event.id}
-                className="flex items-center justify-between gap-3 py-2.5 text-sm"
-              >
-                <span>{eventLabel(event.type)}</span>
-                <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
-                  {formatDate(event.createdAt, locale, "dateTime")}
-                </span>
-              </li>
-            ))}
+            {events.map((event) => {
+              const Icon = EVENT_ICON[event.type] ?? Circle;
+              return (
+                <li
+                  key={event.id}
+                  className="flex items-center justify-between gap-3 py-2.5 text-sm"
+                >
+                  <span className="flex min-w-0 items-center gap-2.5">
+                    <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-secondary text-muted-foreground">
+                      <Icon className="size-3.5" aria-hidden="true" />
+                    </span>
+                    <span className="truncate">{eventLabel(event.type)}</span>
+                  </span>
+                  <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+                    {formatDate(event.createdAt, locale, "dateTime")}
+                  </span>
+                </li>
+              );
+            })}
           </ul>
         )}
       </CardContent>

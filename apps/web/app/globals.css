@@ -61,7 +61,9 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
-  --radius-2xl: calc(var(--radius) * 2);
+  /* Card radius — the resting surface reads at 24px (was *2 = 32, too round for
+     dense cards). Bigger than --radius-xl so cards feel softer than inputs. */
+  --radius-2xl: calc(var(--radius) + 8px);
 }
 
 :root {
@@ -109,7 +111,27 @@
   --inverse: #1b231d;
   --inverse-foreground: #f5e8ca;
 
-  --radius: 0.75rem;
+  --radius: 1rem; /* rounder, Uniswap-form; primitives read --radius-* off this */
+
+  /* Elevation + motion (form language, not color — brand palette is untouched).
+     Warm-tinted shadows on the cream canvas so cards lift without going grey.
+     Layered (tight ambient + wide diffuse) with negative spread so cards FLOAT
+     rather than sit inside a hard box — this replaces the flat card border in
+     light mode. */
+  --shadow-soft:
+    0 1px 2px rgba(27, 35, 29, 0.04), 0 10px 24px -6px rgba(27, 35, 29, 0.12),
+    0 18px 40px -14px rgba(27, 35, 29, 0.1);
+  --shadow-lift:
+    0 2px 4px rgba(27, 35, 29, 0.05), 0 16px 32px -8px rgba(27, 35, 29, 0.16),
+    0 30px 56px -20px rgba(27, 35, 29, 0.14);
+  /* Hero / feature surfaces — very diffuse, big drop. */
+  --shadow-float:
+    0 4px 10px rgba(27, 35, 29, 0.04), 0 24px 56px -12px rgba(27, 35, 29, 0.16),
+    0 40px 80px -28px rgba(27, 35, 29, 0.12);
+  --shadow-glow: 0 10px 36px rgba(0, 139, 76, 0.22);
+  --glass-bg: rgba(255, 255, 255, 0.6);
+  --glass-border: rgba(27, 35, 29, 0.08);
+  --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .dark {
@@ -156,6 +178,23 @@
 
   --inverse: #1b231d;
   --inverse-foreground: #f5e8ca;
+
+  /* Dark-mode elevation: a drop shadow is nearly invisible on the green-black
+     ground, so definition comes from a 1px cream INSET ring baked into every
+     elevation token — cards keep a crisp edge without a flat CSS border, and
+     the ring strengthens as a surface lifts. Deep black drops add the float. */
+  --shadow-soft:
+    inset 0 0 0 1px rgba(245, 232, 202, 0.08), 0 1px 2px rgba(0, 0, 0, 0.4),
+    0 10px 26px -6px rgba(0, 0, 0, 0.5);
+  --shadow-lift:
+    inset 0 0 0 1px rgba(245, 232, 202, 0.12), 0 2px 4px rgba(0, 0, 0, 0.5),
+    0 22px 48px -12px rgba(0, 0, 0, 0.6);
+  --shadow-float:
+    inset 0 0 0 1px rgba(245, 232, 202, 0.1), 0 4px 10px rgba(0, 0, 0, 0.4),
+    0 34px 72px -16px rgba(0, 0, 0, 0.62);
+  --shadow-glow: 0 10px 44px rgba(10, 162, 90, 0.32);
+  --glass-bg: rgba(27, 35, 29, 0.55);
+  --glass-border: rgba(245, 232, 202, 0.1);
 }
 
 html {
@@ -271,6 +310,41 @@ body {
   }
 }
 
+/* ───────────────────────────────────────────────────────────────────────────
+   Idle / ambient keyframes (decorative)
+
+   Slow, GPU-cheap loops consumed by the utilities below (aurora backdrop,
+   live-status dot). Transform/opacity only — never box-shadow or filter — so
+   they composite without repaint. Each consumer gates itself behind
+   `prefers-reduced-motion: no-preference`; the global reset above is a second
+   backstop.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* Aurora "breathing" — a barely-there drift + swell of the hero blob field. */
+@keyframes aurora-drift {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 0.9;
+  }
+  to {
+    transform: translate3d(-2%, 1.5%, 0) scale(1.04);
+    opacity: 1;
+  }
+}
+
+/* Live-network dot — a gentle heartbeat that reads as "online", not decoration. */
+@keyframes status-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(0.82);
+  }
+}
+
 @utility animate-in {
   animation-name: enter;
   animation-duration: var(--tw-duration, 150ms);
@@ -374,9 +448,458 @@ body {
     font-size: 0.75rem;
     letter-spacing: 0.14em;
     text-transform: uppercase;
-    color: #008b4c;
+    /* emerald-700 (brand's own hover step) — raw #008b4c is 3.5:1 on cream and
+       fails AA as 12px text; #007340 = 4.8:1. Footer forces its own cream tint. */
+    color: #007340;
   }
   .dark .stbr-eyebrow {
     color: #0aa25a;
+  }
+
+  /* ── Form language (Uniswap-inspired): elevation, glass, lift, glow ──
+     All decorative (shadow/blur/transform) — no text-bearing color here, so
+     the AA-checked palette above is untouched. */
+
+  /* Soft-elevated surface — the default resting state for cards that used to
+     rely on a flat border. In dark mode each token also carries a 1px cream
+     inset ring (see --shadow-*), so these replace the border in both themes. */
+  .elevate {
+    box-shadow: var(--shadow-soft);
+  }
+  .elevate-lift {
+    box-shadow: var(--shadow-lift);
+  }
+  /* Hero / feature surfaces float higher and more diffuse. */
+  .elevate-float {
+    box-shadow: var(--shadow-float);
+  }
+  .glow-primary {
+    box-shadow: var(--shadow-glow);
+  }
+
+  /* Frosted panel — sticky nav, floating bars, feature cards. Falls back to an
+     opaque surface where backdrop-filter is unsupported. */
+  .glass {
+    background-color: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    backdrop-filter: blur(16px) saturate(1.4);
+    -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  }
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .glass {
+      background-color: var(--card);
+    }
+  }
+
+  /* Hover lift — springy rise + subtle scale + shadow bloom on interactive
+     cards. Motion is guarded so reduced-motion users get the shadow bloom with
+     no transform. */
+  .hover-lift {
+    transition:
+      transform 220ms var(--ease-spring),
+      box-shadow 220ms var(--ease-spring);
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .hover-lift:hover {
+      transform: translateY(-4px) scale(1.01);
+    }
+  }
+  .hover-lift:hover {
+    box-shadow: var(--shadow-lift);
+  }
+
+  /* Ambient hero glow — a soft emerald→yellow radial wash behind hero content.
+     Decorative only; allowlisted like .gradient-solana-accent (hero/section
+     backdrops, never behind body text). */
+  .hero-glow {
+    position: relative;
+    isolation: isolate;
+  }
+  .hero-glow::before {
+    content: "";
+    position: absolute;
+    inset: -20% 0 auto 0;
+    height: 60%;
+    z-index: -1;
+    background:
+      radial-gradient(60% 60% at 30% 20%, rgba(0, 139, 76, 0.16), transparent 70%),
+      radial-gradient(50% 50% at 80% 10%, rgba(255, 210, 63, 0.12), transparent 70%);
+    pointer-events: none;
+  }
+
+  /* Aurora mesh — a bolder, multi-blob brand wash for hero backdrops.
+     Decorative and allowlisted like .gradient-solana-accent: it sits behind
+     content (z-index:-1, pointer-events:none) and its strong blobs are kept in
+     the upper band so the body copy below never loses contrast. Dark mode leans
+     into the emerald glow (richer on the green-black ground). Clip with an
+     overflow-hidden parent. */
+  .aurora {
+    position: relative;
+    isolation: isolate;
+  }
+  .aurora::before {
+    content: "";
+    position: absolute;
+    inset: -35% -10% auto -10%;
+    height: 95%;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      radial-gradient(42% 55% at 20% 12%, rgba(0, 139, 76, 0.22), transparent 70%),
+      radial-gradient(38% 50% at 82% 6%, rgba(255, 210, 63, 0.16), transparent 72%),
+      radial-gradient(48% 60% at 60% 30%, rgba(10, 162, 90, 0.14), transparent 75%);
+    filter: blur(6px);
+  }
+  .aurora::after {
+    content: "";
+    position: absolute;
+    inset: auto 15% -15% 15%;
+    height: 40%;
+    z-index: -1;
+    pointer-events: none;
+    background: radial-gradient(
+      60% 100% at 50% 100%,
+      rgba(0, 139, 76, 0.08),
+      transparent 70%
+    );
+  }
+  .dark .aurora::before {
+    background:
+      radial-gradient(42% 55% at 20% 12%, rgba(10, 162, 90, 0.3), transparent 70%),
+      radial-gradient(38% 50% at 82% 6%, rgba(255, 210, 63, 0.14), transparent 72%),
+      radial-gradient(48% 60% at 60% 30%, rgba(10, 162, 90, 0.2), transparent 75%);
+  }
+  .dark .aurora::after {
+    background: radial-gradient(
+      60% 100% at 50% 100%,
+      rgba(10, 162, 90, 0.12),
+      transparent 70%
+    );
+  }
+
+  /* Ambient drift on the blob field only (::before). The blur/gradients stay
+     static — we animate transform+opacity, so the browser transforms a cached
+     layer rather than re-blurring. Off entirely under reduced motion; the
+     parent's overflow-hidden + z-index:-1 keep it from shifting layout. */
+  @media (prefers-reduced-motion: no-preference) {
+    .aurora::before {
+      animation: aurora-drift 26s ease-in-out infinite alternate;
+    }
+  }
+
+  /* Tactile grain overlay — an inline feTurbulence field for the hero and
+     footer bands. Callers render it as a bare, aria-hidden layer pinned behind
+     content (`absolute inset-0 -z-10 pointer-events-none`), so at 3–4.5% it
+     adds depth without ever touching text contrast. Pure data-URI: no request,
+     seamless via stitchTiles. */
+  .noise {
+    background-image: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='140'%20height='140'%3E%3Cfilter%20id='n'%3E%3CfeTurbulence%20type='fractalNoise'%20baseFrequency='0.82'%20numOctaves='2'%20stitchTiles='stitch'/%3E%3C/filter%3E%3Crect%20width='140'%20height='140'%20filter='url(%23n)'/%3E%3C/svg%3E");
+    background-repeat: repeat;
+    background-size: 140px 140px;
+    opacity: 0.03;
+  }
+  .dark .noise {
+    opacity: 0.045;
+  }
+
+  /* Live-status dot heartbeat (the DEVNET pill). Gated so reduced-motion users
+     get a plain, steady dot. */
+  @media (prefers-reduced-motion: no-preference) {
+    .status-pulse {
+      animation: status-pulse 2.6s ease-in-out infinite;
+    }
+  }
+
+  /* Brand hairline divider — a fading emerald→yellow rule between landing
+     sections. Decorative; never sits behind text. */
+  .rule-gradient {
+    height: 1px;
+    border: 0;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(0, 139, 76, 0.35),
+      rgba(255, 210, 63, 0.3),
+      transparent
+    );
+  }
+  .dark .rule-gradient {
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(10, 162, 90, 0.4),
+      rgba(255, 210, 63, 0.28),
+      transparent
+    );
+  }
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Neon accent system (v4) — vivid glow for the crypto-native look.
+   Decoration ONLY (box/text-shadow + masked gradient borders): never lowers
+   text contrast. Glows read on the dark ground; light mode degrades to a
+   crisp vivid edge. All motion is reduced-motion guarded.
+   ─────────────────────────────────────────────────────────────────────────── */
+@property --gb-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@keyframes gb-spin {
+  to {
+    --gb-angle: 360deg;
+  }
+}
+
+@layer utilities {
+  /* Emerald glow bloom — tight core + wide soft halo. */
+  .neon-emerald {
+    box-shadow:
+      0 0 0 1px rgba(0, 139, 76, 0.35),
+      0 0 18px -3px rgba(0, 139, 76, 0.4),
+      0 0 44px -10px rgba(0, 139, 76, 0.28);
+  }
+  .dark .neon-emerald {
+    box-shadow:
+      0 0 0 1px rgba(10, 162, 90, 0.55),
+      0 0 22px -2px rgba(10, 162, 90, 0.5),
+      0 0 60px -10px rgba(10, 162, 90, 0.4);
+  }
+  .neon-yellow {
+    box-shadow:
+      0 0 0 1px rgba(217, 166, 8, 0.4),
+      0 0 18px -3px rgba(255, 210, 63, 0.4),
+      0 0 44px -10px rgba(255, 210, 63, 0.26);
+  }
+
+  /* Display-heading glow — dark mode only, large text only (never body). */
+  .dark .text-glow {
+    text-shadow: 0 0 28px rgba(10, 162, 90, 0.35);
+  }
+
+  /* Masked animated gradient border (emerald↔yellow). Border rests static;
+     it spins only on hover, and only when motion is allowed. */
+  .gradient-border {
+    position: relative;
+    isolation: isolate;
+  }
+  .gradient-border::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    /* No negative z-index: the ring must paint ABOVE the card's opaque bg.
+       Paint order (bg → ::before → children) keeps it under the content. */
+    padding: 1.5px;
+    border-radius: inherit;
+    pointer-events: none;
+    background: conic-gradient(
+      from var(--gb-angle),
+      rgba(0, 139, 76, 0.9),
+      rgba(255, 210, 63, 0.85),
+      rgba(10, 162, 90, 0.9),
+      rgba(0, 139, 76, 0.9)
+    );
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    opacity: 0.55;
+    transition: opacity 220ms var(--ease-spring);
+  }
+  .gradient-border:hover::before {
+    opacity: 1;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .gradient-border:hover::before {
+      animation: gb-spin 6s linear infinite;
+    }
+  }
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Landing restructure (v5) — scroll-reveal + hero seal float.
+   Additive: new keyframe + two utilities. Transform/opacity only (GPU-cheap,
+   no layout shift). Both self-disable under prefers-reduced-motion, and the
+   reveal degrades to fully-visible so content is never stranded hidden.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* Hero certificate/seal — a slow vertical bob so the visual anchor feels alive
+   without pulling focus. One element only (not a field of many), transform-only. */
+@keyframes seal-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@layer utilities {
+  @media (prefers-reduced-motion: no-preference) {
+    .animate-seal-bob {
+      animation: seal-bob 6s ease-in-out infinite;
+    }
+  }
+
+  /* Scroll-reveal — below-the-fold sections/cards fade + rise once as they
+     enter the viewport. The client <Reveal> wrapper (components/landing/reveal)
+     flips data-shown via a single IntersectionObserver, then disconnects; a
+     per-item transition-delay (set inline) staggers siblings. Opacity+transform
+     only, so the element keeps its box the whole time (no reflow).
+
+     Robustness: the wrapper sets data-shown immediately when motion is reduced
+     OR IntersectionObserver is unavailable, and in-viewport elements resolve on
+     first observe — so nothing is left stuck at opacity 0. The media block below
+     is a second backstop: reduced-motion renders revealed even before hydration. */
+  .reveal {
+    opacity: 0;
+    transform: translateY(1.5rem);
+    transition:
+      opacity 600ms var(--ease-spring),
+      transform 600ms var(--ease-spring);
+  }
+  .reveal[data-shown="true"] {
+    opacity: 1;
+    transform: none;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .reveal {
+      opacity: 1;
+      transform: none;
+      transition: none;
+    }
+  }
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Landing interactivity (v6) — pointer tilt, seal parallax, connector sweep,
+   verify-demo flourish. Additive; transform/opacity only (GPU-cheap, no layout
+   shift). Every effect is a no-op under prefers-reduced-motion, and each degrades
+   to a correct resting state (identity transform / fully-revealed) so nothing is
+   left mid-animation. The client hooks only write the CSS custom properties the
+   rules below read — <TiltCard>, <Parallax>, <StepConnector> in components/landing.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+@keyframes verify-flourish-in {
+  from {
+    opacity: 0;
+    transform: translateY(3px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* The handoff arrow's gentle advance — reads as "moving to the next screen"
+   during the brief window before the route push. */
+@keyframes verify-arrow-nudge {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(3px);
+  }
+}
+
+@layer utilities {
+  /* Pointer-follow tilt for the bento/intent cards. <TiltCard> writes
+     --tilt-rx/--tilt-ry from the cursor; this only consumes them, on a wrapper,
+     so the inner card's own .hover-lift translate/scale composes on top instead
+     of being overwritten. The perspective() lives in the transform itself, so no
+     ancestor perspective is needed. While the pointer is inside
+     (data-tilting="true") the transition is dropped for a crisp follow; on leave
+     it eases the card back to rest. Fully off under reduced motion. */
+  .tilt-card {
+    transform: perspective(900px) rotateX(var(--tilt-rx, 0deg))
+      rotateY(var(--tilt-ry, 0deg));
+    will-change: transform;
+  }
+  .tilt-card[data-tilting="false"] {
+    transition: transform 500ms var(--ease-spring);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .tilt-card {
+      transform: none;
+      transition: none;
+    }
+  }
+
+  /* Scroll parallax on the hero seal — <Parallax> writes --parallax-y from the
+     element's position in the viewport. Transform only, so it drifts over the
+     aurora with no layout or repaint. Off under reduced motion (the listener
+     never attaches and this collapses to no transform). */
+  .parallax-y {
+    transform: translate3d(0, var(--parallax-y, 0px), 0);
+    will-change: transform;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .parallax-y {
+      transform: none;
+    }
+  }
+
+  /* How-it-works connector: a brighter emerald→yellow fill that sweeps
+     left→right over the faint base .rule-gradient once the timeline scrolls in,
+     with the two arrow nodes brightening in its wake. <StepConnector> flips
+     data-shown once (IntersectionObserver), so this runs a single time. */
+  .step-connector-fill {
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 1px;
+    transform: scaleX(0);
+    transform-origin: left center;
+    background: linear-gradient(
+      90deg,
+      rgba(0, 139, 76, 0.85),
+      rgba(255, 210, 63, 0.7)
+    );
+    transition: transform 1000ms var(--ease-spring);
+  }
+  .dark .step-connector-fill {
+    background: linear-gradient(
+      90deg,
+      rgba(10, 162, 90, 0.9),
+      rgba(255, 210, 63, 0.65)
+    );
+  }
+  .step-connector[data-shown="true"] .step-connector-fill {
+    transform: scaleX(1);
+  }
+  .step-connector-node {
+    opacity: 0.5;
+    transition: opacity 550ms var(--ease-spring);
+  }
+  .step-connector[data-shown="true"] .step-connector-node {
+    opacity: 1;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .step-connector-fill {
+      transform: scaleX(1);
+      transition: none;
+    }
+    .step-connector-node {
+      opacity: 1;
+      transition: none;
+    }
+  }
+
+  /* Verify-demo handoff line — a small settle as the "opening…" row appears.
+     Asserts nothing; the route push to /verify happens regardless. */
+  .verify-flourish {
+    animation: verify-flourish-in 320ms var(--ease-spring);
+  }
+  .verify-arrow {
+    animation: verify-arrow-nudge 1s ease-in-out infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .verify-flourish,
+    .verify-arrow {
+      animation: none;
+    }
   }
 }

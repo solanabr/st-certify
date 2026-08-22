@@ -52,6 +52,19 @@ const pt = {
     "Canvas 2D indisponível neste navegador.",
   "designer.upload.encodeFailed": "Falha ao gerar o PNG redimensionado.",
   "designer.upload.readFailed": "Falha ao ler a imagem.",
+  "designer.palette.title": "Campos",
+  "designer.palette.hint":
+    "Toque em um campo e depois no modelo para posicioná-lo, ou arraste o campo até o ponto desejado.",
+  "designer.palette.itemAria": "{label} — tocar para posicionar no modelo",
+  "designer.layers.title": "Camadas",
+  "designer.layers.reorderAria": "{label} — arraste para reordenar as camadas",
+  "designer.toolbar.undo": "Desfazer",
+  "designer.toolbar.redo": "Refazer",
+  "designer.toolbar.zoomIn": "Aproximar",
+  "designer.toolbar.zoomOut": "Afastar",
+  "designer.toolbar.zoomLevel": "Nível de zoom",
+  "designer.toolbar.fit": "Ajustar",
+  "designer.toolbar.actualSize": "Tamanho real",
 } as const;
 
 export type designerKey = keyof typeof pt;
@@ -108,6 +121,19 @@ export const designerDict: Record<Locale, Record<designerKey, string>> = {
       "2D canvas unavailable in this browser.",
     "designer.upload.encodeFailed": "Failed to generate the resized PNG.",
     "designer.upload.readFailed": "Failed to read the image.",
+    "designer.palette.title": "Fields",
+    "designer.palette.hint":
+      "Tap a field then tap the template to position it, or drag the field to the spot you want.",
+    "designer.palette.itemAria": "{label} — tap to position it on the template",
+    "designer.layers.title": "Layers",
+    "designer.layers.reorderAria": "{label} — drag to reorder the layers",
+    "designer.toolbar.undo": "Undo",
+    "designer.toolbar.redo": "Redo",
+    "designer.toolbar.zoomIn": "Zoom in",
+    "designer.toolbar.zoomOut": "Zoom out",
+    "designer.toolbar.zoomLevel": "Zoom level",
+    "designer.toolbar.fit": "Fit",
+    "designer.toolbar.actualSize": "Actual size",
   },
   es: {
     "designer.box.aria":
@@ -159,5 +185,20 @@ export const designerDict: Record<Locale, Record<designerKey, string>> = {
       "Canvas 2D no disponible en este navegador.",
     "designer.upload.encodeFailed": "No se pudo generar el PNG redimensionado.",
     "designer.upload.readFailed": "No se pudo leer la imagen.",
+    "designer.palette.title": "Campos",
+    "designer.palette.hint":
+      "Toca un campo y luego la plantilla para posicionarlo, o arrastra el campo hasta el punto que quieras.",
+    "designer.palette.itemAria":
+      "{label} — toca para posicionarlo en la plantilla",
+    "designer.layers.title": "Capas",
+    "designer.layers.reorderAria":
+      "{label} — arrastra para reordenar las capas",
+    "designer.toolbar.undo": "Deshacer",
+    "designer.toolbar.redo": "Rehacer",
+    "designer.toolbar.zoomIn": "Acercar",
+    "designer.toolbar.zoomOut": "Alejar",
+    "designer.toolbar.zoomLevel": "Nivel de zoom",
+    "designer.toolbar.fit": "Ajustar",
+    "designer.toolbar.actualSize": "Tamaño real",
   },
 };

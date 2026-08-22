@@ -78,7 +78,11 @@ export async function Footer() {
   const year = new Date().getFullYear();
 
   return (
-    <footer className="bg-inverse text-inverse-foreground">
+    <footer className="relative isolate bg-inverse text-inverse-foreground">
+      <div
+        aria-hidden="true"
+        className="noise pointer-events-none absolute inset-0 -z-10"
+      />
       <div className="mx-auto max-w-6xl px-4 py-12">
         <div className="flex flex-col gap-10 md:flex-row md:justify-between">
           <div className="max-w-sm">

@@ -11,6 +11,11 @@ import "server-only";
 // the actor may touch this draft.
 
 import { fail } from "@/lib/errors";
+// Two rules that are half read and half write — the invite deadline (derived
+// on read, filtered on write) and the create claim (written here, stripped on
+// read) — live next to the read boundary that has to honour them, so the two
+// halves can never drift apart.
+import { createClaimFor, inviteExpiryCutoff } from "./draft-queries";
 import { dbConfigured, getServiceClient } from "./mutations";
 import type {
   EditionDraftMeta,
@@ -49,7 +54,7 @@ export async function insertDraft(
 }
 
 export type DraftPatch = Partial<
-  Pick<EditionDraftRow, "meta" | "layout" | "template_sha" | "chain_address">
+  Pick<EditionDraftRow, "meta" | "layout" | "template_sha">
 >;
 
 /**
@@ -57,6 +62,14 @@ export type DraftPatch = Partial<
  * wizard's per-step autosaves (metadata on step 1, layout on step 4) never
  * clobber each other. `updated_at` is maintained here — 0005 gives the column
  * a default but no trigger.
+ *
+ * `chain_address is null` rides along with the UPDATE, the same
+ * compare-and-swap `acceptInvite` uses: a draft that has been written on-chain
+ * is frozen, and an autosave racing create-onchain must not slip an edit past
+ * the route's pre-read into an edition that already exists. The claim sentinel
+ * is not null either, so this also holds for the seconds a create is in
+ * flight. `chain_address` is deliberately not patchable here — writing it is
+ * `setDraftChainAddress`'s job, under its own guard.
  */
 export async function updateDraft(
   id: string,
@@ -68,6 +81,7 @@ export async function updateDraft(
     .from("edition_drafts")
     .update({ ...patch, updated_at: new Date().toISOString() })
     .eq("id", id)
+    .is("chain_address", null)
     .select()
     .maybeSingle();
   if (error) {
@@ -77,14 +91,117 @@ export async function updateDraft(
     });
   }
   if (!data) {
-    fail("NOT_FOUND", "Rascunho não encontrado.");
+    // Zero rows now means either of the two, and the UPDATE cannot say which.
+    fail("NOT_FOUND", "Rascunho não encontrado ou já criado on-chain.");
   }
   return data as EditionDraftRow;
+}
+
+/**
+ * Writes the address the edition actually got over this draft's create claim.
+ *
+ * Filtered on the claim rather than on `id` alone: this is the one write that
+ * turns a claimed draft into a created one, and it must never overwrite an
+ * address already there — nor invent one for a draft that was never claimed.
+ * Returns whether it landed; the caller is mid-flight on an edition that
+ * already exists on-chain, so a miss is something to log, not to throw over.
+ */
+export async function setDraftChainAddress(
+  id: string,
+  address: string,
+): Promise<boolean> {
+  if (!dbConfigured) fail("INTERNAL", "Supabase não configurado.");
+  const supabase = getServiceClient();
+  const { data, error } = await supabase
+    .from("edition_drafts")
+    .update({ chain_address: address, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .eq("chain_address", createClaimFor(id))
+    .select()
+    .maybeSingle();
+  if (error) {
+    fail("INTERNAL", "Falha ao vincular a edição ao rascunho.", {
+      detail: error.message,
+      retryable: true,
+    });
+  }
+  return data !== null;
+}
+
+/**
+ * Stakes this draft's one and only on-chain create, atomically.
+ *
+ * `create_edition` is not idempotent: its PDA comes from a counter in the
+ * on-chain config, so a second call mints a second edition instead of
+ * colliding. The address it returns is also the only proof the write
+ * happened — and it doesn't exist until afterwards. So the draft is stamped
+ * with a claim sentinel FIRST, in a conditional UPDATE that matches only a
+ * draft nobody has claimed. Zero rows means someone got there first: another
+ * tab, a retried request, or a create that already finished.
+ *
+ * Returns whether the claim was taken; the row itself is deliberately not
+ * handed back, since its `chain_address` is the sentinel rather than an
+ * address (`getDraft` strips it for exactly that reason).
+ */
+export async function claimDraftForCreate(id: string): Promise<boolean> {
+  if (!dbConfigured) fail("INTERNAL", "Supabase não configurado.");
+  const supabase = getServiceClient();
+  const { data, error } = await supabase
+    .from("edition_drafts")
+    .update({
+      chain_address: createClaimFor(id),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id)
+    .is("chain_address", null)
+    .select()
+    .maybeSingle();
+  if (error) {
+    fail("INTERNAL", "Falha ao iniciar a criação da edição.", {
+      detail: error.message,
+      retryable: true,
+    });
+  }
+  return data !== null;
+}
+
+/**
+ * Hands the claim back after an attempt that never reached the chain, so a
+ * genuine retry isn't wedged behind a lock nothing will ever release.
+ *
+ * Scoped to this draft's own sentinel: once the real address has been written
+ * over it, there is nothing left to release and this must not touch it.
+ */
+export async function releaseDraftCreateClaim(id: string): Promise<void> {
+  if (!dbConfigured) fail("INTERNAL", "Supabase não configurado.");
+  const supabase = getServiceClient();
+  const { error } = await supabase
+    .from("edition_drafts")
+    .update({ chain_address: null, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .eq("chain_address", createClaimFor(id));
+  if (error) {
+    fail("INTERNAL", "Falha ao liberar o rascunho.", {
+      detail: error.message,
+      retryable: true,
+    });
+  }
 }
 
 // ---------------------------------------------------------------------------
 // signer invites
 // ---------------------------------------------------------------------------
+
+/** Postgres `unique_violation`. */
+const UNIQUE_VIOLATION = "23505";
+
+/**
+ * Shared by the accept route's read-first guard and by the DB index that
+ * backstops it, so the same situation never reaches a signer worded two ways.
+ * The UI localizes it from the `INVITE_WALLET_TAKEN` code.
+ */
+export const WALLET_ALREADY_BOUND_MESSAGE =
+  "Esta carteira já confirmou outro assento desta edição. Escolha uma carteira diferente.";
 
 export interface InviteSeatInput {
   name: string;
@@ -145,8 +262,10 @@ export async function insertInvites(
  * along with the UPDATE so Postgres arbitrates: a second accept (a re-opened
  * magic link, two tabs, a forwarded email) matches zero rows and lands in the
  * CONFLICT branch instead of silently re-binding the seat to a different
- * wallet. Callers that need to distinguish "already accepted" from "expired"
- * read the row first via getInviteByToken.
+ * wallet. The `invited_at` cutoff rides along for the same reason — the
+ * 14-day deadline is derived on read (getInviteByToken), so without it here a
+ * caller that skipped the read could still bind an aged-out seat. Callers that
+ * need to distinguish "already accepted" from "expired" read the row first.
  */
 export async function acceptInvite(
   id: string,
@@ -163,9 +282,18 @@ export async function acceptInvite(
     })
     .eq("id", id)
     .eq("status", "invited")
+    .gt("invited_at", inviteExpiryCutoff())
     .select()
     .maybeSingle();
   if (error) {
+    // 0007's partial unique index on (draft_id, wallet): this wallet is
+    // already bound to another seat of the same edition. The route checks for
+    // that first with a friendlier read, but two signers confirming the same
+    // wallet at once only lose here, and a duplicate is unrecoverable
+    // on-chain — so it must surface as the same refusal, not as a 500.
+    if (error.code === UNIQUE_VIOLATION) {
+      fail("INVITE_WALLET_TAKEN", WALLET_ALREADY_BOUND_MESSAGE);
+    }
     fail("INTERNAL", "Falha ao confirmar convite.", {
       detail: error.message,
       retryable: true,

@@ -1,11 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import {
+  ArrowLeft,
+  Award,
+  CalendarCheck,
+  FileWarning,
+  Inbox,
+  ListChecks,
+  type LucideIcon,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Reveal } from "@/components/landing/reveal";
+// Separator retired here in favour of the landing's decorative .rule-gradient.
 import { CertPipelineTable } from "@/components/studio/cert-pipeline-table";
 import { DistributionKit } from "@/components/studio/distribution-kit";
 import { EditionControls } from "@/components/studio/edition-controls";
@@ -14,6 +23,14 @@ import { useStudioEdition } from "@/components/studio/use-studio-edition";
 import { useT, type TranslationKey } from "@/lib/i18n";
 import { formatDate } from "@/lib/i18n/format";
 import type { EditionStatusValue } from "@/lib/db/types";
+
+/** Emerald→yellow icon chip — the studio echo of the landing's ICON_CHIP.
+ * STAT_CHIP anchors summary tiles; SECTION_CHIP is the tighter inline mark
+ * beside a section heading. Decorative only (matches the landing vocabulary). */
+const STAT_CHIP =
+  "flex size-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary/15 via-primary/5 to-brand-yellow/20 text-primary ring-1 ring-inset ring-primary/20";
+const SECTION_CHIP =
+  "flex size-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-primary/15 via-primary/5 to-brand-yellow/20 text-primary ring-1 ring-inset ring-primary/20";
 
 const STATUS_LABEL_KEY: Record<EditionStatusValue, TranslationKey> = {
   Open: "admin.editionStatus.open",
@@ -30,11 +47,26 @@ const STATUS_VARIANT: Record<
   Closed: "outline",
 };
 
-function Fact({ label, value }: { label: string; value: string }) {
+function StatTile({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: LucideIcon;
+  label: string;
+  value: string;
+}) {
   return (
-    <div>
-      <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className="mt-0.5 text-sm font-medium tabular-nums">{value}</dd>
+    <div className="flex items-center gap-3">
+      <span className={STAT_CHIP}>
+        <Icon className="size-5" aria-hidden="true" />
+      </span>
+      <div className="min-w-0">
+        <dt className="text-xs text-muted-foreground">{label}</dt>
+        <dd className="mt-0.5 truncate text-sm font-semibold tabular-nums">
+          {value}
+        </dd>
+      </div>
     </div>
   );
 }
@@ -82,6 +114,9 @@ export function EditionManager({ id }: { id: string }) {
     return (
       <div className="flex flex-col items-start gap-3">
         <BackLink />
+        <span className={STAT_CHIP}>
+          <FileWarning className="size-5" aria-hidden="true" />
+        </span>
         <h1 className="text-2xl font-semibold tracking-tight">
           {t("admin.manage.notFoundTitle")}
         </h1>
@@ -118,7 +153,8 @@ export function EditionManager({ id }: { id: string }) {
     <div className="space-y-8">
       <div>
         <BackLink />
-        <div className="mt-2 flex flex-wrap items-center gap-3">
+        <p className="stbr-eyebrow mt-2">{t("admin.manage.eyebrow")}</p>
+        <div className="mt-1.5 flex flex-wrap items-center gap-3">
           <h1 className="text-2xl font-semibold tracking-tight">
             {edition.name || t("admin.manage.untitled")}
           </h1>
@@ -137,14 +173,20 @@ export function EditionManager({ id }: { id: string }) {
         )}
       </div>
 
-      <div className="flex flex-col gap-4 rounded-lg border border-border p-4 sm:flex-row sm:items-end sm:justify-between">
-        <dl className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-          <Fact label={t("admin.manage.supplyLabel")} value={supplyLabel} />
-          <Fact
+      <div className="elevate flex flex-col gap-5 rounded-2xl bg-card p-5 sm:flex-row sm:items-center sm:justify-between">
+        <dl className="grid flex-1 grid-cols-1 gap-4 sm:grid-cols-3">
+          <StatTile
+            icon={Award}
+            label={t("admin.manage.supplyLabel")}
+            value={supplyLabel}
+          />
+          <StatTile
+            icon={Inbox}
             label={t("admin.manage.requestedLabel")}
             value={String(edition.requested)}
           />
-          <Fact
+          <StatTile
+            icon={CalendarCheck}
             label={t("admin.meta.completionDateLabel")}
             value={
               edition.completionDate
@@ -156,33 +198,45 @@ export function EditionManager({ id }: { id: string }) {
         <EditionControls edition={edition} />
       </div>
 
-      <Separator />
-      <SeatList edition={edition} />
+      <div className="rule-gradient" aria-hidden="true" />
+      <Reveal>
+        <SeatList edition={edition} />
+      </Reveal>
 
-      <Separator />
-      <DistributionKit edition={edition} />
+      <div className="rule-gradient" aria-hidden="true" />
+      <Reveal>
+        <DistributionKit edition={edition} />
+      </Reveal>
 
-      <Separator />
-      <section aria-labelledby="studio-pipeline-heading">
-        <h2 id="studio-pipeline-heading" className="text-lg font-semibold">
-          {t("admin.manage.pipeline.title")}
-        </h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {t("admin.manage.pipeline.intro")}
-        </p>
-        {edition.chainAddress ? (
-          <CertPipelineTable
-            editionAddress={edition.chainAddress}
-            signerCount={edition.seats.length}
-          />
-        ) : (
-          <div className="mt-4 rounded-lg border border-dashed border-border p-6">
-            <p className="text-sm text-muted-foreground">
-              {t("admin.manage.pipeline.draftNote")}
-            </p>
-          </div>
-        )}
-      </section>
+      <div className="rule-gradient" aria-hidden="true" />
+      <Reveal>
+        <section aria-labelledby="studio-pipeline-heading">
+          <h2
+            id="studio-pipeline-heading"
+            className="flex items-center gap-2.5 text-lg font-semibold"
+          >
+            <span className={SECTION_CHIP}>
+              <ListChecks className="size-5" aria-hidden="true" />
+            </span>
+            {t("admin.manage.pipeline.title")}
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {t("admin.manage.pipeline.intro")}
+          </p>
+          {edition.chainAddress ? (
+            <CertPipelineTable
+              editionAddress={edition.chainAddress}
+              signerCount={edition.seats.length}
+            />
+          ) : (
+            <div className="mt-4 rounded-lg border border-dashed border-border p-6">
+              <p className="text-sm text-muted-foreground">
+                {t("admin.manage.pipeline.draftNote")}
+              </p>
+            </div>
+          )}
+        </section>
+      </Reveal>
     </div>
   );
 }

@@ -37,6 +37,7 @@ const pt = {
   "editions.supplyExhaustedTitle": "Limite de certificados atingido",
   "editions.supplyExhaustedDesc":
     "Esta edição atingiu o número máximo de certificados.",
+  "me.eyebrow": "Registros",
   "me.title": "Meus documentos",
   "me.subtitle": "Seus certificados e presenças, reunidos em um só lugar.",
   "me.loadErrorTitle": "Falha ao carregar seus certificados",
@@ -159,6 +160,7 @@ export const studentDict: Record<Locale, Record<studentKey, string>> = {
     "editions.supplyExhaustedTitle": "Certificate limit reached",
     "editions.supplyExhaustedDesc":
       "This edition has reached its maximum number of certificates.",
+    "me.eyebrow": "Records",
     "me.title": "My documents",
     "me.subtitle": "Your certificates and attendances, all in one place.",
     "me.loadErrorTitle": "Couldn't load your certificates",
@@ -275,6 +277,7 @@ export const studentDict: Record<Locale, Record<studentKey, string>> = {
     "editions.supplyExhaustedTitle": "Límite de certificados alcanzado",
     "editions.supplyExhaustedDesc":
       "Esta edición alcanzó el número máximo de certificados.",
+    "me.eyebrow": "Registros",
     "me.title": "Mis documentos",
     "me.subtitle": "Tus certificados y asistencias, reunidos en un solo lugar.",
     "me.loadErrorTitle": "No se pudieron cargar tus certificados",

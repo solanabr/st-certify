@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Archivo } from "next/font/google";
 import localFont from "next/font/local";
 import "./globals.css";
@@ -6,8 +6,10 @@ import { Providers } from "./providers";
 import { Footer } from "@/components/footer";
 import { Nav } from "@/components/nav";
 import { ThemeProvider } from "@/components/theme-provider";
+import { MockRoleSwitcher } from "@/components/dev/mock-role-switcher";
 import { LocaleProvider } from "@/lib/i18n";
 import { getLocale, getT } from "@/lib/i18n/server";
+import { isUiMock } from "@/lib/mock";
 
 const inter = localFont({
   src: [
@@ -41,11 +43,56 @@ const greatVibes = localFont({
   display: "swap",
 });
 
+// viewport-fit=cover lets the layout paint into the iOS safe areas; the
+// theme-color pair tracks the two canvases declared in globals.css.
+export const viewport: Viewport = {
+  viewportFit: "cover",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f5e8ca" },
+    { media: "(prefers-color-scheme: dark)", color: "#11160f" },
+  ],
+};
+
 export async function generateMetadata(): Promise<Metadata> {
   const { t } = await getT();
+  const title = "Superteam Certify";
+  const description = t("meta.description");
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
   return {
-    title: "Superteam Certify",
-    description: t("meta.description"),
+    metadataBase: new URL(appUrl),
+    title: { default: title, template: `%s · ${title}` },
+    description,
+    applicationName: title,
+    // app/icon.svg (favicon) + app/opengraph-image.tsx are auto-wired by Next's
+    // file conventions; the explicit icons block adds the legacy .ico fallback
+    // and the home-screen icon iOS reads (it ignores the manifest's icons).
+    icons: {
+      icon: [
+        { url: "/icon.svg", type: "image/svg+xml" },
+        { url: "/favicon.ico", sizes: "any" },
+      ],
+      apple: [{ url: "/apple-touch-icon.png", sizes: "180x180" }],
+    },
+    appleWebApp: {
+      capable: true,
+      title,
+      // Opaque bar: "black-translucent" would put white glyphs on the cream
+      // canvas once viewport-fit=cover extends content under the status bar.
+      statusBarStyle: "default",
+    },
+    openGraph: {
+      type: "website",
+      siteName: title,
+      title,
+      description,
+      url: appUrl,
+      locale: "pt_BR",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+    },
   };
 }
 
@@ -81,6 +128,8 @@ export default async function RootLayout({
                 </main>
                 <Footer />
               </div>
+              {/* Dev-only: never reaches a production build (see lib/mock/flag.ts). */}
+              {isUiMock() && <MockRoleSwitcher />}
             </Providers>
           </LocaleProvider>
         </ThemeProvider>

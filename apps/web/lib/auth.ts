@@ -5,6 +5,14 @@ import { cookies } from "next/headers";
 import { PrivyClient, type User } from "@privy-io/node";
 import { fail } from "@/lib/errors";
 import { isEditionSignerWallet } from "@/lib/db/queries";
+import { isUiMock, mockRole, type MockRole } from "@/lib/mock";
+import {
+  MOCK_DID,
+  MOCK_EMAIL,
+  MOCK_WALLET_CREATOR,
+  MOCK_WALLET_SIGNER,
+  MOCK_WALLET_STUDENT,
+} from "@/lib/mock/fixtures";
 
 const APP_ID = process.env.NEXT_PUBLIC_PRIVY_APP_ID;
 const APP_SECRET = process.env.PRIVY_APP_SECRET;
@@ -83,6 +91,30 @@ function primaryEmail(user: User): string | null {
 }
 
 /**
+ * The synthetic session UI-mock mode serves instead of a Privy identity.
+ * `anon` has none, which is what makes `requireUser` throw and the gated
+ * layouts render their 404 — the same path a logged-out visitor takes.
+ */
+function mockSessionUser(role: MockRole): SessionUser | null {
+  if (role === "anon") {
+    return null;
+  }
+  const wallet =
+    role === "creator"
+      ? MOCK_WALLET_CREATOR
+      : role === "student"
+        ? MOCK_WALLET_STUDENT
+        : MOCK_WALLET_SIGNER;
+  return {
+    did: MOCK_DID,
+    email: MOCK_EMAIL,
+    wallets: [wallet],
+    role: role === "admin" ? "sysadmin" : "student",
+    isCertifier: role === "signer" || role === "admin",
+  };
+}
+
+/**
  * Resolves the current request's session from the `privy-id-token` cookie
  * (set automatically by the Privy client SDK once identity tokens are
  * enabled for the app). Returns null for anonymous visitors — this is the
@@ -91,6 +123,8 @@ function primaryEmail(user: User): string | null {
  * nav) share a single token verification.
  */
 export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
+  if (isUiMock()) return mockSessionUser(await mockRole());
+
   const client = getPrivyClient();
   if (!client) {
     return null;

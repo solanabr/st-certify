@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Share2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -157,7 +158,13 @@ export function DistributionKit({ edition }: { edition: StudioEditionView }) {
 
   return (
     <section aria-labelledby="studio-share-heading">
-      <h2 id="studio-share-heading" className="text-lg font-semibold">
+      <h2
+        id="studio-share-heading"
+        className="flex items-center gap-2.5 text-lg font-semibold"
+      >
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-primary/15 via-primary/5 to-brand-yellow/20 text-primary ring-1 ring-inset ring-primary/20">
+          <Share2 className="size-5" aria-hidden="true" />
+        </span>
         {t("admin.manage.share.title")}
       </h2>
 
@@ -171,7 +178,7 @@ export function DistributionKit({ edition }: { edition: StudioEditionView }) {
             {t("admin.manage.share.intro")}
           </p>
 
-          <div className="mt-4 flex flex-col gap-2 rounded-lg border border-border p-3 sm:flex-row sm:items-center">
+          <div className="elevate mt-4 flex flex-col gap-2 rounded-xl bg-card p-3 sm:flex-row sm:items-center">
             <code
               className="flex-1 truncate text-xs"
               title={publicUrl ?? undefined}

@@ -17,7 +17,7 @@ export default function VerifyPage() {
       </div>
 
       <p className="mt-6 text-sm text-muted-foreground">
-        {t("verify.threeWays")}
+        {t("verify.tool.threeWays")}
       </p>
     </div>
   );

@@ -3,6 +3,8 @@ import "server-only";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { fail } from "@/lib/errors";
 import { verifyCode } from "@/lib/verify-code";
+import { isUiMock } from "@/lib/mock/flag";
+import { mockAdminEvents } from "@/lib/mock/fixtures";
 import type {
   CertificateStatusValue,
   EditionSignerRow,
@@ -19,6 +21,8 @@ interface ChainCertificateSnapshot {
   signedMask: number;
   certNumber: bigint;
   asset: string | null;
+  /** 32 zero bytes until `claim_certificate` commits the artifact. */
+  artifactHash?: Uint8Array;
 }
 
 interface ChainEditionSnapshot {
@@ -148,6 +152,7 @@ export async function hasProcessedSignature(
 export async function listRecentEventsForAdmin(
   limit = 20,
 ): Promise<EventRow[]> {
+  if (isUiMock()) return mockAdminEvents(limit);
   const supabase = getServiceClient();
   const { data, error } = await supabase
     .from("events")
@@ -334,9 +339,29 @@ export interface CertificateTxPatch {
 }
 
 /**
+ * Hex of the artifact hash the chain actually holds, or null while it holds
+ * none — the account carries 32 zero bytes until `claim_certificate` commits
+ * one, and a zero hash written into the mirror would read as a real one.
+ */
+function committedArtifactSha256(hash: Uint8Array | undefined): string | null {
+  if (!hash || hash.length !== 32 || hash.every((byte) => byte === 0)) {
+    return null;
+  }
+  return Buffer.from(hash).toString("hex");
+}
+
+/**
  * Narrow update of ONLY the chain-derived certificate columns — never
  * touches student_name/name_salt (off-chain-only) or signer_txs (owned by
  * the M4 mass-sign flow).
+ *
+ * `sha256` is chain-derived too, and is reconciled here whenever the chain has
+ * committed one. It is written at claim-prepare from the local render
+ * (setCertificateArtifact), which is a prediction of what the student will
+ * sign; this is the confirmation. They can only differ if something re-rendered
+ * differently in between — and the PDF export refuses to print a certificate
+ * whose re-render disagrees with this column, so the chain must have the last
+ * word on it.
  */
 export async function syncCertificateMirrorFromChain(
   address: string,
@@ -344,6 +369,7 @@ export async function syncCertificateMirrorFromChain(
   txPatch?: CertificateTxPatch,
 ): Promise<void> {
   const supabase = getServiceClient();
+  const sha256 = committedArtifactSha256(decoded.artifactHash);
   const { error } = await supabase
     .from("certificates")
     .update({
@@ -351,6 +377,7 @@ export async function syncCertificateMirrorFromChain(
       signer_bitmap: decoded.signedMask,
       cert_number: decoded.certNumber > 0n ? Number(decoded.certNumber) : null,
       asset: decoded.asset,
+      ...(sha256 ? { sha256 } : {}),
       ...txPatch,
       updated_at: new Date().toISOString(),
     })
@@ -362,4 +389,32 @@ export async function syncCertificateMirrorFromChain(
       retryable: true,
     });
   }
+}
+
+/**
+ * Stamps the network a certificate was claimed on, so the export can print
+ * where the transaction actually lives instead of asking the environment (see
+ * supabase/migrations/0006_cert_cluster.sql).
+ *
+ * Deliberately its own statement, and deliberately silent on failure: 0006 may
+ * not be applied yet, and a claim that already confirmed on-chain must not be
+ * reported as failed because a nice-to-have column is missing. Readers fall
+ * back to the environment exactly as they did before the column existed.
+ */
+export async function recordCertificateCluster(
+  address: string,
+  cluster: string,
+): Promise<boolean> {
+  if (!dbConfigured) return false;
+
+  const { error } = await getServiceClient()
+    .from("certificates")
+    .update({ cluster })
+    .eq("address", address);
+
+  if (error) {
+    console.warn(`[db] cluster not recorded for ${address}: ${error.message}`);
+    return false;
+  }
+  return true;
 }

@@ -1,4 +1,5 @@
-import { Check, ExternalLink } from "lucide-react";
+import { Check } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -7,13 +8,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { explorerTxUrl } from "@/lib/chain/explorer-url";
 import type { VerifySignerView } from "@/lib/db/claim-verify-queries";
-import { getT } from "@/lib/i18n/server";
-
-function shortSig(sig: string): string {
-  return `${sig.slice(0, 6)}…${sig.slice(-6)}`;
-}
+import { translate } from "@/lib/i18n/dictionaries";
+import type { Locale } from "@/lib/i18n/locales";
 
 function formatSignedAt(iso: string | null, locale: string): string {
   if (!iso) return "—";
@@ -26,75 +23,107 @@ function formatSignedAt(iso: string | null, locale: string): string {
   }).format(new Date(iso));
 }
 
-/** Signer roster with chain-truthful status, sign time, and tx link (plan §Verify). */
-export async function SignerTable({
+/** Name plus its signed/awaiting mark, shared by the table rows and the mobile cards. */
+function SignerName({
+  signer,
+  locale,
+}: {
+  signer: VerifySignerView;
+  locale: Locale;
+}) {
+  return (
+    <span className="flex items-center gap-2">
+      <span
+        className={
+          signer.signed
+            ? "flex size-4 shrink-0 items-center justify-center rounded-full border border-success bg-success text-success-foreground"
+            : "flex size-4 shrink-0 items-center justify-center rounded-full border border-border"
+        }
+        aria-hidden="true"
+      >
+        {signer.signed && <Check className="size-2.5" />}
+      </span>
+      {signer.name}
+      <span className="sr-only">
+        {translate(
+          locale,
+          signer.signed ? "verify.signers.signed" : "verify.signers.awaiting",
+        )}
+      </span>
+    </span>
+  );
+}
+
+/**
+ * Who signed, in what capacity, and when. The signature transactions used to
+ * sit in a fourth column here; they moved into "Detalhes técnicos" so this
+ * table reads as a list of people rather than a list of hashes.
+ */
+export function SignerTable({
   signers,
+  locale,
 }: {
   signers: VerifySignerView[];
+  locale: Locale;
 }) {
   if (signers.length === 0) return null;
-  const { locale, t } = await getT();
+  const t = (key: Parameters<typeof translate>[1]): string =>
+    translate(locale, key);
+
   return (
-    <div className="overflow-x-auto">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>{t("verify.signers.name")}</TableHead>
-            <TableHead>{t("verify.signers.role")}</TableHead>
-            <TableHead>{t("verify.signers.signedAt")}</TableHead>
-            <TableHead className="text-right">
-              {t("verify.signers.tx")}
-            </TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {signers.map((s) => (
-            <TableRow key={s.wallet}>
-              <TableCell className="font-medium">
-                <span className="flex items-center gap-2">
-                  <span
-                    className={
-                      s.signed
-                        ? "flex size-4 shrink-0 items-center justify-center rounded-full border border-success bg-success text-success-foreground"
-                        : "flex size-4 shrink-0 items-center justify-center rounded-full border border-border"
-                    }
-                    aria-hidden="true"
-                  >
-                    {s.signed && <Check className="size-2.5" />}
-                  </span>
-                  {s.name}
-                  <span className="sr-only">
-                    {s.signed
-                      ? t("verify.signers.signed")
-                      : t("verify.signers.awaiting")}
-                  </span>
-                </span>
-              </TableCell>
-              <TableCell className="text-muted-foreground">
-                {s.role ?? "—"}
-              </TableCell>
-              <TableCell className="tabular-nums text-muted-foreground">
-                {formatSignedAt(s.signedAt, locale)}
-              </TableCell>
-              <TableCell className="text-right">
-                {s.txSig ? (
-                  <a
-                    href={explorerTxUrl(s.txSig)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-primary hover:underline"
-                  >
-                    {shortSig(s.txSig)}
-                    <ExternalLink className="size-3" />
-                  </a>
-                ) : (
-                  <span className="text-muted-foreground">—</span>
-                )}
-              </TableCell>
+    <>
+      <div className="hidden overflow-x-auto sm:block">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>{t("verify.signers.name")}</TableHead>
+              <TableHead>{t("verify.signers.role")}</TableHead>
+              <TableHead>{t("verify.signers.signedAt")}</TableHead>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
+          </TableHeader>
+          <TableBody>
+            {signers.map((s) => (
+              <TableRow key={s.wallet}>
+                <TableCell className="font-medium">
+                  <SignerName signer={s} locale={locale} />
+                </TableCell>
+                <TableCell className="text-muted-foreground">
+                  {s.role ?? "—"}
+                </TableCell>
+                <TableCell className="tabular-nums text-muted-foreground">
+                  {formatSignedAt(s.signedAt, locale)}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+
+      {/* Phones: the three columns stack, so a long name never pushes the date
+          off-screen and the signed mark stays next to the person it describes. */}
+      <div className="flex flex-col gap-3 sm:hidden">
+        {signers.map((s) => (
+          <Card key={s.wallet}>
+            <CardContent className="space-y-2">
+              <p className="font-medium">
+                <SignerName signer={s} locale={locale} />
+              </p>
+              <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
+                <dt className="text-muted-foreground">
+                  {t("verify.signers.role")}
+                </dt>
+                <dd>{s.role ?? "—"}</dd>
+                <dt className="text-muted-foreground">
+                  {t("verify.signers.signedAt")}
+                </dt>
+                <dd className="tabular-nums">
+                  {formatSignedAt(s.signedAt, locale)}
+                </dd>
+              </dl>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </>
   );
 }

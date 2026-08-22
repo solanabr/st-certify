@@ -13,6 +13,12 @@ import {
   resizeSquare,
   nudgeRect,
   nudgeSquare,
+  offsetRect,
+  offsetSquare,
+  resizeRectTo,
+  resizeSquareTo,
+  centerRectAt,
+  centerSquareAt,
   rectToPercentStyle,
   squareToStyle,
 } from "../geometry";
@@ -207,10 +213,11 @@ describe("nudgeRect / nudgeSquare (WCAG 2.5.7 arrow-key path)", () => {
     expect(down.y).toBeCloseTo(0.505);
   });
 
-  it("shift+arrow uses the larger step", () => {
+  it("shift+arrow uses the larger step — 10x the fine one, per Figma", () => {
     const rect = { x: 0.5, y: 0.5, w: 0.1, h: 0.1 };
     const nudged = nudgeRect(rect, 1, 0, NUDGE_STEP_SHIFT);
-    expect(nudged.x).toBeCloseTo(0.52);
+    expect(NUDGE_STEP_SHIFT).toBeCloseTo(NUDGE_STEP * 10);
+    expect(nudged.x).toBeCloseTo(0.5 + NUDGE_STEP_SHIFT);
   });
 
   it("nudging clamps at the edges instead of leaving the canvas", () => {
@@ -245,5 +252,149 @@ describe("rectToPercentStyle / squareToStyle (CSS output)", () => {
     expect(style.top).toBe("20%");
     expect(style.width).toBe("15cqh");
     expect(style.height).toBe("15cqh");
+  });
+});
+
+describe("offsetRect / offsetSquare (gesture-relative translation)", () => {
+  it("translates by a fraction delta", () => {
+    const moved = offsetRect({ x: 0.2, y: 0.3, w: 0.1, h: 0.1 }, 0.05, -0.1);
+    expect(moved.x).toBeCloseTo(0.25);
+    expect(moved.y).toBeCloseTo(0.2);
+  });
+
+  it("clamps into the canvas instead of leaving it", () => {
+    const moved = offsetRect({ x: 0.9, y: 0.9, w: 0.2, h: 0.2 }, 0.5, 0.5);
+    expect(moved.x).toBeCloseTo(0.8);
+    expect(moved.y).toBeCloseTo(0.8);
+  });
+
+  it("is what nudgeRect is built from — one step equals one offset", () => {
+    const rect = { x: 0.5, y: 0.5, w: 0.1, h: 0.1 };
+    expect(nudgeRect(rect, 1, -1, NUDGE_STEP)).toEqual(
+      offsetRect(rect, NUDGE_STEP, -NUDGE_STEP),
+    );
+  });
+
+  it("re-applying a total delta to the gesture-start rect does not drift", () => {
+    const start = { x: 0.1, y: 0.1, w: 0.1, h: 0.1 };
+    // 100 pointer events' worth of travel, applied as one cumulative offset
+    // each time (how the drag path works) — the answer only depends on the
+    // total, so intermediate frames can never accumulate error.
+    let total = 0;
+    let latest = start;
+    for (let i = 0; i < 100; i += 1) {
+      total += 0.001;
+      latest = offsetRect(start, total, 0);
+    }
+    expect(latest.x).toBeCloseTo(0.2, 10);
+  });
+
+  it("offsetSquare respects aspect on the x bound", () => {
+    const aspect = 1600 / 1131;
+    const moved = offsetSquare({ x: 0.5, y: 0.5, size: 0.2 }, 0.9, 0, aspect);
+    expect(moved.x).toBeCloseTo(1 - 0.2 / aspect);
+  });
+});
+
+describe("resizeRectTo / resizeSquareTo (handle-driven resize)", () => {
+  it("sets position and size together from a bottom-right handle", () => {
+    const resized = resizeRectTo(
+      { x: 0.1, y: 0.1, w: 0.2, h: 0.2 },
+      0,
+      0,
+      0.5,
+      0.4,
+    );
+    expect(resized).toEqual({ x: 0.1, y: 0.1, w: 0.5, h: 0.4 });
+  });
+
+  it("dragging a top-left handle moves the origin and shrinks in one clamp", () => {
+    // The failure mode this guards: clamping the translation against the OLD
+    // width first would pin x at 1 - 0.5 = 0.5 and lose the resize.
+    const resized = resizeRectTo(
+      { x: 0.5, y: 0.5, w: 0.5, h: 0.5 },
+      0.2,
+      0.2,
+      0.3,
+      0.3,
+    );
+    expect(resized.x).toBeCloseTo(0.7);
+    expect(resized.y).toBeCloseTo(0.7);
+    expect(resized.w).toBeCloseTo(0.3);
+    expect(resized.h).toBeCloseTo(0.3);
+  });
+
+  it("floors size at MIN_FRAC and keeps the box on canvas", () => {
+    const tiny = resizeRectTo({ x: 0.1, y: 0.1, w: 0.2, h: 0.2 }, 0, 0, 0, 0);
+    expect(tiny.w).toBe(MIN_FRAC);
+    expect(tiny.h).toBe(MIN_FRAC);
+
+    const huge = resizeRectTo(
+      { x: 0.9, y: 0.9, w: 0.05, h: 0.05 },
+      0,
+      0,
+      0.5,
+      0.5,
+    );
+    expect(huge.x).toBeCloseTo(0.5);
+    expect(huge.y).toBeCloseTo(0.5);
+    expect(huge.x + huge.w).toBeLessThanOrEqual(1 + 1e-9);
+  });
+
+  it("a square resize takes a single size and stays square", () => {
+    const aspect = 1600 / 1131;
+    const resized = resizeSquareTo(
+      { x: 0.1, y: 0.1, size: 0.1 },
+      0.05,
+      0.05,
+      0.3,
+      aspect,
+    );
+    expect(resized.size).toBeCloseTo(0.3);
+    expect(resized.x).toBeCloseTo(0.15);
+    expect(resized.y).toBeCloseTo(0.15);
+  });
+
+  it("a square resize respects aspect on the x bound", () => {
+    const aspect = 2;
+    const resized = resizeSquareTo(
+      { x: 0.95, y: 0, size: 0.1 },
+      0,
+      0,
+      0.8,
+      aspect,
+    );
+    expect(resized.x).toBeCloseTo(1 - 0.8 / aspect);
+  });
+});
+
+describe("centerRectAt / centerSquareAt (click-to-place)", () => {
+  it("centres a rect on the tapped point", () => {
+    const placed = centerRectAt({ x: 0, y: 0, w: 0.2, h: 0.1 }, 0.5, 0.5);
+    expect(placed.x).toBeCloseTo(0.4);
+    expect(placed.y).toBeCloseTo(0.45);
+    expect(placed.w).toBeCloseTo(0.2);
+    expect(placed.h).toBeCloseTo(0.1);
+  });
+
+  it("clamps a tap near the edge so the whole box stays on canvas", () => {
+    const placed = centerRectAt({ x: 0, y: 0, w: 0.4, h: 0.4 }, 0.99, 0.01);
+    expect(placed.x).toBeCloseTo(0.6);
+    expect(placed.y).toBe(0);
+    expect(placed.x + placed.w).toBeLessThanOrEqual(1);
+  });
+
+  it("centres a square using its aspect-corrected on-screen width", () => {
+    const aspect = 2;
+    const placed = centerSquareAt({ x: 0, y: 0, size: 0.4 }, 0.5, 0.5, aspect);
+    // Occupies 0.4/2 = 0.2 of the width, so it starts 0.1 left of centre.
+    expect(placed.x).toBeCloseTo(0.4);
+    expect(placed.y).toBeCloseTo(0.3);
+  });
+
+  it("treats a degenerate aspect as square rather than dividing by zero", () => {
+    const placed = centerSquareAt({ x: 0, y: 0, size: 0.4 }, 0.5, 0.5, 0);
+    expect(placed.x).toBeCloseTo(0.3);
+    expect(Number.isFinite(placed.x)).toBe(true);
   });
 });

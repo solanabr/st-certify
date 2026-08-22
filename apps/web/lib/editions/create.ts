@@ -114,59 +114,100 @@ export interface CreateEditionResult {
   slug: string;
 }
 
+export interface CreateEditionHooks {
+  /**
+   * Fires the instant `create_edition` confirms, before any mirror write —
+   * the one window where the new edition exists on-chain and nowhere else. A
+   * caller that cannot afford to lose the address (the draft flow, whose
+   * whole retry story hangs off it) persists it here.
+   *
+   * Awaited, so a slow hook delays the mirror; it must not throw for anything
+   * recoverable, since by this point the chain write cannot be undone.
+   */
+  onChainWritten?: (address: string) => Promise<void>;
+}
+
 /**
- * meta + signers + the chosen template -> canonical layout -> spec_hash ->
- * `create_edition` (OPERATOR-signed) -> mirror + signer rows. The edition
- * lands Paused: someone still has to review the sample and open it.
+ * Refuses a signer list with a repeated wallet, before anything is minted.
  *
- * Everything after the chain write is bookkeeping for an edition that already
- * exists on-chain, so a failure there needs repair, not a retry of the create.
+ * `create_edition` stores the signer array permanently and the program credits
+ * a signature to the FIRST slot holding that pubkey — so an edition with a
+ * duplicate wallet has a slot that can never be signed, and every certificate
+ * under it is stuck short of FullySigned forever. Nothing on-chain can repair
+ * it, which makes this one of the few checks worth stating twice: the wizard's
+ * route runs it before it even claims the draft, and it runs again here, for
+ * every caller.
+ *
+ * Deliberately NOT part of the mirror-only repair path: an edition that
+ * somehow reached the chain in this state still needs its mirror row, and
+ * refusing to record it would only hide the damage.
  */
-export async function createEditionFromWizard(
+export function assertDistinctSignerWallets(
+  signers: EditionSignerBinding[],
+): void {
+  const wallets = signers.map((s) => s.wallet);
+  if (new Set(wallets).size !== wallets.length) {
+    fail(
+      "CONFLICT",
+      "Dois signatários confirmaram com a mesma carteira. Cada signatário precisa de uma carteira diferente para que a edição possa ser assinada.",
+    );
+  }
+}
+
+/** Everything derivable from the input before anything is written. */
+interface PlannedEdition {
+  layout: Layout;
+  specHashHex: string;
+  maxSupply: bigint;
+}
+
+function planEdition(input: CreateEditionInput): PlannedEdition {
+  const layout = buildEditionLayout(
+    input.templatePath,
+    input.customLayout,
+    input.signers,
+  );
+  return {
+    layout,
+    specHashHex: specHash(layout),
+    // Optional in the wizard (product intent: blank = effectively uncapped);
+    // 0 is NOT used as an "unlimited" sentinel — the program's supply check
+    // is `requested - closed < max_supply`, so 0 would mean zero capacity.
+    maxSupply: input.meta.maxSupply ? BigInt(input.meta.maxSupply) : 1_000_000n,
+  };
+}
+
+/**
+ * The mirror half: the `editions` row and its signer rows, for an edition that
+ * already exists on-chain. Derived entirely from the same inputs as the chain
+ * write, which is what makes it replayable — the layout and spec hash are
+ * deterministic, so a resumed mirror describes the edition that was actually
+ * created, not a new interpretation of it.
+ */
+async function writeEditionMirror(
   input: CreateEditionInput,
+  planned: PlannedEdition,
+  address: string,
+  txSig: string,
 ): Promise<CreateEditionResult> {
-  const { meta, signers, templatePath, customLayout, actorDid } = input;
-
-  if (!dbConfigured) {
-    fail("INTERNAL", "Supabase não configurado.");
-  }
-
-  if (!(await isSlugAvailable(meta.slug))) {
-    fail("VALIDATION", "Este slug já está em uso.", { field: "slug" });
-  }
-
-  const editionLayout = buildEditionLayout(templatePath, customLayout, signers);
-  const specHashHex = specHash(editionLayout);
-
-  // Optional in the wizard (product intent: blank = effectively uncapped);
-  // 0 is NOT used as an "unlimited" sentinel — the program's supply check
-  // is `requested - closed < max_supply`, so 0 would mean zero capacity.
-  const maxSupply = meta.maxSupply ? BigInt(meta.maxSupply) : 1_000_000n;
-
-  const created = await createEditionOnChain({
-    name: meta.name,
-    specHash: specHashBytes(editionLayout),
-    maxSupply,
-    signers,
-    actor: actorDid,
-  });
+  const { meta, signers } = input;
 
   await insertEditionMirror({
-    address: created.address,
+    address,
     slug: meta.slug,
     name: meta.name,
     description: meta.description ?? null,
-    templateSha256: editionLayout.template.sha256,
-    layout: editionLayout,
-    specHash: specHashHex,
-    maxSupply,
+    templateSha256: planned.layout.template.sha256,
+    layout: planned.layout,
+    specHash: planned.specHashHex,
+    maxSupply: planned.maxSupply,
     completionDate: meta.completionDate || null,
-    txSig: created.signature,
+    txSig,
   });
 
   await insertEditionSigners(
     signers.map((s, index) => ({
-      editionAddress: created.address,
+      editionAddress: address,
       position: index,
       wallet: s.wallet,
       name: s.name,
@@ -174,5 +215,65 @@ export async function createEditionFromWizard(
     })),
   );
 
-  return { address: created.address, slug: meta.slug };
+  return { address, slug: meta.slug };
+}
+
+/**
+ * meta + signers + the chosen template -> canonical layout -> spec_hash ->
+ * `create_edition` (OPERATOR-signed) -> mirror + signer rows. The edition
+ * lands Paused: someone still has to review the sample and open it.
+ *
+ * Everything after the chain write is bookkeeping for an edition that already
+ * exists on-chain, so a failure there needs repair (`mirrorEditionFromWizard`),
+ * never a retry of the create.
+ */
+export async function createEditionFromWizard(
+  input: CreateEditionInput,
+  hooks?: CreateEditionHooks,
+): Promise<CreateEditionResult> {
+  const { meta, signers, actorDid } = input;
+
+  if (!dbConfigured) {
+    fail("INTERNAL", "Supabase não configurado.");
+  }
+
+  assertDistinctSignerWallets(signers);
+
+  if (!(await isSlugAvailable(meta.slug))) {
+    fail("VALIDATION", "Este slug já está em uso.", { field: "slug" });
+  }
+
+  const planned = planEdition(input);
+
+  const created = await createEditionOnChain({
+    name: meta.name,
+    specHash: specHashBytes(planned.layout),
+    maxSupply: planned.maxSupply,
+    signers,
+    actor: actorDid,
+  });
+
+  await hooks?.onChainWritten?.(created.address);
+
+  return writeEditionMirror(input, planned, created.address, created.signature);
+}
+
+/**
+ * Finishes a create whose chain write landed but whose mirror didn't — the
+ * crash window between `create_edition` confirming and the `editions` row
+ * existing. Re-running the create instead would mint a second edition, since
+ * the PDA comes from an on-chain counter rather than from this input.
+ *
+ * The originating transaction's signature died with the failed request, so the
+ * mirror records an empty `tx_sig`; the address is the identity that matters,
+ * and the create is still on the events ledger.
+ */
+export async function mirrorEditionFromWizard(
+  input: CreateEditionInput,
+  address: string,
+): Promise<CreateEditionResult> {
+  if (!dbConfigured) {
+    fail("INTERNAL", "Supabase não configurado.");
+  }
+  return writeEditionMirror(input, planEdition(input), address, "");
 }

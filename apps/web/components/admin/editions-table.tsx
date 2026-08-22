@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Layers, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -73,10 +73,16 @@ export function EditionsTable() {
 
   if (editions.length === 0) {
     return (
-      <div className="flex flex-col items-start gap-3 rounded-lg border border-border p-6">
+      <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border p-8 text-center">
+        <span className="flex size-12 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/15 via-primary/5 to-brand-yellow/20 text-primary ring-1 ring-inset ring-primary/20">
+          <Layers className="size-6" aria-hidden="true" />
+        </span>
         <p className="text-sm text-muted-foreground">{t("admin.noEditions")}</p>
         <Button asChild size="sm">
-          <Link href="/studio/editions/new">{t("admin.createEdition")}</Link>
+          <Link href="/studio/editions/new">
+            <Plus aria-hidden="true" />
+            {t("admin.createEdition")}
+          </Link>
         </Button>
       </div>
     );
@@ -84,7 +90,7 @@ export function EditionsTable() {
 
   return (
     <>
-      <div className="hidden sm:block">
+      <div className="elevate hidden overflow-hidden rounded-xl bg-card sm:block">
         <Table>
           <TableHeader>
             <TableRow>
@@ -124,7 +130,7 @@ export function EditionsTable() {
 
       <div className="flex flex-col gap-3 sm:hidden">
         {editions.map((edition) => (
-          <Card key={edition.address}>
+          <Card key={edition.address} className="hover-lift">
             <CardContent>
               <Link
                 href={`/studio/editions/${edition.address}`}

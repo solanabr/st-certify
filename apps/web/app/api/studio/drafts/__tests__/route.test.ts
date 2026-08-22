@@ -25,7 +25,11 @@ vi.mock("@/lib/db/draft-mutations", () => ({
   insertInvites: vi.fn(),
   deleteInvite: vi.fn(),
   touchInviteReminded: vi.fn(),
+  claimDraftForCreate: vi.fn(async () => true),
+  releaseDraftCreateClaim: vi.fn(async () => {}),
+  setDraftChainAddress: vi.fn(async () => true),
 }));
+vi.mock("@/lib/db/queries", () => ({ getEditionByAddress: vi.fn() }));
 vi.mock("@/lib/email/notify", () => ({
   notifyOnce: vi.fn(async () => ({ sent: true, deduped: false })),
 }));
@@ -34,7 +38,13 @@ vi.mock("@/lib/editions/create", () => ({
     address: "EdiTion1111111111111111111111111111111111",
     slug: "turma-2026",
   })),
+  mirrorEditionFromWizard: vi.fn(async () => ({
+    address: "EdiTion1111111111111111111111111111111111",
+    slug: "turma-2026",
+  })),
   autoSignatureBoxes: vi.fn(() => []),
+  // No-op by default; the duplicate-wallet test swaps in the real refusal.
+  assertDistinctSignerWallets: vi.fn(),
 }));
 vi.mock("@/lib/attendance/token", () => ({
   generateClaimToken: vi.fn(() => "tok-generated"),
@@ -43,10 +53,22 @@ vi.mock("@/lib/attendance/token", () => ({
 const { requireSysadmin } = await import("@/lib/auth");
 const { getDraft, listDrafts, listInvites, listInvitesForDrafts } =
   await import("@/lib/db/draft-queries");
-const { insertDraft, updateDraft, insertInvites, deleteInvite } =
-  await import("@/lib/db/draft-mutations");
+const {
+  insertDraft,
+  updateDraft,
+  insertInvites,
+  deleteInvite,
+  claimDraftForCreate,
+  releaseDraftCreateClaim,
+  setDraftChainAddress,
+} = await import("@/lib/db/draft-mutations");
+const { getEditionByAddress } = await import("@/lib/db/queries");
 const { notifyOnce } = await import("@/lib/email/notify");
-const { createEditionFromWizard } = await import("@/lib/editions/create");
+const {
+  createEditionFromWizard,
+  mirrorEditionFromWizard,
+  assertDistinctSignerWallets,
+} = await import("@/lib/editions/create");
 const { fail } = await import("@/lib/errors");
 
 const drafts = await import("../route");
@@ -103,6 +125,8 @@ const jsonRequest = (body: unknown): Request =>
   ({ json: async () => body }) as unknown as Request;
 const params = <T>(value: T) => ({ params: Promise.resolve(value) });
 
+const EDITION = "EdiTion1111111111111111111111111111111111";
+
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(requireSysadmin).mockResolvedValue({
@@ -110,6 +134,12 @@ beforeEach(() => {
   } as Awaited<ReturnType<typeof requireSysadmin>>);
   vi.mocked(listInvites).mockResolvedValue([]);
   vi.mocked(notifyOnce).mockResolvedValue({ sent: true, deduped: false });
+  vi.mocked(claimDraftForCreate).mockResolvedValue(true);
+  // A linked draft normally has its mirror row; the tests that exercise the
+  // crash window say otherwise.
+  vi.mocked(getEditionByAddress).mockResolvedValue({
+    address: EDITION,
+  } as Awaited<ReturnType<typeof getEditionByAddress>>);
 });
 
 describe("auth gate", () => {
@@ -501,17 +531,42 @@ describe("POST /api/studio/drafts/[id]/create-onchain", () => {
           { wallet: WALLET_B, name: "Bruno Lima", role: "Diretor" },
         ],
       }),
+      // The hook that persists the address the moment the write confirms.
+      expect.objectContaining({ onChainWritten: expect.any(Function) }),
     );
-    expect(updateDraft).toHaveBeenCalledWith(DRAFT_ID, {
-      chain_address: "EdiTion1111111111111111111111111111111111",
-    });
+    expect(setDraftChainAddress).toHaveBeenCalledWith(DRAFT_ID, EDITION);
     expect(response.body).toMatchObject({ slug: "turma-2026" });
   });
 
-  it("is idempotent: a second call never writes a second edition", async () => {
-    vi.mocked(getDraft).mockResolvedValue(
-      draftRow({ chain_address: "EdiTion1111111111111111111111111111111111" }),
+  it("refuses seats that collided on one wallet before taking the claim", async () => {
+    // A duplicate-wallet edition can never reach FullySigned on-chain, and the
+    // signer array is immutable — so this refusal must precede the claim and
+    // the chain write, leaving the seats fixable.
+    vi.mocked(getDraft).mockResolvedValue(draftRow());
+    vi.mocked(listInvites).mockResolvedValue([
+      accepted[0],
+      { ...accepted[1], wallet: WALLET_A },
+    ]);
+    vi.mocked(assertDistinctSignerWallets).mockImplementationOnce(() =>
+      fail("CONFLICT", "Dois signatários confirmaram com a mesma carteira."),
     );
+
+    const response = (await createOnchain.POST(
+      jsonRequest(null),
+      params({ id: DRAFT_ID }),
+    )) as unknown as FakeResponse;
+
+    expect(response.status).toBe(409);
+    expect(assertDistinctSignerWallets).toHaveBeenCalledWith([
+      { wallet: WALLET_A, name: "Ana Beatriz", role: "Coordenadora" },
+      { wallet: WALLET_A, name: "Bruno Lima", role: "Diretor" },
+    ]);
+    expect(claimDraftForCreate).not.toHaveBeenCalled();
+    expect(createEditionFromWizard).not.toHaveBeenCalled();
+  });
+
+  it("is idempotent: a second call never writes a second edition", async () => {
+    vi.mocked(getDraft).mockResolvedValue(draftRow({ chain_address: EDITION }));
 
     const response = (await createOnchain.POST(
       jsonRequest(null),
@@ -520,13 +575,115 @@ describe("POST /api/studio/drafts/[id]/create-onchain", () => {
 
     expect(response.status).toBe(200);
     expect(createEditionFromWizard).not.toHaveBeenCalled();
+    // Mirror already there: nothing to repair either.
+    expect(mirrorEditionFromWizard).not.toHaveBeenCalled();
+    expect(claimDraftForCreate).not.toHaveBeenCalled();
+  });
+
+  it("claims the draft before writing to the chain", async () => {
+    vi.mocked(getDraft).mockResolvedValue(draftRow());
+    vi.mocked(listInvites).mockResolvedValue(accepted);
+    vi.mocked(updateDraft).mockResolvedValue(draftRow());
+
+    await createOnchain.POST(jsonRequest(null), params({ id: DRAFT_ID }));
+
+    expect(claimDraftForCreate).toHaveBeenCalledWith(DRAFT_ID);
+    expect(
+      vi.mocked(claimDraftForCreate).mock.invocationCallOrder[0],
+    ).toBeLessThan(
+      vi.mocked(createEditionFromWizard).mock.invocationCallOrder[0],
+    );
+    // The claim was converted into the real address, so nothing releases it.
+    expect(releaseDraftCreateClaim).not.toHaveBeenCalled();
+  });
+
+  it("refuses a second request while the first is still in flight", async () => {
+    vi.mocked(getDraft).mockResolvedValue(draftRow());
+    vi.mocked(listInvites).mockResolvedValue(accepted);
+    vi.mocked(claimDraftForCreate).mockResolvedValue(false);
+
+    const response = (await createOnchain.POST(
+      jsonRequest(null),
+      params({ id: DRAFT_ID }),
+    )) as unknown as FakeResponse;
+
+    expect(response.status).toBe(409);
+    expect(createEditionFromWizard).not.toHaveBeenCalled();
+  });
+
+  it("hands the claim back when the attempt never reaches the chain", async () => {
+    // A slug taken between wizard steps, an RPC that refused the request —
+    // nothing was minted, so the draft must stay creatable.
+    vi.mocked(getDraft).mockResolvedValue(draftRow());
+    vi.mocked(listInvites).mockResolvedValue(accepted);
+    vi.mocked(createEditionFromWizard).mockImplementationOnce(async () =>
+      fail("VALIDATION", "Este slug já está em uso.", { field: "slug" }),
+    );
+
+    const response = (await createOnchain.POST(
+      jsonRequest(null),
+      params({ id: DRAFT_ID }),
+    )) as unknown as FakeResponse;
+
+    expect(response.status).toBe(400);
+    expect(releaseDraftCreateClaim).toHaveBeenCalledWith(DRAFT_ID);
+  });
+
+  it("finishes the mirror on retry instead of minting a second edition", async () => {
+    // The window this whole dance exists for: create_edition confirmed, the
+    // mirror insert then failed. `chain_address` is written from inside the
+    // flow, so the retry can tell repair from a fresh create.
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.mocked(getDraft).mockResolvedValue(draftRow());
+    vi.mocked(listInvites).mockResolvedValue(accepted);
+    vi.mocked(updateDraft).mockResolvedValue(draftRow());
+    vi.mocked(createEditionFromWizard).mockImplementationOnce(
+      async (_input, hooks) => {
+        await hooks?.onChainWritten?.(EDITION);
+        throw new Error("mirror insert failed");
+      },
+    );
+
+    const first = (await createOnchain.POST(
+      jsonRequest(null),
+      params({ id: DRAFT_ID }),
+    )) as unknown as FakeResponse;
+
+    expect(first.status).toBe(500);
+    // The address landed before the mirror was attempted, and the claim was
+    // NOT handed back — a released claim here is what re-mints.
+    expect(setDraftChainAddress).toHaveBeenCalledWith(DRAFT_ID, EDITION);
+    expect(releaseDraftCreateClaim).not.toHaveBeenCalled();
+
+    // Retry: the draft is linked, the mirror row is still missing.
+    vi.mocked(getDraft).mockResolvedValue(draftRow({ chain_address: EDITION }));
+    vi.mocked(getEditionByAddress).mockResolvedValue(null);
+
+    const second = (await createOnchain.POST(
+      jsonRequest(null),
+      params({ id: DRAFT_ID }),
+    )) as unknown as FakeResponse;
+
+    expect(second.status).toBe(200);
+    expect(second.body).toMatchObject({ address: EDITION });
+    expect(createEditionFromWizard).toHaveBeenCalledTimes(1);
+    expect(mirrorEditionFromWizard).toHaveBeenCalledWith(
+      expect.objectContaining({
+        signers: [
+          { wallet: WALLET_A, name: "Ana Beatriz", role: "Coordenadora" },
+          { wallet: WALLET_B, name: "Bruno Lima", role: "Diretor" },
+        ],
+      }),
+      EDITION,
+    );
+    errorSpy.mockRestore();
   });
 
   it("keeps the created edition when linking the draft fails", async () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     vi.mocked(getDraft).mockResolvedValue(draftRow());
     vi.mocked(listInvites).mockResolvedValue(accepted);
-    vi.mocked(updateDraft).mockRejectedValue(new Error("db down"));
+    vi.mocked(setDraftChainAddress).mockResolvedValue(false);
 
     const response = (await createOnchain.POST(
       jsonRequest(null),

@@ -88,7 +88,7 @@ function AccountMenu() {
   const { t } = useT();
 
   if (!ready) {
-    return <Skeleton className="h-9 w-24 rounded-md" />;
+    return <Skeleton className="h-9 w-24 rounded-full" />;
   }
 
   if (!authenticated) {
@@ -158,8 +158,13 @@ export function Nav() {
   const { t } = useT();
 
   return (
-    <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/80">
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
+    <header className="glass sticky top-0 z-40">
+      {/* Decorative brand hairline under the bar — fades at both edges. */}
+      <div
+        aria-hidden="true"
+        className="rule-gradient pointer-events-none absolute inset-x-0 bottom-0"
+      />
+      <div className="relative mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
         <Link
           href="/"
           className="flex items-center gap-2.5 rounded-sm text-lg font-semibold tracking-tight focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
@@ -185,7 +190,7 @@ export function Nav() {
 
         <nav
           aria-label={t("nav.mainNav")}
-          className="hidden items-center gap-6 md:flex"
+          className="hidden items-center gap-5 md:flex"
         >
           <RoleLinks />
         </nav>

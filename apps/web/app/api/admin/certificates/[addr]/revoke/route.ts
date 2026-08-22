@@ -11,8 +11,10 @@ import {
   type RevokeCertificateResult,
 } from "@/lib/chain/revoke";
 import { getCertificateNotificationContext } from "@/lib/db/notification-queries";
+import { getVerifyView } from "@/lib/db/claim-verify-queries";
 import { notifyOnce } from "@/lib/email/notify";
 import { DEFAULT_LOCALE } from "@/lib/i18n/locales";
+import { removeCachedPdfs } from "@/lib/pdf/storage";
 
 /**
  * Admin revoke — two distinct server-held admin signatures (OPERATOR + DEPLOYER)
@@ -40,6 +42,11 @@ export async function POST(
       actor: session.did,
     });
 
+    // The cached export lives in a public bucket at a path derivable from
+    // anon-readable data — revoking the route isn't enough, the object has to
+    // go. Also on alreadyRevoked: re-revoking repairs an earlier missed sweep.
+    await sweepPdfCache(addr);
+
     // The student learns their certificate is gone from the verify page
     // otherwise — after() runs this once the response is out, so a mail
     // outage can never turn a completed revoke into an error.
@@ -52,6 +59,28 @@ export async function POST(
     }
     return result;
   });
+}
+
+/**
+ * Never fails the revoke — chain state is authoritative — but a failed sweep
+ * is an operator-visible error, not a silent shrug: until it succeeds, the
+ * pre-revocation PDF stays publicly fetchable straight from storage.
+ */
+async function sweepPdfCache(address: string): Promise<void> {
+  try {
+    const view = await getVerifyView(address);
+    if (!view?.sha256) return;
+    const removed = await removeCachedPdfs(view.sha256);
+    if (removed > 0) {
+      console.log(`[revoke] swept ${removed} cached PDF(s) for ${address}`);
+    } else if (removed < 0) {
+      console.error(
+        `[revoke] PDF cache sweep FAILED for ${address} — the cached export may still be publicly fetchable`,
+      );
+    }
+  } catch (err) {
+    console.error(`[revoke] PDF cache sweep threw for ${address}:`, err);
+  }
 }
 
 async function notifyRevoked(address: string, reason: string): Promise<void> {

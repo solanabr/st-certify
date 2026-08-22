@@ -24,6 +24,10 @@ export type AppErrorCode =
   | "ATTENDANCE_NOT_CREATOR"
   | "SIWS_NONCE_EXPIRED"
   | "SIWS_INVALID_SIGNATURE"
+  /** The session belongs to someone other than the person the invite was sent to. */
+  | "INVITE_EMAIL_MISMATCH"
+  /** The chosen wallet already signs another seat of the same edition. */
+  | "INVITE_WALLET_TAKEN"
   | "INTERNAL";
 
 export type AppErrorAction = "airdrop" | "retry" | "login" | "goto-me";

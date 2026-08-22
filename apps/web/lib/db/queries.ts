@@ -1,5 +1,20 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { fail } from "@/lib/errors";
+// `@/lib/mock/flag`, not `@/lib/mock`: lib/db/** is partly client-reachable
+// (see certificator-queries.ts) and the index reaches for next/headers.
+import { isUiMock } from "@/lib/mock/flag";
+import {
+  mockAdminStats,
+  mockCertificateRow,
+  mockCertificatesAdmin,
+  mockCertificatesForOwner,
+  mockEditionByAddress,
+  mockEditionBySlug,
+  mockEditionsAdmin,
+  mockIsEditionSigner,
+  mockOpenEditions,
+  mockSlugAvailable,
+} from "@/lib/mock/fixtures";
 import type {
   AdminStats,
   CertificateAdminRow,
@@ -15,8 +30,13 @@ const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-/** False until NEXT_PUBLIC_SUPABASE_URL is set (pending, see .env). */
-export const dbConfigured = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
+/**
+ * False until NEXT_PUBLIC_SUPABASE_URL is set (pending, see .env). True in
+ * UI-mock mode so the pages that gate on it render their real content against
+ * fixtures instead of the "banco não configurado" notice.
+ */
+export const dbConfigured =
+  isUiMock() || Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
 
 let anonClient: SupabaseClient | null = null;
 
@@ -116,6 +136,7 @@ async function fetchSignersFor(
 
 /** Open editions for the public /certificates browse grid. */
 export async function listOpenEditions(): Promise<EditionWithSigners[]> {
+  if (isUiMock()) return mockOpenEditions();
   const supabase = getAnonClient();
   const { data, error } = await supabase
     .from("editions")
@@ -144,6 +165,7 @@ export async function listOpenEditions(): Promise<EditionWithSigners[]> {
 export async function getEditionBySlug(
   slug: string,
 ): Promise<EditionWithSigners | null> {
+  if (isUiMock()) return mockEditionBySlug(slug);
   const supabase = getAnonClient();
   const { data, error } = await supabase
     .from("editions")
@@ -173,6 +195,7 @@ export async function getEditionBySlug(
 export async function getEditionByAddress(
   address: string,
 ): Promise<EditionWithSigners | null> {
+  if (isUiMock()) return mockEditionByAddress(address);
   const supabase = getAnonClient();
   const { data, error } = await supabase
     .from("editions")
@@ -200,6 +223,7 @@ export async function getEditionByAddress(
 
 /** True if `slug` is not already used by an edition (wizard step-1 blur check). */
 export async function isSlugAvailable(slug: string): Promise<boolean> {
+  if (isUiMock()) return mockSlugAvailable(slug);
   const supabase = getAnonClient();
   const { count, error } = await supabase
     .from("editions")
@@ -219,6 +243,7 @@ export async function isSlugAvailable(slug: string): Promise<boolean> {
 export async function getCertificateByAddress(
   address: string,
 ): Promise<CertificateRow | null> {
+  if (isUiMock()) return mockCertificateRow(address);
   const supabase = getServiceClient();
   const { data, error } = await supabase
     .from("certificates")
@@ -249,6 +274,7 @@ export async function listCertificatesForOwner(input: {
   did: string;
   wallets: string[];
 }): Promise<CertificateForOwner[]> {
+  if (isUiMock()) return mockCertificatesForOwner();
   const supabase = getServiceClient();
 
   const results = await Promise.all([
@@ -338,6 +364,7 @@ export async function listCertificatesForOwner(input: {
 export async function isEditionSignerWallet(
   wallets: string[],
 ): Promise<boolean> {
+  if (isUiMock()) return mockIsEditionSigner(wallets);
   if (!dbConfigured || wallets.length === 0) {
     return false;
   }
@@ -363,6 +390,7 @@ export async function isEditionSignerWallet(
 
 /** All editions for the admin Edições tab (every status, newest first). */
 export async function listEditionsAdmin(): Promise<EditionWithSigners[]> {
+  if (isUiMock()) return mockEditionsAdmin();
   const supabase = getAnonClient();
   const { data, error } = await supabase
     .from("editions")
@@ -395,6 +423,7 @@ export async function listCertificatesAdmin(filters: {
   edition?: string;
   status?: string;
 }): Promise<CertificateAdminRow[]> {
+  if (isUiMock()) return mockCertificatesAdmin(filters);
   // Service role: the table shows `owner_wallet`, which anon cannot read.
   const supabase = getServiceClient();
   let query = supabase
@@ -458,6 +487,7 @@ export async function listCertificatesAdmin(filters: {
 
 /** Overview counts for the admin dashboard's 4 stat cards. */
 export async function getAdminStats(): Promise<AdminStats> {
+  if (isUiMock()) return mockAdminStats();
   const supabase = getAnonClient();
 
   const [editions, pending, claimed, revoked] = await Promise.all([

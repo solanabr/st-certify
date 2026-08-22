@@ -3,6 +3,12 @@ import type { Locale } from "../locales";
 /** Studio area: dashboard, editions/certificates tables, revoke, edition wizard. */
 const pt = {
   "admin.title": "Studio",
+  // Authed-surface richness — page eyebrows/subtitle (studio, sign, edition mgmt).
+  "admin.eyebrow": "Painel",
+  "admin.subtitle":
+    "Acompanhe edições, assinaturas pendentes e atividade recente.",
+  "admin.sign.eyebrow": "Fila de assinatura",
+  "admin.manage.eyebrow": "Edição",
   "admin.createEdition": "Criar edição",
   "admin.newEditionTitle": "Nova edição",
   "admin.editions": "Edições",
@@ -204,6 +210,10 @@ export const adminDict: Record<Locale, Record<adminKey, string>> = {
   "pt-BR": pt,
   en: {
     "admin.title": "Studio",
+    "admin.eyebrow": "Dashboard",
+    "admin.subtitle": "Track editions, pending signatures and recent activity.",
+    "admin.sign.eyebrow": "Signing queue",
+    "admin.manage.eyebrow": "Edition",
     "admin.createEdition": "Create edition",
     "admin.newEditionTitle": "New edition",
     "admin.editions": "Editions",
@@ -400,6 +410,11 @@ export const adminDict: Record<Locale, Record<adminKey, string>> = {
   },
   es: {
     "admin.title": "Studio",
+    "admin.eyebrow": "Panel",
+    "admin.subtitle":
+      "Sigue ediciones, firmas pendientes y actividad reciente.",
+    "admin.sign.eyebrow": "Cola de firma",
+    "admin.manage.eyebrow": "Edición",
     "admin.createEdition": "Crear edición",
     "admin.newEditionTitle": "Nueva edición",
     "admin.editions": "Ediciones",

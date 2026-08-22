@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { CheckCheck, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -15,16 +16,25 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Reveal } from "@/components/landing/reveal";
 import { EditionGroupTable } from "@/components/certificator/edition-group";
 import { InboxSkeleton } from "@/components/certificator/inbox-skeleton";
 import {
   RejectDialog,
   type RejectTarget,
 } from "@/components/certificator/reject-dialog";
+import { BatchDone } from "@/components/sign/batch-done";
+import {
+  nextSignStep,
+  summarizeBatch,
+  type BatchSummary,
+} from "@/components/sign/ceremony";
+import { ConsentPanel } from "@/components/sign/consent-panel";
 import { onAppError } from "@/lib/on-app-error";
 import { callerSignerWallet } from "@/lib/db/certificator-queries";
 import { useT } from "@/lib/i18n";
 import { useMassSign } from "@/hooks/useMassSign";
+import { useMe } from "@/hooks/useMe";
 import { usePendingInbox } from "@/hooks/usePendingInbox";
 import { useReject } from "@/hooks/useReject";
 
@@ -34,6 +44,7 @@ export default function CertificatorPage() {
   const { t } = useT();
   const massSign = useMassSign();
   const reject = useReject();
+  const { data: me } = useMe();
   const { data, isLoading, isError, refetch } = usePendingInbox(
     massSign.progress.running,
   );
@@ -41,6 +52,11 @@ export default function CertificatorPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [rejectTarget, setRejectTarget] = useState<RejectTarget | null>(null);
+  // The consent disclosure gates the first wallet prompt of the session, so
+  // the acknowledgement lives here rather than per batch (§6.4).
+  const [consented, setConsented] = useState(false);
+  const [consentOpen, setConsentOpen] = useState(false);
+  const [lastBatch, setLastBatch] = useState<BatchSummary | null>(null);
 
   const groups = useMemo(() => data ?? [], [data]);
   const totalPending = groups.reduce((n, g) => n + g.certificates.length, 0);
@@ -102,15 +118,28 @@ export default function CertificatorPage() {
     selectedByEdition.map((x) => callerSignerWallet(x.group)),
   ).size;
 
+  /** Opens the consent disclosure the first time, the confirm dialog after that. */
+  function startSign() {
+    if (nextSignStep(consented) === "consent") setConsentOpen(true);
+    else setConfirmOpen(true);
+  }
+
   async function runSign() {
     setConfirmOpen(false);
-    await massSign.run({
-      groups: selectedByEdition.map((x) => ({
-        editionAddress: x.group.editionAddress,
-        signerWallet: callerSignerWallet(x.group),
-        certificateAddresses: x.certs.map((c) => c.address),
-      })),
-    });
+    // Snapshot the batch before the run: `selected` is cleared below, and the
+    // completion state has to name the editions that were actually signed.
+    // Carries `editionName` for that summary; the run itself ignores it.
+    const batch = selectedByEdition.map((x) => ({
+      editionAddress: x.group.editionAddress,
+      editionName: x.group.editionName,
+      signerWallet: callerSignerWallet(x.group),
+      certificateAddresses: x.certs.map((c) => c.address),
+    }));
+
+    const outcome = await massSign.run({ groups: batch });
+
+    const summary = summarizeBatch(batch, outcome);
+    setLastBatch(summary.signed + summary.failed > 0 ? summary : null);
     setSelected(new Set());
   }
 
@@ -133,28 +162,48 @@ export default function CertificatorPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-12 pb-28">
-      <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          {t("nav.sign")}
-        </h1>
-        {totalPending > 0 && (
-          <Badge variant="secondary" className="tabular-nums">
-            {t("certificator.awaitingYou", { count: totalPending })}
-          </Badge>
-        )}
+      <div>
+        <p className="stbr-eyebrow">{t("admin.sign.eyebrow")}</p>
+        <div className="mt-2 flex flex-wrap items-center gap-3">
+          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+            {t("nav.sign")}
+          </h1>
+          {totalPending > 0 && (
+            <Badge variant="secondary" className="tabular-nums">
+              {t("certificator.awaitingYou", { count: totalPending })}
+            </Badge>
+          )}
+        </div>
+        <p className="mt-2 text-muted-foreground">
+          {t("certificator.subtitle")}
+        </p>
       </div>
-      <p className="mt-2 text-muted-foreground">{t("certificator.subtitle")}</p>
+
+      {/* What the last batch accomplished — replaced, not stacked, per run. */}
+      {lastBatch && !massSign.progress.running && (
+        <BatchDone
+          summary={lastBatch}
+          showEditionLinks={me?.role === "sysadmin"}
+          onDismiss={() => setLastBatch(null)}
+        />
+      )}
 
       {/* Truthful batch progress, announced politely. */}
       {massSign.progress.running && massSign.progress.totalChunks > 0 && (
         <div
           aria-live="polite"
-          className="mt-6 rounded-lg border border-border bg-card px-4 py-3 text-sm"
+          className="elevate mt-6 flex items-center gap-3 rounded-xl bg-card px-4 py-3 text-sm"
         >
-          {t("certificator.signingProgress", {
-            done: massSign.progress.confirmedChunks,
-            total: massSign.progress.totalChunks,
-          })}
+          <Loader2
+            className="size-4 shrink-0 text-primary motion-safe:animate-spin"
+            aria-hidden="true"
+          />
+          <span>
+            {t("certificator.signingProgress", {
+              done: massSign.progress.confirmedChunks,
+              total: massSign.progress.totalChunks,
+            })}
+          </span>
         </div>
       )}
 
@@ -176,8 +225,11 @@ export default function CertificatorPage() {
             </AlertDescription>
           </Alert>
         ) : groups.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-border px-6 py-16 text-center">
-            <p className="text-base font-medium">
+          <div className="flex flex-col items-center rounded-xl border border-dashed border-border px-6 py-16 text-center">
+            <span className="flex size-12 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/15 via-primary/5 to-brand-yellow/20 text-primary ring-1 ring-inset ring-primary/20">
+              <CheckCheck className="size-6" aria-hidden="true" />
+            </span>
+            <p className="mt-4 text-base font-medium">
               {t("certificator.emptyTitle")}
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
@@ -194,29 +246,33 @@ export default function CertificatorPage() {
           </div>
         ) : (
           <div className="space-y-10">
-            {groups.map((group) => (
-              <EditionGroupTable
-                key={group.editionAddress}
-                group={group}
-                selected={selected}
-                certState={massSign.progress.certState}
-                onToggleCert={toggleCert}
-                onToggleAll={(checked) =>
-                  toggleAll(
-                    group.certificates.map((c) => c.address),
-                    checked,
-                  )
-                }
-                onReject={setRejectTarget}
-              />
+            {groups.map((group, i) => (
+              <Reveal key={group.editionAddress} delay={i * 60}>
+                <EditionGroupTable
+                  group={group}
+                  selected={selected}
+                  certState={massSign.progress.certState}
+                  onToggleCert={toggleCert}
+                  onToggleAll={(checked) =>
+                    toggleAll(
+                      group.certificates.map((c) => c.address),
+                      checked,
+                    )
+                  }
+                  onReject={setRejectTarget}
+                />
+              </Reveal>
             ))}
           </div>
         )}
       </div>
 
-      {/* Sticky action bar — in tab order, appears once something is selected. */}
+      {/* Sticky action bar — in tab order, appears once something is selected.
+          The safe-area padding keeps the sign button clear of the iPhone home
+          indicator; layout.tsx sets viewport-fit=cover, which is what makes
+          env(safe-area-inset-bottom) resolve to anything but 0. */}
       {selectedCount > 0 && (
-        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur supports-[backdrop-filter]:bg-card/80">
           <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-4">
             <span className="text-sm tabular-nums">
               <strong>{selectedCount}</strong>{" "}
@@ -236,7 +292,7 @@ export default function CertificatorPage() {
                 {t("certificator.clear")}
               </Button>
               <Button
-                onClick={() => setConfirmOpen(true)}
+                onClick={startSign}
                 disabled={massSign.progress.running || hasUnresolvedSigner}
               >
                 {massSign.progress.running
@@ -252,6 +308,16 @@ export default function CertificatorPage() {
           </div>
         </div>
       )}
+
+      <ConsentPanel
+        open={consentOpen}
+        onOpenChange={setConsentOpen}
+        onAgree={() => {
+          setConsented(true);
+          setConsentOpen(false);
+          setConfirmOpen(true);
+        }}
+      />
 
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent>

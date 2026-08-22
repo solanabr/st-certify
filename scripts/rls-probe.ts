@@ -3,16 +3,20 @@
  * client writes denied; only service-role writes the mirror"). This is a
  * security GATE, not a smoke test: it proves, against the live Supabase
  * project, that the anon key genuinely cannot write anywhere, genuinely
- * cannot read profiles/events/attendance_*, genuinely cannot read the
- * withheld columns of `certificates`, and genuinely cannot call the
- * attendance RPCs or write to storage — the same guarantees
- * supabase/migrations/0001_init.sql, 0002_attendance.sql and
- * 0003_hardening.sql declare in SQL, exercised end-to-end through PostgREST
+ * cannot read profiles, events, the attendance tables or the overhaul
+ * tables, genuinely cannot read the withheld columns of `certificates`,
+ * and genuinely cannot
+ * call the attendance RPCs or write to storage — the same guarantees
+ * supabase/migrations/0001_init.sql, 0002_attendance.sql, 0003_hardening.sql
+ * and 0005_overhaul.sql declare in SQL, exercised end-to-end through PostgREST
  * the way a real attacker (or a client-side bug) would hit it.
  *
  * Design: seed known probe rows with the SERVICE-ROLE client (bypasses RLS),
  * then attempt every operation with the ANON client, then clean up with the
- * service-role client again. Seed-then-probe (rather than trusting an empty
+ * service-role client again. `edition_drafts`/`signer_invites`/
+ * `notification_log` get a second pass as the `authenticated` role over the
+ * Postgres connection — see `probeAuthenticatedRole` for why that half cannot
+ * go through PostgREST. Seed-then-probe (rather than trusting an empty
  * table) is deliberate: for SELECT, RLS-with-no-policy doesn't error, it
  * silently returns zero rows — indistinguishable from "table is empty"
  * unless we first prove a row that SHOULD be denied actually exists. The
@@ -39,6 +43,8 @@
 
 import { randomUUID } from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+// Resolves from the repo-root install, same as scripts/setup-supabase.ts.
+import { Client } from "pg";
 
 try {
   process.loadEnvFile();
@@ -49,16 +55,24 @@ try {
 const URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const DB_URL = process.env.SUPABASE_DB_URL;
 
 const RUN_ID = `rlsprobe_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
 /**
- * The columns 0003_hardening.sql grants anon on `certificates`. Kept in sync
- * by hand with CERT_PUBLIC_COLUMNS in apps/web/lib/db/claim-verify-queries.ts
- * (scripts/ can't import across the app's `@/` path alias).
+ * The columns 0003_hardening.sql grants anon on `certificates`, plus
+ * `verify_code` from 0005_overhaul.sql. Kept in sync by hand with
+ * CERT_PUBLIC_COLUMNS in apps/web/lib/db/claim-verify-queries.ts (scripts/
+ * can't import across the app's `@/` path alias).
+ *
+ * `verify_code` earns its place here rather than being taken on trust: a
+ * column-level grant covers only the columns named when it was issued, so a
+ * column added by a later migration is denied until someone remembers to grant
+ * it. 0005 does — and this projection is what would catch it if a future
+ * migration adding a public column forgets.
  */
 const CERT_PUBLIC_COLUMNS =
-  "address, edition_address, student_name, status, signer_bitmap, sha256, image_url, metadata_url, asset, cert_number, signer_txs, revoke_reason, completed_at, created_at";
+  "address, edition_address, student_name, status, signer_bitmap, sha256, image_url, metadata_url, asset, cert_number, signer_txs, revoke_reason, completed_at, created_at, verify_code, cluster";
 
 /** Columns the same migration deliberately withholds from anon. */
 const CERT_WITHHELD_COLUMNS = ["name_salt", "owner_did", "owner_wallet"];
@@ -141,12 +155,21 @@ async function expectReadDenied(
   );
 }
 
-function requireEnv(): { url: string; anonKey: string; serviceKey: string } {
+function requireEnv(): {
+  url: string;
+  anonKey: string;
+  serviceKey: string;
+  dbUrl: string;
+} {
   const missing = (
     [
       ["NEXT_PUBLIC_SUPABASE_URL", URL],
       ["NEXT_PUBLIC_SUPABASE_ANON_KEY", ANON_KEY],
       ["SUPABASE_SERVICE_ROLE_KEY", SERVICE_KEY],
+      // Required, not optional: without it the `authenticated` half of the
+      // probe cannot run at all, and a gate that quietly skips half of what it
+      // claims to check is the failure mode this file exists to avoid.
+      ["SUPABASE_DB_URL", DB_URL],
     ] as const
   )
     .filter(([, value]) => !value)
@@ -156,14 +179,158 @@ function requireEnv(): { url: string; anonKey: string; serviceKey: string } {
     throw new Error(
       `missing required env: ${missing.join(", ")}.\n` +
         "  This probe is a security gate — it cannot pass without running.\n" +
-        "  Set these in .env (Supabase dashboard → Project Settings → API) and re-run.",
+        "  Set these in .env (Supabase dashboard → Project Settings → API for the\n" +
+        "  keys, Connect → URI for SUPABASE_DB_URL) and re-run.",
     );
   }
   return {
     url: URL as string,
     anonKey: ANON_KEY as string,
     serviceKey: SERVICE_KEY as string,
+    dbUrl: DB_URL as string,
   };
+}
+
+/**
+ * Runs the same four operations against the three overhaul tables as the
+ * `authenticated` role, over the Postgres connection `setup-supabase.ts`
+ * already uses. `SET LOCAL ROLE` drops privileges for the rest of the
+ * transaction (Supabase's `postgres` is a member of `authenticated`), each
+ * statement is wrapped in a SAVEPOINT so a permission error doesn't poison the
+ * ones after it, and the whole thing ends in ROLLBACK — nothing here can write
+ * to the project even if a check fails open.
+ *
+ * Verdicts follow `attempt`: an explicit error OR zero rows is denied; rows
+ * coming back is the only failure.
+ */
+async function probeAuthenticatedRole(
+  dbUrl: string,
+  ids: { draftId: string; inviteId: string; notificationId: string },
+): Promise<void> {
+  const client = new Client({ connectionString: dbUrl });
+  await client.connect();
+  try {
+    await client.query("begin");
+    await client.query("set local role authenticated");
+
+    const confirmed = await client.query<{ role: string }>(
+      "select current_user as role",
+    );
+    if (confirmed.rows[0]?.role !== "authenticated") {
+      throw new Error(
+        `expected to be running as "authenticated", got "${confirmed.rows[0]?.role}"`,
+      );
+    }
+
+    const cases: Array<{
+      table: string;
+      op: ProbeResult["op"];
+      sql: string;
+      params: unknown[];
+    }> = [
+      {
+        table: "edition_drafts",
+        op: "select-denied",
+        sql: "select id from edition_drafts where id = $1",
+        params: [ids.draftId],
+      },
+      {
+        table: "signer_invites",
+        op: "select-denied",
+        sql: "select id from signer_invites where id = $1",
+        params: [ids.inviteId],
+      },
+      {
+        table: "notification_log",
+        op: "select-denied",
+        sql: "select id from notification_log where id = $1",
+        params: [ids.notificationId],
+      },
+      {
+        table: "edition_drafts",
+        op: "insert",
+        sql: "insert into edition_drafts (meta, created_by) values ('{}'::jsonb, $1) returning id",
+        params: [`${RUN_ID}_authenticated_insert`],
+      },
+      {
+        table: "signer_invites",
+        op: "insert",
+        sql: "insert into signer_invites (draft_id, name, role, email, token) values ($1, 'Probe', 'Probe', 'x@example.invalid', $2) returning id",
+        params: [ids.draftId, `${RUN_ID}_authenticated_token`],
+      },
+      {
+        table: "notification_log",
+        op: "insert",
+        sql: "insert into notification_log (type, recipient, ref_id) values ('rls_probe_authenticated', 'x@example.invalid', $1) returning id",
+        params: [`${RUN_ID}_authenticated_ref`],
+      },
+      {
+        table: "edition_drafts",
+        op: "update",
+        sql: "update edition_drafts set chain_address = $2 where id = $1 returning id",
+        params: [ids.draftId, `${RUN_ID}_authenticated_tamper`],
+      },
+      {
+        table: "signer_invites",
+        op: "update",
+        sql: "update signer_invites set wallet = $2 where id = $1 returning id",
+        params: [ids.inviteId, `${RUN_ID}_authenticated_wallet`],
+      },
+      {
+        table: "notification_log",
+        op: "update",
+        sql: "update notification_log set recipient = 'tampered@example.invalid' where id = $1 returning id",
+        params: [ids.notificationId],
+      },
+      {
+        table: "signer_invites",
+        op: "delete",
+        sql: "delete from signer_invites where id = $1 returning id",
+        params: [ids.inviteId],
+      },
+      {
+        table: "edition_drafts",
+        op: "delete",
+        sql: "delete from edition_drafts where id = $1 returning id",
+        params: [ids.draftId],
+      },
+      {
+        table: "notification_log",
+        op: "delete",
+        sql: "delete from notification_log where id = $1 returning id",
+        params: [ids.notificationId],
+      },
+    ];
+
+    for (const c of cases) {
+      await client.query("savepoint probe");
+      try {
+        const res = await client.query(c.sql, c.params);
+        const count = res.rowCount ?? 0;
+        record(
+          `${c.table} (authenticated)`,
+          c.op,
+          count === 0 ? "PASS" : "FAIL",
+          count === 0
+            ? "0 rows (no privilege / RLS-hidden)"
+            : `${count} row(s) — NOT BLOCKED`,
+        );
+      } catch (err) {
+        record(
+          `${c.table} (authenticated)`,
+          c.op,
+          "PASS",
+          `error: ${err instanceof Error ? err.message : String(err)}`,
+        );
+        await client.query("rollback to savepoint probe");
+      }
+    }
+  } finally {
+    // Belt and braces: the connection is closed either way, but an explicit
+    // rollback makes it impossible for a leaked statement to commit.
+    await client.query("rollback").catch(() => undefined);
+    await client.end().catch(() => undefined);
+  }
 }
 
 async function main(): Promise<void> {
@@ -186,9 +353,14 @@ async function main(): Promise<void> {
   const nameSalt = `${RUN_ID}_secret_salt`;
   const attendanceNonce = `${RUN_ID}_nonce`;
   const attendanceWallet = `${RUN_ID}_attendance_wallet`;
+  const inviteToken = `${RUN_ID}_invite_token`;
+  const notificationRef = `${RUN_ID}_ref`;
   let eventId: number | null = null;
   let eventInsertAttemptId: number | null = null;
   let attendanceEventId: string | null = null;
+  let draftId: string | null = null;
+  let inviteId: string | null = null;
+  let notificationId: string | null = null;
 
   console.log(`== RLS probe (run ${RUN_ID}) ==\n`);
 
@@ -294,6 +466,57 @@ async function main(): Promise<void> {
       throw new Error(
         `setup: attendance_nonces insert failed: ${error.message}`,
       );
+  }
+  // 0005_overhaul.sql's three tables. Same posture as profiles/attendance_*:
+  // RLS enabled, zero policies, service-role only. What they hold is why —
+  // drafts are unpublished edition metadata, `signer_invites.token` is a
+  // bearer capability that binds a seat (plus the signer's email), and
+  // `notification_log.recipient` is an email address. Each is seeded with a
+  // real, non-null value so a denied read can't be mistaken for an empty one.
+  {
+    const { data, error } = await admin
+      .from("edition_drafts")
+      .insert({
+        meta: { name: "RLS probe draft", slug: `${RUN_ID}-draft` },
+        created_by: did,
+      })
+      .select("id")
+      .single();
+    if (error || !data)
+      throw new Error(`setup: edition_drafts insert failed: ${error?.message}`);
+    draftId = (data as { id: string }).id;
+  }
+  {
+    const { data, error } = await admin
+      .from("signer_invites")
+      .insert({
+        draft_id: draftId,
+        name: "Probe Invitee",
+        role: "Instrutor(a)",
+        email: "rls-probe-invite@example.invalid",
+        token: inviteToken,
+      })
+      .select("id")
+      .single();
+    if (error || !data)
+      throw new Error(`setup: signer_invites insert failed: ${error?.message}`);
+    inviteId = (data as { id: string }).id;
+  }
+  {
+    const { data, error } = await admin
+      .from("notification_log")
+      .insert({
+        type: "rls_probe_seed",
+        recipient: "rls-probe-notify@example.invalid",
+        ref_id: notificationRef,
+      })
+      .select("id")
+      .single();
+    if (error || !data)
+      throw new Error(
+        `setup: notification_log insert failed: ${error?.message}`,
+      );
+    notificationId = (data as { id: string }).id;
   }
   console.log("Seed complete.\n");
 
@@ -404,6 +627,9 @@ async function main(): Promise<void> {
       ["attendance_events", { id: attendanceEventId as string }],
       ["attendance_claims", { wallet: attendanceWallet }],
       ["attendance_nonces", { nonce: attendanceNonce }],
+      ["edition_drafts", { id: draftId as string }],
+      ["signer_invites", { id: inviteId as string }],
+      ["notification_log", { id: notificationId as string }],
     ] as const) {
       const { data, error } = await anon.from(table).select("*").match(match);
       if (error) {
@@ -543,6 +769,57 @@ async function main(): Promise<void> {
         r.detail,
       );
     }
+    {
+      const r = await attempt(
+        anon
+          .from("edition_drafts")
+          .insert({
+            meta: { name: "RLS probe draft insert attempt" },
+            created_by: didInsertAttempt,
+          })
+          .select(),
+      );
+      record("edition_drafts", "insert", r.blocked ? "PASS" : "FAIL", r.detail);
+    }
+    {
+      // An anon INSERT here would be a seat-minting primitive: whoever writes
+      // the row chooses the token, and the token is the magic link that binds a
+      // signer wallet to a draft.
+      const r = await attempt(
+        anon
+          .from("signer_invites")
+          .insert({
+            draft_id: draftId,
+            name: "Probe Invitee Insert Attempt",
+            role: "Instrutor(a)",
+            email: "rls-probe-invite-insert@example.invalid",
+            token: `${RUN_ID}_invite_token_insert`,
+          })
+          .select(),
+      );
+      record("signer_invites", "insert", r.blocked ? "PASS" : "FAIL", r.detail);
+    }
+    {
+      // notification_log is the rate limiter behind `notifyOnce`; a forged row
+      // suppresses a real email, an unrestricted one lets anyone read who was
+      // mailed about what.
+      const r = await attempt(
+        anon
+          .from("notification_log")
+          .insert({
+            type: "rls_probe_insert_attempt",
+            recipient: "rls-probe-notify-insert@example.invalid",
+            ref_id: `${RUN_ID}_ref_insert`,
+          })
+          .select(),
+      );
+      record(
+        "notification_log",
+        "insert",
+        r.blocked ? "PASS" : "FAIL",
+        r.detail,
+      );
+    }
 
     // -------------------------------------------------------------------
     // RPC — the attendance SECURITY functions are service-role-only
@@ -648,6 +925,23 @@ async function main(): Promise<void> {
         { nonce: attendanceNonce },
         { used_at: new Date().toISOString() },
       ],
+      [
+        "edition_drafts",
+        { id: draftId as string },
+        { chain_address: `${RUN_ID}_tampered_edition` },
+      ],
+      // The one that matters most: rebinding `wallet` on an accepted seat is
+      // how an attacker would get their own key baked into `create_edition`.
+      [
+        "signer_invites",
+        { id: inviteId as string },
+        { wallet: `${RUN_ID}_tampered_wallet`, status: "accepted" as const },
+      ],
+      [
+        "notification_log",
+        { id: notificationId as string },
+        { recipient: "tampered@example.invalid" },
+      ],
     ] as const) {
       const r = await attempt(
         anon.from(table).update(patch).match(match).select(),
@@ -668,10 +962,35 @@ async function main(): Promise<void> {
       ["attendance_claims", { wallet: attendanceWallet }],
       ["attendance_nonces", { nonce: attendanceNonce }],
       ["attendance_events", { id: attendanceEventId as string }],
+      ["signer_invites", { id: inviteId as string }],
+      ["edition_drafts", { id: draftId as string }],
+      ["notification_log", { id: notificationId as string }],
     ] as const) {
       const r = await attempt(anon.from(table).delete().match(match).select());
       record(table, "delete", r.blocked ? "PASS" : "FAIL", r.detail);
     }
+
+    // -------------------------------------------------------------------
+    // The `authenticated` role — the other half of 0005's posture, and the
+    // half PostgREST alone cannot reach from here: the anon key is a JWT the
+    // project signed with `role: anon`, and there is no way to mint an
+    // `authenticated` one without either the JWT secret or creating a real
+    // auth user in a production project. So this half runs over the Postgres
+    // connection instead, as the role itself, inside a transaction that is
+    // always rolled back.
+    //
+    // It matters because "RLS is on" and "the role has no privileges" are
+    // different guarantees with different failure modes: a future migration
+    // adding `grant select on edition_drafts to authenticated` (or one policy
+    // scoped `to public`) would open every draft, seat token and notification
+    // recipient to anyone holding a logged-in session, while every anon probe
+    // above stayed green.
+    // -------------------------------------------------------------------
+    await probeAuthenticatedRole(env.dbUrl, {
+      draftId: draftId as string,
+      inviteId: inviteId as string,
+      notificationId: notificationId as string,
+    });
   } finally {
     console.log("\nCleaning up probe rows (service role)...");
     // Deleting the edition cascades to edition_signers + certificates, and
@@ -701,6 +1020,15 @@ async function main(): Promise<void> {
         .delete()
         .eq("id", attendanceEventId);
     }
+    // edition_drafts cascades to signer_invites (0005_overhaul.sql). Both
+    // deletes are run by run-scoped marker rather than by id so a row that
+    // leaked through an unexpected INSERT above is swept up too.
+    await admin.from("signer_invites").delete().like("token", `${RUN_ID}%`);
+    await admin
+      .from("edition_drafts")
+      .delete()
+      .like("created_by", `${RUN_ID}%`);
+    await admin.from("notification_log").delete().like("ref_id", `${RUN_ID}%`);
     console.log("Cleanup complete.");
   }
 

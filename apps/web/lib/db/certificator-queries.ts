@@ -12,13 +12,16 @@
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { fail } from "@/lib/errors";
+import { isUiMock } from "@/lib/mock/flag";
+import { mockIsEditionSigner, mockPendingForSigner } from "@/lib/mock/fixtures";
 import type { CertificateRow, EditionSignerRow } from "./types";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-/** False until Supabase env is set — callers degrade to an empty inbox. */
-export const dbConfigured = Boolean(SUPABASE_URL && SERVICE_ROLE_KEY);
+/** False until Supabase env is set — callers degrade to an empty inbox. True in UI-mock mode. */
+export const dbConfigured =
+  isUiMock() || Boolean(SUPABASE_URL && SERVICE_ROLE_KEY);
 
 let serviceClient: SupabaseClient | null = null;
 function db(): SupabaseClient {
@@ -87,6 +90,7 @@ export async function isWalletSignerOfEdition(
   editionAddress: string,
   wallets: string[],
 ): Promise<boolean> {
+  if (isUiMock()) return mockIsEditionSigner(wallets, editionAddress);
   if (!dbConfigured || wallets.length === 0) {
     return false;
   }
@@ -120,6 +124,7 @@ function popcount(n: number): number {
 export async function getPendingForSigner(
   wallets: string[],
 ): Promise<PendingEditionGroup[]> {
+  if (isUiMock()) return mockPendingForSigner();
   if (!dbConfigured || wallets.length === 0) {
     return [];
   }

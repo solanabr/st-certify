@@ -71,6 +71,16 @@ export interface CertificateRow {
   status: CertificateStatusValue;
   signer_bitmap: number;
   sha256: string | null;
+  /**
+   * The network the claim was recorded on, written at claim time so a document
+   * exported later cannot be re-attributed by repointing the environment.
+   *
+   * Optional, unlike every other column here, because it can be missing in two
+   * different ways: null on rows that predate migration 0006, and absent
+   * altogether from a `select("*")` against a database where 0006 has not been
+   * applied. Readers fall back to the environment for both.
+   */
+  cluster?: string | null;
   image_url: string | null;
   metadata_url: string | null;
   asset: string | null;
