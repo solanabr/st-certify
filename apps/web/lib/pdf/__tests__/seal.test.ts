@@ -123,13 +123,25 @@ describe("sealPdf", () => {
     expect(start).toBe(0);
     expect(firstLen + secondLen).toBe(sealed.length - (secondStart - firstLen));
 
-    const der = text
-      .slice(text.indexOf("<", firstLen) + 1, text.indexOf(">", firstLen))
-      .replace(/0+$/, "");
+    // The /Contents window is zero-padded to the placeholder size. Trimming
+    // trailing zeros would truncate a DER whose last byte — or last NIBBLE —
+    // happens to be zero (1 in 16 per generated key; caught by CI), so read
+    // the outer SEQUENCE's own length header and slice exactly instead.
+    const padded = Buffer.from(
+      text.slice(text.indexOf("<", firstLen) + 1, text.indexOf(">", firstLen)),
+      "hex",
+    );
+    const lengthByte = padded[1];
+    const longFormBytes = lengthByte < 0x80 ? 0 : lengthByte & 0x7f;
+    const derLength =
+      lengthByte < 0x80
+        ? lengthByte
+        : padded
+            .subarray(2, 2 + longFormBytes)
+            .reduce((total, byte) => total * 256 + byte, 0);
+    const der = padded.subarray(0, 2 + longFormBytes + derLength);
     const cms = forge.pkcs7.messageFromAsn1(
-      forge.asn1.fromDer(
-        forge.util.createBuffer(Buffer.from(der, "hex").toString("binary")),
-      ),
+      forge.asn1.fromDer(forge.util.createBuffer(der.toString("binary"))),
     ) as unknown as { type: string; rawCapture: { signature: string } };
 
     expect(cms.type).toBe(forge.pki.oids.signedData);
