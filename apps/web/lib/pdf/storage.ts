@@ -42,6 +42,47 @@ export async function readCachedPdf(path: string): Promise<Uint8Array | null> {
   return new Uint8Array(await data.arrayBuffer());
 }
 
+/**
+ * Sweeps every cached export for one artifact — all locales, sealed or not,
+ * under any seal-key fingerprint (matching on the sha PREFIX catches the
+ * pre-fingerprint name shape too). Runs on revoke: the route 404s the next
+ * request by itself, but the cache lives in a PUBLIC bucket at a path
+ * derivable from anon-readable data, so the object has to go, not just the
+ * route. Returns how many objects went away, or -1 when the sweep itself
+ * failed — the caller must surface that, a silent miss here leaves a revoked
+ * certificate downloadable forever.
+ */
+export async function removeCachedPdfs(
+  artifactSha256Hex: string,
+): Promise<number> {
+  if (!dbConfigured) return 0;
+
+  const storage = getServiceClient().storage.from(BUCKET);
+  const { data, error } = await storage.list("certs-pdf", {
+    search: artifactSha256Hex,
+  });
+  if (error) {
+    console.error(
+      `[pdf] cache sweep list failed for ${artifactSha256Hex}: ${error.message}`,
+    );
+    return -1;
+  }
+
+  const paths = (data ?? [])
+    .filter((object) => object.name.startsWith(artifactSha256Hex))
+    .map((object) => `certs-pdf/${object.name}`);
+  if (paths.length === 0) return 0;
+
+  const { error: removeError } = await storage.remove(paths);
+  if (removeError) {
+    console.error(
+      `[pdf] cache sweep remove failed for ${artifactSha256Hex}: ${removeError.message}`,
+    );
+    return -1;
+  }
+  return paths.length;
+}
+
 /** Best-effort write-through; a failed upload costs a rebuild, not a request. */
 export async function writeCachedPdf(
   path: string,

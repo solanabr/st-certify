@@ -1,5 +1,12 @@
-import { afterEach, describe, expect, it } from "vitest";
-import { pdfCachePath } from "../storage";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("@/lib/db/mutations", () => ({
+  dbConfigured: true,
+  getServiceClient: vi.fn(),
+}));
+
+const { getServiceClient } = await import("@/lib/db/mutations");
+const { pdfCachePath, removeCachedPdfs } = await import("../storage");
 
 const SHA = "a".repeat(64);
 
@@ -48,5 +55,65 @@ describe("pdfCachePath", () => {
     expect(pdfCachePath(SHA, "en", true)).not.toBe(
       pdfCachePath(SHA, "pt-BR", true),
     );
+  });
+});
+
+describe("removeCachedPdfs", () => {
+  function fakeStorage(over: {
+    listed?: Array<{ name: string }>;
+    listError?: { message: string };
+    removeError?: { message: string };
+  }) {
+    const remove = vi.fn(async () => ({
+      error: over.removeError ?? null,
+    }));
+    const list = vi.fn(async () => ({
+      data: over.listError ? null : (over.listed ?? []),
+      error: over.listError ?? null,
+    }));
+    vi.mocked(getServiceClient).mockReturnValue({
+      storage: { from: () => ({ list, remove }) },
+    } as unknown as ReturnType<typeof getServiceClient>);
+    return { list, remove };
+  }
+
+  it("sweeps every export shape sharing the artifact prefix, nothing else", async () => {
+    const { list, remove } = fakeStorage({
+      listed: [
+        { name: `${SHA}-pt-BR.pdf` },
+        { name: `${SHA}-en-sealed-abc123def456.pdf` },
+        // A search hit that is not this artifact's prefix stays untouched.
+        { name: `b${SHA.slice(1)}-pt-BR.pdf` },
+      ],
+    });
+
+    await expect(removeCachedPdfs(SHA)).resolves.toBe(2);
+    expect(list).toHaveBeenCalledWith("certs-pdf", { search: SHA });
+    expect(remove).toHaveBeenCalledWith([
+      `certs-pdf/${SHA}-pt-BR.pdf`,
+      `certs-pdf/${SHA}-en-sealed-abc123def456.pdf`,
+    ]);
+  });
+
+  it("reports zero without a round-trip when nothing matches", async () => {
+    const { remove } = fakeStorage({ listed: [] });
+
+    await expect(removeCachedPdfs(SHA)).resolves.toBe(0);
+    expect(remove).not.toHaveBeenCalled();
+  });
+
+  it("signals a failed sweep instead of pretending it emptied", async () => {
+    // -1 is load-bearing: a revoked certificate's export staying fetchable is
+    // exactly what the caller has to be able to see and log.
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    fakeStorage({ listError: { message: "listing exploded" } });
+    await expect(removeCachedPdfs(SHA)).resolves.toBe(-1);
+
+    fakeStorage({
+      listed: [{ name: `${SHA}-pt-BR.pdf` }],
+      removeError: { message: "remove exploded" },
+    });
+    await expect(removeCachedPdfs(SHA)).resolves.toBe(-1);
+    errorSpy.mockRestore();
   });
 });

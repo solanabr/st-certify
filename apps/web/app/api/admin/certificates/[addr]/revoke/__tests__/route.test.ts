@@ -44,8 +44,16 @@ vi.mock("@/lib/db/notification-queries", () => ({
 vi.mock("@/lib/email/notify", () => ({
   notifyOnce: vi.fn(async () => ({ sent: true, deduped: false })),
 }));
+vi.mock("@/lib/db/claim-verify-queries", () => ({
+  getVerifyView: vi.fn(),
+}));
+vi.mock("@/lib/pdf/storage", () => ({
+  removeCachedPdfs: vi.fn(async () => 1),
+}));
 
 const { revokeCertificate } = await import("@/lib/chain/revoke");
+const { getVerifyView } = await import("@/lib/db/claim-verify-queries");
+const { removeCachedPdfs } = await import("@/lib/pdf/storage");
 const { getCertificateNotificationContext } =
   await import("@/lib/db/notification-queries");
 const { notifyOnce } = await import("@/lib/email/notify");
@@ -86,6 +94,10 @@ beforeEach(() => {
     editionName: "Turma A",
   });
   vi.mocked(notifyOnce).mockResolvedValue({ sent: true, deduped: false });
+  vi.mocked(getVerifyView).mockResolvedValue({
+    sha256: "c".repeat(64),
+  } as Awaited<ReturnType<typeof getVerifyView>>);
+  vi.mocked(removeCachedPdfs).mockResolvedValue(1);
 });
 
 describe("POST /api/admin/certificates/[addr]/revoke — notification", () => {
@@ -116,6 +128,31 @@ describe("POST /api/admin/certificates/[addr]/revoke — notification", () => {
     await post();
 
     expect(notifyOnce).not.toHaveBeenCalled();
+    // But the cache sweep still runs — re-revoking repairs a missed sweep.
+    expect(removeCachedPdfs).toHaveBeenCalledWith("c".repeat(64));
+  });
+
+  it("sweeps the public bucket's cached export for the revoked artifact", async () => {
+    const response = await post();
+
+    expect(response.status).toBe(200);
+    expect(getVerifyView).toHaveBeenCalledWith(ADDR);
+    expect(removeCachedPdfs).toHaveBeenCalledWith("c".repeat(64));
+  });
+
+  it("never fails the revoke over a failed sweep, but says so out loud", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.mocked(removeCachedPdfs).mockRejectedValue(new Error("storage down"));
+
+    const response = await post();
+
+    expect(response.status).toBe(200);
+    expect(
+      errorSpy.mock.calls.some(([line]) =>
+        String(line).includes("PDF cache sweep"),
+      ),
+    ).toBe(true);
+    errorSpy.mockRestore();
   });
 
   it("skips with a log line when no email resolves for the student", async () => {
