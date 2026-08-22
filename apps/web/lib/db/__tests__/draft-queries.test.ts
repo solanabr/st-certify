@@ -10,8 +10,15 @@ vi.mock("../mutations", () => ({
 }));
 
 const { getServiceClient } = await import("../mutations");
-const { INVITE_EXPIRY_DAYS, getInviteByToken, inviteExpiryCutoff } =
-  await import("../draft-queries");
+const {
+  INVITE_EXPIRY_DAYS,
+  createClaimFor,
+  getDraft,
+  getInviteByToken,
+  inviteExpiryCutoff,
+  isCreateClaim,
+  listDrafts,
+} = await import("../draft-queries");
 
 const DRAFT_ID = "11111111-1111-4111-8111-111111111111";
 const SEAT_ID = "22222222-2222-4222-8222-222222222222";
@@ -26,13 +33,18 @@ interface Recorded {
 
 function fakeClient(row: unknown): Recorded {
   const recorded: Recorded = { table: null, filters: [] };
+  const terminal = { data: row, error: null };
   const builder = {
     select: () => builder,
     eq(column: string, value: unknown) {
       recorded.filters.push([column, value]);
       return builder;
     },
-    maybeSingle: async () => ({ data: row, error: null }),
+    order: () => builder,
+    maybeSingle: async () => terminal,
+    // The list query awaits the builder itself, which is a thenable.
+    then: (resolve: (t: typeof terminal) => unknown) =>
+      Promise.resolve(terminal).then(resolve),
   };
 
   vi.mocked(getServiceClient).mockReturnValue({
@@ -46,7 +58,11 @@ function fakeClient(row: unknown): Recorded {
 }
 
 /** A joined row as PostgREST returns it: the seat with its draft embedded. */
-function joinedRow(invitedAt: string, status = "invited") {
+function joinedRow(
+  invitedAt: string,
+  status = "invited",
+  chainAddress: string | null = null,
+) {
   return {
     id: SEAT_ID,
     draft_id: DRAFT_ID,
@@ -64,7 +80,7 @@ function joinedRow(invitedAt: string, status = "invited") {
       meta: { name: "Turma 2026" },
       layout: null,
       template_sha: null,
-      chain_address: null,
+      chain_address: chainAddress,
       created_by: "did:privy:admin",
       created_at: invitedAt,
       updated_at: invitedAt,
@@ -130,6 +146,67 @@ describe("getInviteByToken", () => {
     fakeClient(null);
 
     await expect(getInviteByToken("tok-nope")).resolves.toBeNull();
+  });
+});
+
+describe("the create claim", () => {
+  const ADDRESS = "EdiTion1111111111111111111111111111111111";
+
+  /** A draft row as the table stores it. */
+  function draftRow(chainAddress: string | null) {
+    return {
+      id: DRAFT_ID,
+      meta: { name: "Turma 2026", slug: "turma-2026" },
+      layout: null,
+      template_sha: null,
+      chain_address: chainAddress,
+      created_by: "did:privy:admin",
+      created_at: "2026-08-20T00:00:00Z",
+      updated_at: "2026-08-20T00:00:00Z",
+    };
+  }
+
+  it("is recognisable and can never be mistaken for an address", () => {
+    expect(isCreateClaim(createClaimFor(DRAFT_ID))).toBe(true);
+    expect(isCreateClaim(ADDRESS)).toBe(false);
+    expect(isCreateClaim(null)).toBe(false);
+    // Per-draft, because chain_address is UNIQUE: one shared sentinel would
+    // let a single in-flight create block every other draft's.
+    expect(createClaimFor(DRAFT_ID)).not.toBe(createClaimFor(SEAT_ID));
+  });
+
+  it("never reaches a caller of getDraft — a claimed draft reads as uncreated", () => {
+    fakeClient(draftRow(createClaimFor(DRAFT_ID)));
+
+    return expect(getDraft(DRAFT_ID)).resolves.toMatchObject({
+      chain_address: null,
+    });
+  });
+
+  it("leaves a real address alone", async () => {
+    fakeClient(draftRow(ADDRESS));
+
+    await expect(getDraft(DRAFT_ID)).resolves.toMatchObject({
+      chain_address: ADDRESS,
+    });
+  });
+
+  it("is stripped from the list the studio renders", async () => {
+    fakeClient([draftRow(createClaimFor(DRAFT_ID)), draftRow(ADDRESS)]);
+
+    const rows = await listDrafts();
+
+    expect(rows.map((row) => row.chain_address)).toEqual([null, ADDRESS]);
+  });
+
+  it("is stripped from the draft the invite page reads", async () => {
+    // Otherwise a create that is merely in flight would freeze every seat and
+    // send signers to the "edition already created" dead-state.
+    fakeClient(joinedRow(daysAgo(1), "invited", createClaimFor(DRAFT_ID)));
+
+    const invite = await getInviteByToken(TOKEN);
+
+    expect(invite?.draft.chain_address).toBeNull();
   });
 });
 

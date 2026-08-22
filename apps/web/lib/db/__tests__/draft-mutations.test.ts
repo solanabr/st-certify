@@ -9,9 +9,15 @@ vi.mock("../mutations", () => ({
 }));
 
 const { getServiceClient } = await import("../mutations");
-const { INVITE_EXPIRY_DAYS } = await import("../draft-queries");
-const { acceptInvite, insertDraft, insertInvites, updateDraft } =
-  await import("../draft-mutations");
+const { INVITE_EXPIRY_DAYS, createClaimFor } = await import("../draft-queries");
+const {
+  acceptInvite,
+  claimDraftForCreate,
+  insertDraft,
+  insertInvites,
+  releaseDraftCreateClaim,
+  updateDraft,
+} = await import("../draft-mutations");
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -57,6 +63,10 @@ function fakeClient(terminal: Terminal): Recorded {
     },
     gt(column: string, value: unknown) {
       recorded.greaterThan.push([column, value]);
+      return builder;
+    },
+    is(column: string, value: unknown) {
+      recorded.filters.push([column, value]);
       return builder;
     },
     select: () => builder,
@@ -137,6 +147,50 @@ describe("updateDraft", () => {
     await expect(updateDraft(DRAFT_ID, { meta: {} })).rejects.toMatchObject({
       code: "NOT_FOUND",
     });
+  });
+});
+
+describe("claimDraftForCreate", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("stamps the claim only on a draft nobody has claimed", async () => {
+    const recorded = fakeClient({ data: { id: DRAFT_ID }, error: null });
+
+    await expect(claimDraftForCreate(DRAFT_ID)).resolves.toBe(true);
+
+    const payload = recorded.payload as Record<string, unknown>;
+    expect(payload.chain_address).toBe(createClaimFor(DRAFT_ID));
+    // The null check rides along with the UPDATE: a read-then-write here would
+    // leave the gap that lets a retry mint a second edition.
+    expect(recorded.filters).toEqual([
+      ["id", DRAFT_ID],
+      ["chain_address", null],
+    ]);
+  });
+
+  it("reports the claim as lost when the row was already taken", async () => {
+    // Zero rows matched — another request is mid-create, or the edition exists.
+    fakeClient({ data: null, error: null });
+
+    await expect(claimDraftForCreate(DRAFT_ID)).resolves.toBe(false);
+  });
+});
+
+describe("releaseDraftCreateClaim", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("clears only this draft's own claim, never a real address", async () => {
+    const recorded = fakeClient({ data: null, error: null });
+
+    await releaseDraftCreateClaim(DRAFT_ID);
+
+    expect(
+      (recorded.payload as Record<string, unknown>).chain_address,
+    ).toBeNull();
+    expect(recorded.filters).toEqual([
+      ["id", DRAFT_ID],
+      ["chain_address", createClaimFor(DRAFT_ID)],
+    ]);
   });
 });
 

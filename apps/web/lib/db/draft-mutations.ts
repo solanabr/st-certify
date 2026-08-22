@@ -11,10 +11,11 @@ import "server-only";
 // the actor may touch this draft.
 
 import { fail } from "@/lib/errors";
-// The invite deadline is one rule with two enforcement points: derived when a
-// seat is read, filtered when it is written. Both live next to the read
-// boundary that owns it, so they can never drift apart.
-import { inviteExpiryCutoff } from "./draft-queries";
+// Two rules that are half read and half write — the invite deadline (derived
+// on read, filtered on write) and the create claim (written here, stripped on
+// read) — live next to the read boundary that has to honour them, so the two
+// halves can never drift apart.
+import { createClaimFor, inviteExpiryCutoff } from "./draft-queries";
 import { dbConfigured, getServiceClient } from "./mutations";
 import type {
   EditionDraftMeta,
@@ -84,6 +85,66 @@ export async function updateDraft(
     fail("NOT_FOUND", "Rascunho não encontrado.");
   }
   return data as EditionDraftRow;
+}
+
+/**
+ * Stakes this draft's one and only on-chain create, atomically.
+ *
+ * `create_edition` is not idempotent: its PDA comes from a counter in the
+ * on-chain config, so a second call mints a second edition instead of
+ * colliding. The address it returns is also the only proof the write
+ * happened — and it doesn't exist until afterwards. So the draft is stamped
+ * with a claim sentinel FIRST, in a conditional UPDATE that matches only a
+ * draft nobody has claimed. Zero rows means someone got there first: another
+ * tab, a retried request, or a create that already finished.
+ *
+ * Returns whether the claim was taken; the row itself is deliberately not
+ * handed back, since its `chain_address` is the sentinel rather than an
+ * address (`getDraft` strips it for exactly that reason).
+ */
+export async function claimDraftForCreate(id: string): Promise<boolean> {
+  if (!dbConfigured) fail("INTERNAL", "Supabase não configurado.");
+  const supabase = getServiceClient();
+  const { data, error } = await supabase
+    .from("edition_drafts")
+    .update({
+      chain_address: createClaimFor(id),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id)
+    .is("chain_address", null)
+    .select()
+    .maybeSingle();
+  if (error) {
+    fail("INTERNAL", "Falha ao iniciar a criação da edição.", {
+      detail: error.message,
+      retryable: true,
+    });
+  }
+  return data !== null;
+}
+
+/**
+ * Hands the claim back after an attempt that never reached the chain, so a
+ * genuine retry isn't wedged behind a lock nothing will ever release.
+ *
+ * Scoped to this draft's own sentinel: once the real address has been written
+ * over it, there is nothing left to release and this must not touch it.
+ */
+export async function releaseDraftCreateClaim(id: string): Promise<void> {
+  if (!dbConfigured) fail("INTERNAL", "Supabase não configurado.");
+  const supabase = getServiceClient();
+  const { error } = await supabase
+    .from("edition_drafts")
+    .update({ chain_address: null, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .eq("chain_address", createClaimFor(id));
+  if (error) {
+    fail("INTERNAL", "Falha ao liberar o rascunho.", {
+      detail: error.message,
+      retryable: true,
+    });
+  }
 }
 
 // ---------------------------------------------------------------------------

@@ -51,6 +51,39 @@ function withDerivedExpiry<T extends SignerInviteRow>(row: T): T {
   return { ...row, status: "expired" };
 }
 
+/**
+ * `chain_address` doubles as the create lock: a draft is stamped with this
+ * sentinel for the duration of the on-chain write (see `claimDraftForCreate`),
+ * because the real address only exists once `create_edition` confirms and a
+ * retry in between would mint a second edition. The draft id rides along
+ * because the column is UNIQUE — one shared constant would make every
+ * in-flight create block every other draft's.
+ */
+const CREATE_CLAIM_PREFIX = "pending:";
+
+/** The sentinel a draft holds while its create is in flight. */
+export function createClaimFor(draftId: string): string {
+  return `${CREATE_CLAIM_PREFIX}${draftId}`;
+}
+
+/** True while a create is in flight. Never a real address — base58 has no `:`. */
+export function isCreateClaim(chainAddress: string | null): boolean {
+  return chainAddress !== null && chainAddress.startsWith(CREATE_CLAIM_PREFIX);
+}
+
+/**
+ * The claim is bookkeeping, not an address, and it must never reach a caller:
+ * `chain_address` is what every surface reads as "this edition exists now"
+ * (the wizard freezes, the invite page closes its seats, the studio links to
+ * an explorer). Stripping it here is what keeps that sentinel out of all of
+ * them — a draft mid-create simply reads as not created yet.
+ */
+function withoutCreateClaim<T extends EditionDraftRow>(row: T): T {
+  return isCreateClaim(row.chain_address)
+    ? { ...row, chain_address: null }
+    : row;
+}
+
 /** One draft by id — the wizard's autosave target and the management page's source. */
 export async function getDraft(id: string): Promise<EditionDraftRow | null> {
   if (isUiMock()) return mockDraft(id);
@@ -67,7 +100,7 @@ export async function getDraft(id: string): Promise<EditionDraftRow | null> {
       retryable: true,
     });
   }
-  return data as EditionDraftRow | null;
+  return data ? withoutCreateClaim(data as EditionDraftRow) : null;
 }
 
 /**
@@ -89,7 +122,7 @@ export async function listDrafts(): Promise<EditionDraftRow[]> {
       retryable: true,
     });
   }
-  return (data ?? []) as EditionDraftRow[];
+  return ((data ?? []) as EditionDraftRow[]).map(withoutCreateClaim);
 }
 
 interface InviteJoinRow extends SignerInviteRow {
@@ -134,7 +167,7 @@ export async function getInviteByToken(
     : edition_drafts;
   if (!draft) return null;
 
-  return withDerivedExpiry({ ...invite, draft });
+  return withDerivedExpiry({ ...invite, draft: withoutCreateClaim(draft) });
 }
 
 /**
