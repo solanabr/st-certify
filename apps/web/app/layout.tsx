@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Archivo } from "next/font/google";
 import localFont from "next/font/local";
 import "./globals.css";
@@ -43,6 +43,16 @@ const greatVibes = localFont({
   display: "swap",
 });
 
+// viewport-fit=cover lets the layout paint into the iOS safe areas; the
+// theme-color pair tracks the two canvases declared in globals.css.
+export const viewport: Viewport = {
+  viewportFit: "cover",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f5e8ca" },
+    { media: "(prefers-color-scheme: dark)", color: "#11160f" },
+  ],
+};
+
 export async function generateMetadata(): Promise<Metadata> {
   const { t } = await getT();
   const title = "Superteam Certify";
@@ -54,12 +64,21 @@ export async function generateMetadata(): Promise<Metadata> {
     description,
     applicationName: title,
     // app/icon.svg (favicon) + app/opengraph-image.tsx are auto-wired by Next's
-    // file conventions; the explicit icons block adds the legacy .ico fallback.
+    // file conventions; the explicit icons block adds the legacy .ico fallback
+    // and the home-screen icon iOS reads (it ignores the manifest's icons).
     icons: {
       icon: [
         { url: "/icon.svg", type: "image/svg+xml" },
         { url: "/favicon.ico", sizes: "any" },
       ],
+      apple: [{ url: "/apple-touch-icon.png", sizes: "180x180" }],
+    },
+    appleWebApp: {
+      capable: true,
+      title,
+      // Opaque bar: "black-translucent" would put white glyphs on the cream
+      // canvas once viewport-fit=cover extends content under the status bar.
+      statusBarStyle: "default",
     },
     openGraph: {
       type: "website",
