@@ -104,7 +104,7 @@ page:
 | Forms | react-hook-form + zod 4 |
 | Email | Resend, behind a degrade-gracefully wrapper (`lib/email/`) — skips + logs when unconfigured, never throws |
 | PDF export | pdf-lib 1.17.1 (deterministic, byte-identical builds) + `@signpdf`/`node-forge` for an optional pluggable cryptographic seal |
-| Designer | `@dnd-kit` + `react-moveable` + `react-selecto` + `@scena/react-guides`, touch-first rebuild (dependencies landed, canvas wiring in progress) |
+| Designer | `@dnd-kit` + `react-moveable` + `react-selecto` + `@scena/react-guides`, touch-first rebuild |
 | CI | GitHub Actions (`.github/workflows/ci.yml`) — typecheck/lint/vitest/`next build` on every PR, plus a paths-gated program job (fmt/clippy/build-sbf/test) that only runs when `programs/**`/`tests/**` changed |
 
 ## Page map
@@ -126,7 +126,7 @@ students/signers all still resolve. Routes under `/api/**` did not move.
 | `/studio` | `/admin` | Issuer dashboard — stat cards, edition list, Atividade feed | `requireSysadmin` |
 | `/studio/editions/new` | `/admin/editions/new` | Creation wizard — draft autosave, seats/invites, designer, explicit "Criar on-chain" step | sysadmin |
 | `/studio/editions/[id]` | — (new) | Edition management — seat/invite status, distribution kit, per-certificate pipeline, reminders | sysadmin |
-| `/invite/[token]` | — (new, **page not yet in the tree**) | Signer invite acceptance — Privy login, wallet binding. APIs live (`/api/invite/[token]`, `.../accept`); the page itself isn't. See "Known limitations." | token + Privy |
+| `/invite/[token]` | — (new) | Signer invite acceptance — Privy login, linked-wallet selection/binding, distinct dead-states for expired/already-accepted tokens | token + Privy |
 | `/events` | same | Attendance event creation/dashboard | creator-wallet check |
 | `/attend/[token]` | same | Attendance claim link | token |
 | `/nft/[assetId]` | same | Attendance NFT detail | none |
@@ -469,16 +469,6 @@ RPCs, and adds idempotency indexes/constraints. Apply it before relying on the
 RLS boundary.
 
 ## Known limitations / tomorrow
-
-**Signer invite links 404 (overhaul branch, being fixed alongside this
-commit).** The invite email and the wizard's "convidar" step send signers to
-`/invite/[token]`. The API side is live — `GET /api/invite/[token]`
-(resolves the invite, including distinct "already accepted"/"expired"
-states) and `POST /api/invite/[token]/accept` (binds the signer's wallet,
-requires a Privy session) — but the `/invite/[token]` **page** that would
-call them doesn't exist yet, so the link is still a dead end for now. The
-wizard's manual "inserir carteira manualmente" fallback is unaffected and
-works today.
 
 Ledger-triage dispositions (every `deferred minor` / `parked` line from the
 build's SDD progress log) are folded in here; the full detail for each is in

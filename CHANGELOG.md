@@ -49,11 +49,10 @@ explicit user approval, same protocol as before.
 - feat(studio): signer invites — `signer_invites` table, magic-link
   tokens, and a manual "inserir carteira manualmente" fallback that binds a
   seat immediately, no email round trip.
-- feat(invite): `GET /api/invite/[token]` (resolves an invite, including
-  distinct "already accepted"/"expired" dead-states) and `POST
-  /api/invite/[token]/accept` (binds the signer's wallet, requires a Privy
-  session). The `/invite/[token]` page that calls them is still pending —
-  see "Known gaps" below.
+- feat(invite): `/invite/[token]` — Privy login, linked-wallet
+  selection/binding, distinct dead-states for expired and already-accepted
+  tokens — backed by `GET /api/invite/[token]` and `POST
+  /api/invite/[token]/accept`.
 - feat(me): `/me` unifies "Meus documentos" — certificates and attendance
   claims in one listing (`GET /api/me/attendance`) — and the claim flow
   becomes a guided ceremony (consent → assinar → emitindo → done) with a
@@ -149,18 +148,6 @@ explicit user approval, same protocol as before.
   with its own anon column grant (0003's anon SELECT is a column
   allowlist, not `select *`, so a new column needs its own grant or every
   anon verify query fails once the app selects it).
-
-**Known gaps as this entry is written** (tracked here rather than silently
-dropped — see README "Known limitations" for the first one):
-
-- `/invite/[token]` signer-invite acceptance page doesn't exist yet (the
-  `/api/invite/[token]` + `.../accept` routes it will call are live) — every
-  invite email links to a 404 until the page lands.
-- Touch-first designer rebuild: `react-moveable`/`react-selecto`/
-  `@scena/react-guides`/`@dnd-kit` are installed but not yet wired into
-  `components/designer/`.
-- `scripts/rls-probe.ts` does not yet probe `edition_drafts`,
-  `signer_invites` or `notification_log`.
 
 ## 2026-08-20 — Attendance metadata (POAP-informed) + published-salt removal
 

@@ -38,7 +38,7 @@ scripts without one are run directly with `npx tsx`.
 
 | Command | Script | What it does |
 |---|---|---|
-| `pnpm rls-probe` | `rls-probe.ts` | The RLS negative-test gate: seeds probe rows with the service-role client, then proves the **anon** key can't read `profiles`/`events`/withheld `certificates` columns, can't write anywhere, and can't call the attendance RPCs — against the live Supabase project, through PostgREST, the way a real attacker or a client-side bug would hit it. Missing env is a hard failure, not a skip. As of this writing it covers the tables from migrations 0001–0004; it does **not yet** probe the overhaul's `edition_drafts`, `signer_invites` or `notification_log` (migration 0005) — that extension is tracked in the same wave-5 plan section as the E2E script above, alongside appending `verify_code` to the probe's hand-synced copy of `CERT_PUBLIC_COLUMNS`. |
+| `pnpm rls-probe` | `rls-probe.ts` | The RLS negative-test gate: seeds probe rows with the service-role client, then proves the **anon** key can't read `profiles`/`events`/withheld `certificates` columns, can't write anywhere, and can't call the attendance RPCs — against the live Supabase project, through PostgREST, the way a real attacker or a client-side bug would hit it. Missing env is a hard failure, not a skip. Covers every table through migration 0005: `edition_drafts`, `signer_invites` and `notification_log` each get the same select/insert/update/delete probe as the original tables, and `certificates.verify_code` is included in the probe's hand-synced copy of `CERT_PUBLIC_COLUMNS`. |
 
 ## Admin — certificates / verification
 
