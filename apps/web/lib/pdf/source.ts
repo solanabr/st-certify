@@ -15,10 +15,25 @@ function appUrl(): string {
 }
 
 /** The cluster the app is pointed at, from the same env the explorer links read. */
-function cluster(): CertificatePdfInput["cluster"] {
+function envCluster(): CertificatePdfInput["cluster"] {
   return (process.env.NEXT_PUBLIC_RPC_URL ?? "").includes("devnet")
     ? "devnet"
     : "mainnet-beta";
+}
+
+/**
+ * The network the certificate was recorded on. `certificates.cluster` is
+ * written at claim time precisely so a document printed later says where its
+ * transaction actually lives — the environment can be repointed, the record
+ * cannot. Rows predating that column (and any deployment where migration 0006
+ * has not been applied) fall back to the environment, which is what the export
+ * did for all of them before.
+ */
+function certificateCluster(
+  recorded: string | null | undefined,
+): CertificatePdfInput["cluster"] {
+  if (recorded === "devnet" || recorded === "mainnet-beta") return recorded;
+  return envCluster();
 }
 
 /**
@@ -56,8 +71,9 @@ export interface CertificatePdfSource {
 }
 
 /**
- * Gathers everything the builder needs for a claimed certificate and re-renders
- * its artwork at print resolution.
+ * Gathers everything the builder needs for a claimed certificate, re-renders
+ * its artwork, and refuses to hand back anything whose re-render no longer
+ * hashes to the artifact the chain committed.
  *
  * Returns null for anything that is not a claimed certificate: an export only
  * exists once the holder has claimed, so a pending, rejected or unknown address
@@ -96,7 +112,7 @@ export async function loadCertificatePdfSource(
 
   const verifyUrl = `${appUrl()}/verify/${certificateAddress}`;
   const templatePng = await getTemplateBytes(layout.template.sha256);
-  const { png } = await renderCertificate({
+  const artwork = {
     templatePng,
     layout,
     values: {
@@ -106,6 +122,30 @@ export async function loadCertificatePdfSource(
       verifyUrl,
     },
     signers: orderedSigners.map((s) => ({ name: s.name, role: s.role ?? "" })),
+  };
+
+  // The integrity gate. Everything this export prints — footer, XMP, Info dict,
+  // attachment — asserts `cert.sha256` is the hash of the picture on page 1, and
+  // the picture is re-rendered here rather than fetched, from inputs that can
+  // drift after the claim (NEXT_PUBLIC_APP_URL alone changes the QR's contents).
+  // Re-render the CANONICAL artifact first — scale 1, the one whose hash the
+  // chain committed — and refuse to build a document at all if it disagrees. A
+  // genuine certificate reading as forged is a far worse failure than a 500.
+  const canonical = await renderCertificate(artwork);
+  if (canonical.sha256hex !== cert.sha256) {
+    fail(
+      "RENDER_FAILED",
+      "Não foi possível reproduzir o certificado original para exportação. Contate o suporte.",
+      {
+        detail: `artifact hash drift: re-render ${canonical.sha256hex} != recorded ${cert.sha256}`,
+      },
+    );
+  }
+
+  // Only now the print variant: identical artwork at 300 dpi, so the scale-1
+  // match above vouches for these pixels too.
+  const { png } = await renderCertificate({
+    ...artwork,
     scale: certificateRenderScale(layout.canvas),
   });
 
@@ -123,7 +163,7 @@ export async function loadCertificatePdfSource(
       verifyCode: verifyCode(certificateAddress),
       txSig: cert.claim_tx,
       assetId: cert.asset,
-      cluster: cluster(),
+      cluster: certificateCluster(cert.cluster),
       issuedAtIso,
       issuer: configuredIssuer() ?? { name: PLATFORM_ISSUER },
       holder: { name: cert.student_name },
