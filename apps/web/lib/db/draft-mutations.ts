@@ -54,7 +54,7 @@ export async function insertDraft(
 }
 
 export type DraftPatch = Partial<
-  Pick<EditionDraftRow, "meta" | "layout" | "template_sha" | "chain_address">
+  Pick<EditionDraftRow, "meta" | "layout" | "template_sha">
 >;
 
 /**
@@ -62,6 +62,14 @@ export type DraftPatch = Partial<
  * wizard's per-step autosaves (metadata on step 1, layout on step 4) never
  * clobber each other. `updated_at` is maintained here — 0005 gives the column
  * a default but no trigger.
+ *
+ * `chain_address is null` rides along with the UPDATE, the same
+ * compare-and-swap `acceptInvite` uses: a draft that has been written on-chain
+ * is frozen, and an autosave racing create-onchain must not slip an edit past
+ * the route's pre-read into an edition that already exists. The claim sentinel
+ * is not null either, so this also holds for the seconds a create is in
+ * flight. `chain_address` is deliberately not patchable here — writing it is
+ * `setDraftChainAddress`'s job, under its own guard.
  */
 export async function updateDraft(
   id: string,
@@ -73,6 +81,7 @@ export async function updateDraft(
     .from("edition_drafts")
     .update({ ...patch, updated_at: new Date().toISOString() })
     .eq("id", id)
+    .is("chain_address", null)
     .select()
     .maybeSingle();
   if (error) {
@@ -82,9 +91,41 @@ export async function updateDraft(
     });
   }
   if (!data) {
-    fail("NOT_FOUND", "Rascunho não encontrado.");
+    // Zero rows now means either of the two, and the UPDATE cannot say which.
+    fail("NOT_FOUND", "Rascunho não encontrado ou já criado on-chain.");
   }
   return data as EditionDraftRow;
+}
+
+/**
+ * Writes the address the edition actually got over this draft's create claim.
+ *
+ * Filtered on the claim rather than on `id` alone: this is the one write that
+ * turns a claimed draft into a created one, and it must never overwrite an
+ * address already there — nor invent one for a draft that was never claimed.
+ * Returns whether it landed; the caller is mid-flight on an edition that
+ * already exists on-chain, so a miss is something to log, not to throw over.
+ */
+export async function setDraftChainAddress(
+  id: string,
+  address: string,
+): Promise<boolean> {
+  if (!dbConfigured) fail("INTERNAL", "Supabase não configurado.");
+  const supabase = getServiceClient();
+  const { data, error } = await supabase
+    .from("edition_drafts")
+    .update({ chain_address: address, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .eq("chain_address", createClaimFor(id))
+    .select()
+    .maybeSingle();
+  if (error) {
+    fail("INTERNAL", "Falha ao vincular a edição ao rascunho.", {
+      detail: error.message,
+      retryable: true,
+    });
+  }
+  return data !== null;
 }
 
 /**
@@ -150,6 +191,17 @@ export async function releaseDraftCreateClaim(id: string): Promise<void> {
 // ---------------------------------------------------------------------------
 // signer invites
 // ---------------------------------------------------------------------------
+
+/** Postgres `unique_violation`. */
+const UNIQUE_VIOLATION = "23505";
+
+/**
+ * Shared by the accept route's read-first guard and by the DB index that
+ * backstops it, so the same situation never reaches a signer worded two ways.
+ * The UI localizes it from the `INVITE_WALLET_TAKEN` code.
+ */
+export const WALLET_ALREADY_BOUND_MESSAGE =
+  "Esta carteira já confirmou outro assento desta edição. Escolha uma carteira diferente.";
 
 export interface InviteSeatInput {
   name: string;
@@ -234,6 +286,14 @@ export async function acceptInvite(
     .select()
     .maybeSingle();
   if (error) {
+    // 0007's partial unique index on (draft_id, wallet): this wallet is
+    // already bound to another seat of the same edition. The route checks for
+    // that first with a friendlier read, but two signers confirming the same
+    // wallet at once only lose here, and a duplicate is unrecoverable
+    // on-chain — so it must surface as the same refusal, not as a 500.
+    if (error.code === UNIQUE_VIOLATION) {
+      fail("INVITE_WALLET_TAKEN", WALLET_ALREADY_BOUND_MESSAGE);
+    }
     fail("INTERNAL", "Falha ao confirmar convite.", {
       detail: error.message,
       retryable: true,

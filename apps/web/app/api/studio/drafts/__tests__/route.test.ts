@@ -27,6 +27,7 @@ vi.mock("@/lib/db/draft-mutations", () => ({
   touchInviteReminded: vi.fn(),
   claimDraftForCreate: vi.fn(async () => true),
   releaseDraftCreateClaim: vi.fn(async () => {}),
+  setDraftChainAddress: vi.fn(async () => true),
 }));
 vi.mock("@/lib/db/queries", () => ({ getEditionByAddress: vi.fn() }));
 vi.mock("@/lib/email/notify", () => ({
@@ -42,6 +43,8 @@ vi.mock("@/lib/editions/create", () => ({
     slug: "turma-2026",
   })),
   autoSignatureBoxes: vi.fn(() => []),
+  // No-op by default; the duplicate-wallet test swaps in the real refusal.
+  assertDistinctSignerWallets: vi.fn(),
 }));
 vi.mock("@/lib/attendance/token", () => ({
   generateClaimToken: vi.fn(() => "tok-generated"),
@@ -57,11 +60,15 @@ const {
   deleteInvite,
   claimDraftForCreate,
   releaseDraftCreateClaim,
+  setDraftChainAddress,
 } = await import("@/lib/db/draft-mutations");
 const { getEditionByAddress } = await import("@/lib/db/queries");
 const { notifyOnce } = await import("@/lib/email/notify");
-const { createEditionFromWizard, mirrorEditionFromWizard } =
-  await import("@/lib/editions/create");
+const {
+  createEditionFromWizard,
+  mirrorEditionFromWizard,
+  assertDistinctSignerWallets,
+} = await import("@/lib/editions/create");
 const { fail } = await import("@/lib/errors");
 
 const drafts = await import("../route");
@@ -527,10 +534,35 @@ describe("POST /api/studio/drafts/[id]/create-onchain", () => {
       // The hook that persists the address the moment the write confirms.
       expect.objectContaining({ onChainWritten: expect.any(Function) }),
     );
-    expect(updateDraft).toHaveBeenCalledWith(DRAFT_ID, {
-      chain_address: EDITION,
-    });
+    expect(setDraftChainAddress).toHaveBeenCalledWith(DRAFT_ID, EDITION);
     expect(response.body).toMatchObject({ slug: "turma-2026" });
+  });
+
+  it("refuses seats that collided on one wallet before taking the claim", async () => {
+    // A duplicate-wallet edition can never reach FullySigned on-chain, and the
+    // signer array is immutable — so this refusal must precede the claim and
+    // the chain write, leaving the seats fixable.
+    vi.mocked(getDraft).mockResolvedValue(draftRow());
+    vi.mocked(listInvites).mockResolvedValue([
+      accepted[0],
+      { ...accepted[1], wallet: WALLET_A },
+    ]);
+    vi.mocked(assertDistinctSignerWallets).mockImplementationOnce(() =>
+      fail("CONFLICT", "Dois signatários confirmaram com a mesma carteira."),
+    );
+
+    const response = (await createOnchain.POST(
+      jsonRequest(null),
+      params({ id: DRAFT_ID }),
+    )) as unknown as FakeResponse;
+
+    expect(response.status).toBe(409);
+    expect(assertDistinctSignerWallets).toHaveBeenCalledWith([
+      { wallet: WALLET_A, name: "Ana Beatriz", role: "Coordenadora" },
+      { wallet: WALLET_A, name: "Bruno Lima", role: "Diretor" },
+    ]);
+    expect(claimDraftForCreate).not.toHaveBeenCalled();
+    expect(createEditionFromWizard).not.toHaveBeenCalled();
   });
 
   it("is idempotent: a second call never writes a second edition", async () => {
@@ -620,9 +652,7 @@ describe("POST /api/studio/drafts/[id]/create-onchain", () => {
     expect(first.status).toBe(500);
     // The address landed before the mirror was attempted, and the claim was
     // NOT handed back — a released claim here is what re-mints.
-    expect(updateDraft).toHaveBeenCalledWith(DRAFT_ID, {
-      chain_address: EDITION,
-    });
+    expect(setDraftChainAddress).toHaveBeenCalledWith(DRAFT_ID, EDITION);
     expect(releaseDraftCreateClaim).not.toHaveBeenCalled();
 
     // Retry: the draft is linked, the mirror row is still missing.
@@ -653,7 +683,7 @@ describe("POST /api/studio/drafts/[id]/create-onchain", () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     vi.mocked(getDraft).mockResolvedValue(draftRow());
     vi.mocked(listInvites).mockResolvedValue(accepted);
-    vi.mocked(updateDraft).mockRejectedValue(new Error("db down"));
+    vi.mocked(setDraftChainAddress).mockResolvedValue(false);
 
     const response = (await createOnchain.POST(
       jsonRequest(null),

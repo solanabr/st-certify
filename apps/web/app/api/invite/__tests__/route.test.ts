@@ -13,11 +13,19 @@ vi.mock("next/server", () => ({
   },
 }));
 vi.mock("@/lib/auth", () => ({ requireUser: vi.fn() }));
-vi.mock("@/lib/db/draft-queries", () => ({ getInviteByToken: vi.fn() }));
-vi.mock("@/lib/db/draft-mutations", () => ({ acceptInvite: vi.fn() }));
+vi.mock("@/lib/db/draft-queries", () => ({
+  getInviteByToken: vi.fn(),
+  listInvites: vi.fn(async () => []),
+}));
+vi.mock("@/lib/db/draft-mutations", () => ({
+  acceptInvite: vi.fn(),
+  WALLET_ALREADY_BOUND_MESSAGE:
+    "Esta carteira já confirmou outro assento desta edição.",
+}));
 
 const { requireUser } = await import("@/lib/auth");
-const { getInviteByToken } = await import("@/lib/db/draft-queries");
+const { getInviteByToken, listInvites } =
+  await import("@/lib/db/draft-queries");
 const { acceptInvite } = await import("@/lib/db/draft-mutations");
 const { fail } = await import("@/lib/errors");
 
@@ -350,6 +358,32 @@ describe("POST /api/invite/[token]/accept", () => {
       editionName: "Turma 2026",
     });
     expect(JSON.stringify(response.body)).not.toContain(TOKEN);
+  });
+
+  it("refuses a wallet already bound to a sibling seat of the same draft", async () => {
+    // The chain credits a signature to the FIRST slot holding a pubkey, so an
+    // edition whose seats share a wallet can never reach FullySigned. This is
+    // the friendly read-first refusal; 0007's unique index settles the race.
+    vi.mocked(getInviteByToken).mockResolvedValue(invite());
+    // Once: clearAllMocks keeps implementations, and the later race test
+    // needs the factory's empty sibling list back.
+    vi.mocked(listInvites).mockResolvedValueOnce([
+      seatRow(),
+      seatRow({
+        id: "33333333-3333-4333-8333-333333333333",
+        name: "Bruno Lima",
+        email: "bruno@example.org",
+        token: "tok-bruno",
+        status: "accepted",
+        wallet: MINE,
+      }),
+    ]);
+
+    const response = await postAccept({ wallet: MINE });
+
+    expect(response.status).toBe(409);
+    expect(response.body.error?.code).toBe("INVITE_WALLET_TAKEN");
+    expect(acceptInvite).not.toHaveBeenCalled();
   });
 
   it("surfaces the DB's own status guard when two tabs race", async () => {

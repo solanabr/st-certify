@@ -16,6 +16,7 @@ const {
   insertDraft,
   insertInvites,
   releaseDraftCreateClaim,
+  setDraftChainAddress,
   updateDraft,
 } = await import("../draft-mutations");
 
@@ -138,7 +139,12 @@ describe("updateDraft", () => {
     // not clobber metadata the user typed on another step.
     expect(Object.keys(payload).sort()).toEqual(["layout", "updated_at"]);
     expect(payload.layout).toEqual({ fields: [] });
-    expect(recorded.filters).toEqual([["id", DRAFT_ID]]);
+    // The frozen-draft guard rides in the WHERE clause: once chain_address is
+    // set (real address or in-flight create claim), no autosave lands.
+    expect(recorded.filters).toEqual([
+      ["id", DRAFT_ID],
+      ["chain_address", null],
+    ]);
   });
 
   it("reports a missing draft as NOT_FOUND rather than a generic failure", async () => {
@@ -295,5 +301,43 @@ describe("acceptInvite", () => {
     await expect(acceptInvite(INVITE_ID, WALLET)).rejects.toMatchObject({
       code: "CONFLICT",
     });
+  });
+
+  it("maps 0007's duplicate-wallet violation to the wallet-taken refusal", async () => {
+    // Two signers confirming the same wallet at the same instant both pass the
+    // route's read-first guard; the partial unique index is what decides it,
+    // and the loser must see the same refusal — never a 500.
+    fakeClient({
+      data: null,
+      error: { message: "duplicate key value", code: "23505" },
+    });
+
+    await expect(acceptInvite(INVITE_ID, WALLET)).rejects.toMatchObject({
+      code: "INVITE_WALLET_TAKEN",
+    });
+  });
+});
+
+describe("setDraftChainAddress", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("writes the address only over this draft's own create claim", async () => {
+    const recorded = fakeClient({ data: { id: DRAFT_ID }, error: null });
+
+    const landed = await setDraftChainAddress(DRAFT_ID, WALLET);
+
+    expect(landed).toBe(true);
+    const payload = recorded.payload as Record<string, unknown>;
+    expect(payload.chain_address).toBe(WALLET);
+    expect(recorded.filters).toEqual([
+      ["id", DRAFT_ID],
+      ["chain_address", createClaimFor(DRAFT_ID)],
+    ]);
+  });
+
+  it("reports a miss instead of overwriting an address already there", async () => {
+    fakeClient({ data: null, error: null });
+
+    await expect(setDraftChainAddress(DRAFT_ID, WALLET)).resolves.toBe(false);
   });
 });

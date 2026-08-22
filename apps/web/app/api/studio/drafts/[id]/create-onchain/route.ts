@@ -5,12 +5,13 @@ import { fail } from "@/lib/errors";
 import {
   claimDraftForCreate,
   releaseDraftCreateClaim,
-  updateDraft,
+  setDraftChainAddress,
 } from "@/lib/db/draft-mutations";
 import { getDraft, listInvites } from "@/lib/db/draft-queries";
 import { getEditionByAddress } from "@/lib/db/queries";
 import type { EditionDraftRow } from "@/lib/db/types";
 import {
+  assertDistinctSignerWallets,
   createEditionFromWizard,
   mirrorEditionFromWizard,
   type CreateEditionInput,
@@ -103,8 +104,10 @@ async function linkDraftToEdition(
   address: string,
 ): Promise<boolean> {
   try {
-    await updateDraft(id, { chain_address: address });
-    return true;
+    if (await setDraftChainAddress(id, address)) {
+      return true;
+    }
+    throw new Error("claim no longer held by this draft");
   } catch (err) {
     console.error(
       `[studio:reconcile] edition created on-chain but draft not linked — ` +
@@ -167,6 +170,10 @@ export async function POST(
 
     const seats = toDraftView(draft, await listInvites(id)).seats;
     const input = buildCreateInput(draft, seats, session.did);
+    // Stated here as well as inside the create so a draft whose seats collided
+    // (accepted before 0007's index existed) is refused without even taking
+    // the claim — nothing to unwind, and the seats can still be fixed.
+    assertDistinctSignerWallets(input.signers);
 
     if (!(await claimDraftForCreate(id))) {
       fail(

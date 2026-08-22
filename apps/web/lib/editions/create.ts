@@ -127,6 +127,33 @@ export interface CreateEditionHooks {
   onChainWritten?: (address: string) => Promise<void>;
 }
 
+/**
+ * Refuses a signer list with a repeated wallet, before anything is minted.
+ *
+ * `create_edition` stores the signer array permanently and the program credits
+ * a signature to the FIRST slot holding that pubkey — so an edition with a
+ * duplicate wallet has a slot that can never be signed, and every certificate
+ * under it is stuck short of FullySigned forever. Nothing on-chain can repair
+ * it, which makes this one of the few checks worth stating twice: the wizard's
+ * route runs it before it even claims the draft, and it runs again here, for
+ * every caller.
+ *
+ * Deliberately NOT part of the mirror-only repair path: an edition that
+ * somehow reached the chain in this state still needs its mirror row, and
+ * refusing to record it would only hide the damage.
+ */
+export function assertDistinctSignerWallets(
+  signers: EditionSignerBinding[],
+): void {
+  const wallets = signers.map((s) => s.wallet);
+  if (new Set(wallets).size !== wallets.length) {
+    fail(
+      "CONFLICT",
+      "Dois signatários confirmaram com a mesma carteira. Cada signatário precisa de uma carteira diferente para que a edição possa ser assinada.",
+    );
+  }
+}
+
 /** Everything derivable from the input before anything is written. */
 interface PlannedEdition {
   layout: Layout;
@@ -209,6 +236,8 @@ export async function createEditionFromWizard(
   if (!dbConfigured) {
     fail("INTERNAL", "Supabase não configurado.");
   }
+
+  assertDistinctSignerWallets(signers);
 
   if (!(await isSlugAvailable(meta.slug))) {
     fail("VALIDATION", "Este slug já está em uso.", { field: "slug" });

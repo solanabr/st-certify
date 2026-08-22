@@ -57,6 +57,8 @@ const pt = {
   "invite.dead.wrongAccountTitle": "Convite enviado para outro e-mail",
   "invite.dead.wrongAccountBody":
     "Este convite foi enviado para outro endereço de e-mail. Saia desta conta e entre com o e-mail que recebeu o convite para confirmar seu assento.",
+  "invite.wallet.taken":
+    "Esta carteira já confirmou outro assento desta edição. Escolha uma carteira diferente.",
 };
 
 export type inviteKey = keyof typeof pt;
@@ -116,6 +118,8 @@ export const inviteDict: Record<Locale, Record<inviteKey, string>> = {
     "invite.dead.wrongAccountTitle": "Invitation sent to another e-mail",
     "invite.dead.wrongAccountBody":
       "This invitation was sent to a different e-mail address. Sign out and sign back in with the e-mail that received it to confirm your seat.",
+    "invite.wallet.taken":
+      "This wallet already confirmed another seat in this edition. Choose a different wallet.",
   },
   es: {
     "invite.meta.title": "Invitación para firmar · Superteam Certify",
@@ -169,5 +173,7 @@ export const inviteDict: Record<Locale, Record<inviteKey, string>> = {
     "invite.dead.wrongAccountTitle": "La invitación se envió a otro correo",
     "invite.dead.wrongAccountBody":
       "Esta invitación se envió a otra dirección de correo. Cierra sesión y vuelve a entrar con el correo que la recibió para confirmar tu puesto.",
+    "invite.wallet.taken":
+      "Esta billetera ya confirmó otro puesto de esta edición. Elige una billetera diferente.",
   },
 };

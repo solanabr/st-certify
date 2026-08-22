@@ -6,6 +6,7 @@ import { usePrivy } from "@privy-io/react-auth";
 import { useCreateWallet } from "@privy-io/react-auth/solana";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, MailWarning, Wallet } from "lucide-react";
+import { toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -94,8 +95,15 @@ export function InviteCard({
       // The seat is fine; this account just isn't the one it was sent to. That
       // is a dead end with its own instructions, not a transient failure worth
       // a toast and a re-read.
-      if (toAppError(err).code === "INVITE_EMAIL_MISMATCH") {
+      const code = toAppError(err).code;
+      if (code === "INVITE_EMAIL_MISMATCH") {
         setWrongAccount(true);
+        return;
+      }
+      // Recoverable right here — the signer picks another wallet — so this
+      // one stays a toast, localized rather than echoing the server's pt-BR.
+      if (code === "INVITE_WALLET_TAKEN") {
+        toast.error(t("invite.wallet.taken"));
         return;
       }
       onAppError(err);

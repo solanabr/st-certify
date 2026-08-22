@@ -3,8 +3,11 @@ import type { NextResponse } from "next/server";
 import { apiRoute } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
 import { fail } from "@/lib/errors";
-import { acceptInvite } from "@/lib/db/draft-mutations";
-import { getInviteByToken } from "@/lib/db/draft-queries";
+import {
+  acceptInvite,
+  WALLET_ALREADY_BOUND_MESSAGE,
+} from "@/lib/db/draft-mutations";
+import { getInviteByToken, listInvites } from "@/lib/db/draft-queries";
 import { configuredIssuer } from "@/lib/issuer";
 import { walletAddressSchema } from "@/lib/schemas";
 import { toInviteView, type InviteView } from "@/lib/invite/view";
@@ -41,6 +44,41 @@ function requireInvitedIdentity(
       "INVITE_EMAIL_MISMATCH",
       "Este convite foi enviado para outro e-mail. Entre com a conta que recebeu o convite para confirmar este assento.",
     );
+  }
+}
+
+/**
+ * One wallet, one seat — a rule the chain cannot forgive.
+ *
+ * `create_edition` bakes the signer array in permanently and the program
+ * matches a signature to the FIRST slot holding that pubkey, so an edition
+ * whose seats share a wallet can never reach FullySigned: one slot stays
+ * unsigned forever and the certificates under it are stuck. There is no fix
+ * after creation, which is why this is refused here, while the signer can
+ * still pick another wallet.
+ *
+ * Read-then-write, so two signers confirming the same wallet at the same
+ * instant can still both pass — 0007's partial unique index on
+ * `(draft_id, wallet)` is what settles that, and `acceptInvite` maps its
+ * violation to this same refusal. This read exists for the ordinary case,
+ * where the answer arrives before the signer has committed to anything.
+ */
+async function requireWalletFreeOnDraft(
+  draftId: string,
+  seatId: string,
+  wallet: string,
+): Promise<void> {
+  const siblings = await listInvites(draftId);
+  const taken = siblings.some(
+    (seat) =>
+      seat.id !== seatId &&
+      seat.status === "accepted" &&
+      seat.wallet === wallet,
+  );
+  if (taken) {
+    fail("INVITE_WALLET_TAKEN", WALLET_ALREADY_BOUND_MESSAGE, {
+      field: "wallet",
+    });
   }
 }
 
@@ -101,6 +139,7 @@ export async function POST(
         field: "wallet",
       });
     }
+    await requireWalletFreeOnDraft(invite.draft_id, invite.id, wallet);
 
     const seat = await acceptInvite(invite.id, wallet);
     return toInviteView(seat, invite.draft, configuredIssuer());
