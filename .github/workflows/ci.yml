@@ -1,0 +1,137 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # Decides whether the program job needs to run at all — cargo build-sbf +
+  # the Solana CLI install are the most expensive part of this workflow, so
+  # PRs that only touch apps/web skip them entirely.
+  changes:
+    name: Detect changed paths
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      program: ${{ steps.filter.outputs.program }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # dorny/paths-filter diffs against history; push events need more
+          # than the default single-commit shallow clone to find a base.
+          fetch-depth: 0
+
+      - uses: dorny/paths-filter@v4
+        id: filter
+        with:
+          filters: |
+            program:
+              - 'programs/**'
+              - 'tests/**'
+
+  web:
+    name: Web (typecheck, lint, test, build)
+    runs-on: ubuntu-latest
+    env:
+      # apps/web/lib/chain/rpc.ts's `rpcConfigured` and next.config.ts's CSP
+      # builder read this at module scope. NEXT_PUBLIC_SUPABASE_URL,
+      # NEXT_PUBLIC_SUPABASE_ANON_KEY and NEXT_PUBLIC_PRIVY_APP_ID are
+      # deliberately left UNSET: `dbConfigured` (apps/web/lib/db/mutations.ts),
+      # `rpcConfigured` (apps/web/lib/chain/rpc.ts) and the inline
+      # "auth unavailable" fallback (apps/web/app/providers.tsx) all gate on
+      # Boolean(...) and degrade instead of throwing, so building without
+      # them is a real, supported product state — not a workaround.
+      NEXT_PUBLIC_RPC_URL: https://api.devnet.solana.com
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+        # No `version:` — reads root package.json's "packageManager": "pnpm@9.15.0".
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "23.9.0" # matches root package.json "engines.node": ">=23.9.0"
+          cache: pnpm
+
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        working-directory: apps/web
+        run: npx tsc --noEmit
+
+      - name: Lint
+        working-directory: apps/web
+        run: npx eslint
+
+      - name: Unit tests
+        working-directory: apps/web
+        run: npx vitest run
+
+      - name: Build
+        working-directory: apps/web
+        run: npx next build --turbopack
+
+  program:
+    name: Program (fmt, clippy, test)
+    needs: changes
+    if: needs.changes.outputs.program == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.93.1" # matches the Solana CLI's bundled rustc (verified locally; no rust-toolchain.toml in-repo to pin from)
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Format check
+        run: cargo fmt --all -- --check
+
+      - name: Clippy
+        run: cargo clippy --all-targets -- -D warnings
+
+      # Solana CLI is only needed from here down (cargo build-sbf). fmt/clippy
+      # above build the host-target cdylib per programs/certify/Cargo.toml's
+      # feature comment, so they don't need it — kept below the fast checks
+      # so a fmt/clippy failure fails CI before paying this download.
+      - name: Cache Solana CLI install
+        id: solana-cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.local/share/solana/install
+          key: solana-install-3.1.10-${{ runner.os }}
+
+      - name: Install Solana CLI (Agave)
+        if: steps.solana-cache.outputs.cache-hit != 'true'
+        run: sh -c "$(curl -sSfL https://release.anza.xyz/v3.1.10/install)"
+
+      - name: Add Solana CLI to PATH
+        run: echo "$HOME/.local/share/solana/install/active_release/bin" >> "$GITHUB_PATH"
+
+      # tests/src/lib.rs loads target/deploy/certify.so into LiteSVM/Mollusk
+      # and panics ("run `cargo build-sbf` first") if it's missing, so the
+      # .so must exist before `cargo test`. Scoped to the program crate only
+      # — a workspace-wide build-sbf would try to SBF-compile certify-tests
+      # too, and its litesvm/agave deps pull in getrandom, unsupported on the
+      # SBF target (see scripts/deploy.sh, which scopes it the same way).
+      # The Solana CLI download + SBF compile is accepted here only because
+      # this job is already gated to program-touching PRs by the `changes`
+      # job above.
+      - name: Build program (.so, required by tests/src/lib.rs)
+        run: cargo build-sbf --manifest-path programs/certify/Cargo.toml
+
+      - name: Test
+        run: cargo test -p certify-tests
