@@ -9,7 +9,9 @@ import { certificatorDict } from "../dict/certificator";
 import { commonDict } from "../dict/common";
 import { designerDict } from "../dict/designer";
 import { emailDict } from "../dict/email";
+import { inviteDict } from "../dict/invite";
 import { landingDict } from "../dict/landing";
+import { signDict } from "../dict/sign";
 import { studentDict } from "../dict/student";
 import { verifyDict } from "../dict/verify";
 
@@ -27,7 +29,9 @@ const DOMAINS: Record<string, DomainDict> = {
   common: commonDict,
   designer: designerDict,
   email: emailDict,
+  invite: inviteDict,
   landing: landingDict,
+  sign: signDict,
   student: studentDict,
   verify: verifyDict,
 };

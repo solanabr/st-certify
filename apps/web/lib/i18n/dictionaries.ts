@@ -8,6 +8,8 @@ import { studentDict, type studentKey } from "./dict/student";
 import { verifyDict, type verifyKey } from "./dict/verify";
 import { attendanceDict, type attendanceKey } from "./dict/attendance";
 import { emailDict, type emailKey } from "./dict/email";
+import { inviteDict, type inviteKey } from "./dict/invite";
+import { signDict, type signKey } from "./dict/sign";
 
 /**
  * Flat per-locale maps merged from every domain dictionary. Key collisions
@@ -23,7 +25,9 @@ export type TranslationKey =
   | studentKey
   | verifyKey
   | attendanceKey
-  | emailKey;
+  | emailKey
+  | inviteKey
+  | signKey;
 
 export const dictionaries: Record<Locale, Record<TranslationKey, string>> = {
   "pt-BR": {
@@ -36,6 +40,8 @@ export const dictionaries: Record<Locale, Record<TranslationKey, string>> = {
     ...verifyDict["pt-BR"],
     ...attendanceDict["pt-BR"],
     ...emailDict["pt-BR"],
+    ...inviteDict["pt-BR"],
+    ...signDict["pt-BR"],
   },
   en: {
     ...commonDict.en,
@@ -47,6 +53,8 @@ export const dictionaries: Record<Locale, Record<TranslationKey, string>> = {
     ...verifyDict.en,
     ...attendanceDict.en,
     ...emailDict.en,
+    ...inviteDict.en,
+    ...signDict.en,
   },
   es: {
     ...commonDict.es,
@@ -58,6 +66,8 @@ export const dictionaries: Record<Locale, Record<TranslationKey, string>> = {
     ...verifyDict.es,
     ...attendanceDict.es,
     ...emailDict.es,
+    ...inviteDict.es,
+    ...signDict.es,
   },
 };
 
