@@ -56,7 +56,7 @@ export function MockRoleSwitcher() {
   }
 
   return (
-    <div className="fixed bottom-4 left-4 z-50 flex items-center gap-2 rounded-lg border border-amber-500/40 bg-amber-50/95 px-3 py-2 text-xs shadow-lg backdrop-blur dark:bg-amber-950/90">
+    <div className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] left-4 z-50 flex items-center gap-2 rounded-lg border border-amber-500/40 bg-amber-50/95 px-3 py-2 text-xs shadow-lg backdrop-blur dark:bg-amber-950/90">
       <span
         className="font-semibold tracking-wide text-amber-900 uppercase dark:text-amber-200"
         title="NEXT_PUBLIC_UI_MOCK=1 — dados fictícios, sem banco nem carteira"
