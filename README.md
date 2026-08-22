@@ -256,7 +256,15 @@ production.
 
 | Var | Purpose | Unset behavior |
 |---|---|---|
-| `CRON_SECRET` | Bearer token `GET /api/cron/digest` requires (Vercel Cron calls it daily at 12:00 UTC per `vercel.json`) | **Fails closed** — every request 401s, including Vercel's own trigger. Unlike the vars above, this is not a graceful degrade; set it before relying on the digest. |
+| `CRON_SECRET` | Bearer token `GET /api/cron/digest` requires (Vercel Cron calls it daily at 12:00 UTC per `apps/web/vercel.json`) | **Fails closed** — every request 401s, including Vercel's own trigger. Unlike the vars above, this is not a graceful degrade; set it before relying on the digest. |
+
+Vercel only reads `vercel.json` from the project's configured Root
+Directory (`apps/web` here) — a copy at the repo root is silently ignored,
+which is exactly what happened until commit `289ee4c` moved it. Set
+`CRON_SECRET` in the Vercel project's environment variables (not just
+locally): Vercel then sends it automatically as the `Authorization: Bearer`
+header on every cron invocation, so there is no separate webhook-secret
+step to configure.
 
 ### PDF export seal — optional, new in the 2026-08 overhaul
 

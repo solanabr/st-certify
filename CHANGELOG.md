@@ -75,10 +75,14 @@ explicit user approval, same protocol as before.
 - feat(db): `notification_log` table backs `notifyOnce()` — idempotent per
   (kind, recipient, ref) and rate-limited for digest/reminder kinds.
 - feat(cron): `GET /api/cron/digest` (Vercel Cron, daily 12:00 UTC per
-  `vercel.json`) mails each signer a summary of requests still waiting on
-  them. Guarded by `CRON_SECRET` — unlike the email wrapper, this one
-  **fails closed**: every request 401s when the secret is unset, including
-  Vercel's own trigger.
+  `apps/web/vercel.json`) mails each signer a summary of requests still
+  waiting on them. Guarded by `CRON_SECRET` — unlike the email wrapper,
+  this one **fails closed**: every request 401s when the secret is unset,
+  including Vercel's own trigger.
+- fix(deploy): `vercel.json` moved from the repo root to `apps/web/`
+  (commit `289ee4c`) — Vercel only reads the file from the project's
+  configured Root Directory, so the root copy was silently ignored and the
+  digest cron never actually fired in production.
 - feat(notify): triggers wired into the existing sign/reject/revoke/claim
   routes, fire-and-forget (`.catch(log)`) so a mail failure never fails the
   parent request.
