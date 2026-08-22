@@ -231,9 +231,12 @@ export default function CertificatorPage() {
         )}
       </div>
 
-      {/* Sticky action bar — in tab order, appears once something is selected. */}
+      {/* Sticky action bar — in tab order, appears once something is selected.
+          The safe-area padding keeps the sign button clear of the iPhone home
+          indicator; layout.tsx sets viewport-fit=cover, which is what makes
+          env(safe-area-inset-bottom) resolve to anything but 0. */}
       {selectedCount > 0 && (
-        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur supports-[backdrop-filter]:bg-card/80">
           <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-4">
             <span className="text-sm tabular-nums">
               <strong>{selectedCount}</strong>{" "}
