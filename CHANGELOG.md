@@ -5,6 +5,159 @@ gate-verified (build/test/review) before the next started; full briefs,
 reports, and reviews are in
 `.superpowers/sdd/you-are-going-to-foamy-stallman/`.
 
+## 2026-08-21 — Overhaul: two-door IA, DocuSign-grade certificates, sealed PDF export, mobile/PWA
+
+The certificate product's UX overhaul, from
+`docs/superpowers/specs/2026-08-20-overhaul-design.md` and its companion
+plan. All off-chain — zero program changes, zero new audit cycle; the claim
+transaction still pays with the student's own wallet (recorded limitation,
+not fixed here). Migration `0005_overhaul.sql` is written and re-runnable
+but, unlike `0003`/`0004`, **not yet applied to production** — pending
+explicit user approval, same protocol as before.
+
+**Information architecture**
+
+- feat(ia): renamed the certificate-side routes for a two-front-door app —
+  `/editions` → `/certificates`, `/admin` → `/studio`, `/certificator` →
+  `/sign` — with permanent redirects in `next.config.ts` so every printed
+  QR, bookmark and already-shared link keeps resolving. `/api/**` did not
+  move.
+- feat(landing): `/` rebuilt around three intent cards — Emitir
+  certificados, Verificar documento, Eventos & presença — replacing the
+  single certificate-only funnel.
+- feat(nav): the nav and footer now show only what a visitor can actually
+  open — Certificados/Verificar always, Meus documentos once authenticated,
+  Assinaturas/Studio/Eventos only once the corresponding role check passes
+  (closes the "locked door in the nav" finding from the IA audit).
+- refactor(naming): "Certificador" retired from UI copy in favor of
+  "Signatário" (nav label "Assinaturas"); "evento" reserved for the
+  attendance product (certificate copy says "curso/turma"); the admin audit
+  feed is now "Atividade". A dict-parity unit test keeps pt/en/es key sets
+  in sync going forward.
+
+**Certificate core — invites, drafts, ceremonies**
+
+- feat(studio): draft-first edition lifecycle — new `edition_drafts` table,
+  an autosaved wizard, and an explicit "Criar on-chain" action on the
+  review step instead of firing `create_edition` on mount.
+  `/studio/editions/[id]` is the new management page (seat/invite status,
+  distribution kit with QR + WhatsApp share, per-certificate pipeline
+  table, "Lembrar signatários"); `/studio` itself slims to stat cards +
+  edition list + Atividade feed. Editions created before this branch
+  resolve into the same management page by address/slug, no draft row
+  required.
+- feat(studio): signer invites — `signer_invites` table, magic-link
+  tokens, and a manual "inserir carteira manualmente" fallback that binds a
+  seat immediately, no email round trip.
+- feat(invite): `GET /api/invite/[token]` (resolves an invite, including
+  distinct "already accepted"/"expired" dead-states) and `POST
+  /api/invite/[token]/accept` (binds the signer's wallet, requires a Privy
+  session). The `/invite/[token]` page that calls them is still pending —
+  see "Known gaps" below.
+- feat(me): `/me` unifies "Meus documentos" — certificates and attendance
+  claims in one listing (`GET /api/me/attendance`) — and the claim flow
+  becomes a guided ceremony (consent → assinar → emitindo → done) with a
+  contextual low-balance/airdrop card replacing the always-visible
+  `WalletStrip`.
+- feat(sign): `/sign` gains a consent panel before the first wallet prompt
+  and a completion summary after a batch; mobile card layout for the
+  signing table.
+
+**Notifications**
+
+- feat(email): Resend behind `lib/email/` — `sendEmail()` degrades to a
+  skip+log when `RESEND_API_KEY`/`EMAIL_FROM` are unset, mirroring
+  `dbConfigured`'s posture, and never throws, so a provider outage can't
+  turn a successful on-chain action into a failed request. Seven
+  notification kinds (signer invite, pending requests, cert ready,
+  rejected, revoked, claim receipt, signer reminder), each localized
+  pt/en/es.
+- feat(db): `notification_log` table backs `notifyOnce()` — idempotent per
+  (kind, recipient, ref) and rate-limited for digest/reminder kinds.
+- feat(cron): `GET /api/cron/digest` (Vercel Cron, daily 12:00 UTC per
+  `vercel.json`) mails each signer a summary of requests still waiting on
+  them. Guarded by `CRON_SECRET` — unlike the email wrapper, this one
+  **fails closed**: every request 401s when the secret is unset, including
+  Vercel's own trigger.
+- feat(notify): triggers wired into the existing sign/reject/revoke/claim
+  routes, fire-and-forget (`.catch(log)`) so a mail failure never fails the
+  parent request.
+
+**PDF export + seal**
+
+- feat(pdf): `GET /api/certificates/[addr]/pdf` — claimed certificates
+  only. `lib/pdf/build.ts` (pdf-lib 1.17.1) renders A4-landscape with the
+  certificate re-rastered at 300dpi, a vector QR, a footer carrying the
+  hash + verify code + verify URL, and an evidence-log second page
+  (issuer, holder, edition, timestamps, tx + explorer URL, signer roster).
+  Deterministic by construction — pinned dates/producer/trailer ID,
+  `useObjectStreams: false`, double-save, `PDFHexString` for accented
+  text — two builds of the same input are byte-identical.
+- feat(pdf): `lib/pdf/seal.ts` — pluggable `CertificateSource`; the
+  self-managed `.p12` implementation (`SEAL_P12_BASE64`/
+  `SEAL_P12_PASSPHRASE`) signs a visible seal widget via `@signpdf`. Unset
+  → the export ships unsealed, still valid, still verifiable. The on-chain
+  commitment is unchanged (`sha256(png)`); the PDF carries that hash
+  rather than replacing it.
+- feat(me): "Baixar PDF" wired on claimed certificate cards,
+  `/verify/[id]`, and the claim-receipt email.
+
+**Verification upgrade**
+
+- feat(verify): 8-character Crockford-base32 `verify_code`
+  (`certificates.verify_code`, migration 0005) alongside link/hash/image
+  lookup; `GET /api/verify/resolve-code/[code]` resolves it.
+  `scripts/admin/backfill-verify-codes.ts` fills pre-0005 rows.
+- feat(verify): `?lang=` query override on `/verify/[id]` (beats the
+  cookie, so a shared link renders in the sender's chosen language for
+  anyone); slot/PDA/tx details collapse behind a "Detalhes técnicos"
+  disclosure; an optional issuer identity block (`ISSUER_NAME` +
+  `ISSUER_CONTACT_URL`/`ISSUER_CNPJ`, hidden when unset); the PDF dropzone
+  now accepts the exported PDF itself (extracts the embedded XMP hash) in
+  addition to the PNG; print stylesheet for the verdict page.
+
+**Mobile / PWA**
+
+- feat(pwa): `app/manifest.ts` + maskable/apple-touch icons, `display:
+  standalone`, safe-area viewport metadata — installable on iOS/Android
+  with no service worker (offline verification isn't meaningful here).
+- feat(responsive): the flat certificate/edition/signer tables gain card
+  layouts at narrow widths, following the attendance side's existing
+  table+cards pattern.
+
+**CI**
+
+- feat(ci): `.github/workflows/ci.yml` — every PR runs typecheck, lint,
+  vitest and `next build` for `apps/web`, plus a paths-gated program job
+  (`fmt --check`, `clippy -D warnings`, `cargo build-sbf` + `cargo test`)
+  that only runs when `programs/**`/`tests/**` changed.
+- test(e2e): `scripts/e2e-overhaul-devnet.ts` — draft → signer invites →
+  create-onchain → request ×2 → batch sign → claim → PDF fetch, asserting
+  the exported PDF's embedded XMP sha256 matches the artifact hash
+  `claim_certificate` committed on-chain and the PNG stored in the `certs`
+  bucket. No `pnpm` shortcut wired yet.
+
+**Data model**
+
+- feat(db): migration `0005_overhaul.sql` — `edition_drafts`,
+  `signer_invites`, `notification_log` (all RLS-enabled, zero anon
+  policies, same posture as 0002/0003), plus `certificates.verify_code`
+  with its own anon column grant (0003's anon SELECT is a column
+  allowlist, not `select *`, so a new column needs its own grant or every
+  anon verify query fails once the app selects it).
+
+**Known gaps as this entry is written** (tracked here rather than silently
+dropped — see README "Known limitations" for the first one):
+
+- `/invite/[token]` signer-invite acceptance page doesn't exist yet (the
+  `/api/invite/[token]` + `.../accept` routes it will call are live) — every
+  invite email links to a 404 until the page lands.
+- Touch-first designer rebuild: `react-moveable`/`react-selecto`/
+  `@scena/react-guides`/`@dnd-kit` are installed but not yet wired into
+  `components/designer/`.
+- `scripts/rls-probe.ts` does not yet probe `edition_drafts`,
+  `signer_invites` or `notification_log`.
+
 ## 2026-08-20 — Attendance metadata (POAP-informed) + published-salt removal
 
 Second wave of the day, after the hardening pass below landed. Gates green:

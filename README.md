@@ -1,15 +1,22 @@
 # Superteam Certify
 
 An on-chain certificate system for Superteam Brasil — "DocuSign on Solana."
-Sysadmins create certificate **editions** (a course, cohort, or event) with a
-branded template and 2–6 designated signers. Students request a certificate,
-and once every signer has signed on-chain, claim a **soulbound NFT** into
-their wallet forever. Signers get a mass-sign dashboard (one wallet popup for
-many certificates). Anyone can verify a certificate publicly — by link, by
-its SHA-256 hash, or by uploading the image itself.
+Sysadmins draft certificate **editions** (a course, cohort, or turma),
+invite 2–6 named signers by email, and — once every seat is accepted — push
+the edition on-chain. Students request a certificate, and once every signer
+has signed, claim a **soulbound NFT** into their wallet forever, with a
+sealed **PDF export** alongside it. Signers get a mass-sign dashboard (one
+wallet popup for many certificates) behind a consent ceremony. Anyone can
+verify a certificate publicly — by link, by its 8-character verify code, by
+its SHA-256 hash, or by uploading the image or the PDF itself. Email
+notifications (Resend) cover every hand-off: invited, pending, ready,
+rejected, revoked, claimed.
 
-Built devnet-first, autonomously, over one night. See `WAKEUP.md` for what a
-human needs to do before this is fully live, and `CHANGELOG.md` for the
+The app has two front doors — certificates and attendance — each with its
+own role-gated entry points; see "Page map" below.
+
+Built devnet-first, autonomously. See `WAKEUP.md` for what a human needs to
+do before this is fully live, and `CHANGELOG.md` for the
 milestone-by-milestone history.
 
 ## Architecture
@@ -95,6 +102,45 @@ page:
 | Rendering | satori + `@resvg/resvg-js`, pinned exact versions for byte-determinism |
 | Data fetching | TanStack Query for authed dashboards; RSC reads for public pages |
 | Forms | react-hook-form + zod 4 |
+| Email | Resend, behind a degrade-gracefully wrapper (`lib/email/`) — skips + logs when unconfigured, never throws |
+| PDF export | pdf-lib 1.17.1 (deterministic, byte-identical builds) + `@signpdf`/`node-forge` for an optional pluggable cryptographic seal |
+| Designer | `@dnd-kit` + `react-moveable` + `react-selecto` + `@scena/react-guides`, touch-first rebuild (dependencies landed, canvas wiring in progress) |
+| CI | GitHub Actions (`.github/workflows/ci.yml`) — typecheck/lint/vitest/`next build` on every PR, plus a paths-gated program job (fmt/clippy/build-sbf/test) that only runs when `programs/**`/`tests/**` changed |
+
+## Page map
+
+The 2026-08 overhaul split the app into two front doors — the certificate
+product and the attendance product — and renamed every certificate-side
+route. Old links keep working: `next.config.ts` 301-redirects every renamed
+route permanently, so printed QRs, bookmarks, and links already handed to
+students/signers all still resolve. Routes under `/api/**` did not move.
+
+| Route | Old route | Purpose | Auth |
+|---|---|---|---|
+| `/` | `/` | Landing — three intent cards: Emitir certificados, Verificar documento, Eventos & presença | none |
+| `/certificates` | `/editions` | Public catalog of open editions | none |
+| `/certificates/[slug]` | `/editions/[slug]` | Edition page + certificate request form | form gated on Privy |
+| `/verify`, `/verify/[id]` | same | Verification — link, 8-char verify code, SHA-256 hash, or PNG/PDF upload; `?lang=` override; "Detalhes técnicos" disclosure | none |
+| `/me` | same | "Meus documentos" — certificates and attendance claims together, claim ceremony, Baixar PDF | `requireUser` |
+| `/sign` | `/certificator` | Signer inbox — consent panel, batch signing, completion summary | `requireCertifier` |
+| `/studio` | `/admin` | Issuer dashboard — stat cards, edition list, Atividade feed | `requireSysadmin` |
+| `/studio/editions/new` | `/admin/editions/new` | Creation wizard — draft autosave, seats/invites, designer, explicit "Criar on-chain" step | sysadmin |
+| `/studio/editions/[id]` | — (new) | Edition management — seat/invite status, distribution kit, per-certificate pipeline, reminders | sysadmin |
+| `/invite/[token]` | — (new, **page not yet in the tree**) | Signer invite acceptance — Privy login, wallet binding. APIs live (`/api/invite/[token]`, `.../accept`); the page itself isn't. See "Known limitations." | token + Privy |
+| `/events` | same | Attendance event creation/dashboard | creator-wallet check |
+| `/attend/[token]` | same | Attendance claim link | token |
+| `/nft/[assetId]` | same | Attendance NFT detail | none |
+
+New API surface (all under the existing `apiRoute()` + auth helpers — see
+each route file for request/response shapes):
+
+- `/api/studio/drafts`, `/api/studio/drafts/[id]`, `.../invites`,
+  `.../invites/[inviteId]`, `.../invites/[inviteId]/remind`,
+  `.../create-onchain` — draft-first edition lifecycle + signer invites.
+- `/api/certificates/[addr]/pdf` — sealed PDF export (claimed certificates only).
+- `/api/verify/resolve-code/[code]` — 8-char verify code lookup.
+- `/api/me/attendance` — attendance claims for the session's linked wallets, feeding `/me`.
+- `/api/cron/digest` — daily signer digest (Vercel Cron; see "Environment variables").
 
 ## Repo layout
 
@@ -145,6 +191,112 @@ dependency) never touch the root install. `tsx` still runs these scripts
 from the repo root (`pnpm deploy`, `pnpm seed`, etc.) — module resolution is
 based on each script file's own location, not the invoking shell's cwd, so
 this works transparently.
+
+## Environment variables
+
+One `.env` file at the repo root (the symlink above makes it the app's
+too). `.env.example` is the template — copy it to `.env` and fill in real
+values; never commit `.env` itself. Every var below is read somewhere in
+`apps/web` unless noted otherwise (confirmed by grepping `process.env.`
+across the app).
+
+### Chain
+
+| Var | Purpose |
+|---|---|
+| `NEXT_PUBLIC_RPC_URL` | Devnet RPC endpoint |
+| `NEXT_PUBLIC_WS_URL` | Devnet websocket endpoint |
+| `NEXT_PUBLIC_PROGRAM_ID` | Certify program id (filled by `pnpm seed:onchain`) |
+| `NEXT_PUBLIC_APP_URL` | Canonical origin — builds every absolute link the server sends out (invite emails, verify links, the PDF's verify URL) |
+| `CORE_COLLECTION_ADDRESS` | The one global Metaplex Core collection (filled by `pnpm seed:onchain`) |
+
+### Auth (Privy)
+
+| Var | Purpose |
+|---|---|
+| `NEXT_PUBLIC_PRIVY_APP_ID` | Privy app id |
+| `PRIVY_APP_SECRET` | Privy server secret |
+
+### Database (Supabase)
+
+| Var | Purpose |
+|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | Project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Anon key — RLS-restricted, see "Security posture" |
+| `SUPABASE_SERVICE_ROLE_KEY` | Service-role key — server routes only, never sent to the client |
+| `SUPABASE_DB_URL` | Optional; lets `pnpm setup:supabase` apply migrations directly (Dashboard → Connect → URI). Without it, paste `supabase/migrations/*.sql` into the SQL editor by hand. Read by `scripts/`, not by the app itself. |
+
+### Server keys
+
+Path to a solana-keygen JSON file, or the JSON array itself. See "Security
+posture" below and `WAKEUP.md` "Custody" before using any of these in
+production.
+
+| Var | Purpose |
+|---|---|
+| `NOTARY_SECRET_KEY` | Co-signs `claim_certificate` only |
+| `OPERATOR_SECRET_KEY` | Single-signs the admin "creation class" ops; one of the two required signers for the destructive class |
+| `DEPLOYER_SECRET_KEY` | Program upgrade authority; doubles as the 2nd destructive-op admin signer until a real admin wallet registers |
+
+### Roles
+
+| Var | Purpose |
+|---|---|
+| `ADMIN_EMAILS` | Comma-separated sysadmin allowlist, by Privy email |
+| `ADMIN_WALLETS` | Comma-separated sysadmin allowlist, by wallet |
+
+### Email (Resend) — new in the 2026-08 overhaul
+
+| Var | Purpose | Unset behavior |
+|---|---|---|
+| `RESEND_API_KEY` | Resend API key | `emailConfigured()` (`lib/email/send.ts`) returns false; `sendEmail()` logs one warning and returns `{ sent: false, reason: "unconfigured" }` instead of throwing. Every notification trigger (invite, cert-ready, rejected, revoked, claim receipt, reminder, digest) becomes a no-op, never a failed request. |
+| `EMAIL_FROM` | Verified sender, e.g. `Superteam Certify <no-reply@certify.superteam.com.br>` | Required together with the key above — either missing disables sending |
+
+### Cron — new in the 2026-08 overhaul
+
+| Var | Purpose | Unset behavior |
+|---|---|---|
+| `CRON_SECRET` | Bearer token `GET /api/cron/digest` requires (Vercel Cron calls it daily at 12:00 UTC per `vercel.json`) | **Fails closed** — every request 401s, including Vercel's own trigger. Unlike the vars above, this is not a graceful degrade; set it before relying on the digest. |
+
+### PDF export seal — optional, new in the 2026-08 overhaul
+
+| Var | Purpose | Unset behavior |
+|---|---|---|
+| `SEAL_P12_BASE64` | Base64 of a self-managed org `.p12`/`.pfx` (`base64 -i seal.p12`) | `sealConfigured()` (`lib/pdf/seal.ts`) returns false; `GET /api/certificates/[addr]/pdf` ships the PDF unsealed — still valid, still verifiable, just without the cryptographic signature panel |
+| `SEAL_P12_PASSPHRASE` | Passphrase for the `.p12` above | Ignored when `SEAL_P12_BASE64` is unset |
+
+An ICP-Brasil **A1** (file) certificate is deliberately not supported this
+way — Adobe reports an A1 used outside its issued device as invalid. The
+upgrade path is a PSC-hosted cloud A3 certificate behind the same
+`CertificateSource` interface (`lib/pdf/seal.ts`), not yet implemented.
+
+### Issuer identity — optional, new in the 2026-08 overhaul
+
+Shown on `/verify/[id]` and printed in the PDF footer/evidence page and the
+email footer (`lib/issuer.ts`, `lib/email/templates.ts`).
+
+| Var | Purpose | Unset behavior |
+|---|---|---|
+| `ISSUER_NAME` | Issuer display name | Hides the issuer identity block on `/verify/[id]` entirely; the PDF and email footer fall back to the platform name |
+| `ISSUER_CONTACT_URL` | Optional issuer contact link | Omitted when unset |
+| `ISSUER_CNPJ` | Optional issuer CNPJ | Omitted when unset |
+
+### UI mock mode
+
+| Var | Purpose |
+|---|---|
+| `NEXT_PUBLIC_UI_MOCK` | `1` renders every screen from fixtures — no Privy, Supabase or RPC. See `apps/web/README.md` "UI mock mode". Ignored whenever `NODE_ENV=production`. |
+
+### Attendance NFTs
+
+`ATTENDANCE_MERKLE_TREE`, `ATTENDANCE_CREATOR_WALLETS`,
+`ATTENDANCE_SESSION_SECRET` — see "Attendance NFTs" below.
+
+### Optional dev tooling
+
+| Var | Purpose |
+|---|---|
+| `HELIUS_API_KEY` | Powers the Helius MCP dev tool only — the app itself reads RPC from `NEXT_PUBLIC_RPC_URL`/`NEXT_PUBLIC_WS_URL` |
 
 ## Development commands
 
@@ -310,6 +462,16 @@ RLS boundary.
 
 ## Known limitations / tomorrow
 
+**Signer invite links 404 (overhaul branch, being fixed alongside this
+commit).** The invite email and the wizard's "convidar" step send signers to
+`/invite/[token]`. The API side is live — `GET /api/invite/[token]`
+(resolves the invite, including distinct "already accepted"/"expired"
+states) and `POST /api/invite/[token]/accept` (binds the signer's wallet,
+requires a Privy session) — but the `/invite/[token]` **page** that would
+call them doesn't exist yet, so the link is still a dead end for now. The
+wizard's manual "inserir carteira manualmente" fallback is unaffected and
+works today.
+
 Ledger-triage dispositions (every `deferred minor` / `parked` line from the
 build's SDD progress log) are folded in here; the full detail for each is in
 `.superpowers/sdd/you-are-going-to-foamy-stallman/task-m7-hardening-report.md`.
@@ -348,12 +510,6 @@ build's SDD progress log) are folded in here; the full detail for each is in
 **Explicitly deferred in M7 (documented rather than fixed — see the M7
 report for the reasoning behind each):**
 
-- **Verify page i18n**: `/verify`'s hero banner, signer-table headers, and a
-  few detail labels are still hardcoded pt-BR strings rather than routed
-  through `lib/i18n.ts`, even though the plan scopes `/verify` as an
-  EN-supported public page. Converting `VerifyResult`/`SignerTable` (partly
-  server components) to be locale-aware is a real architecture change, not
-  a strings fill-in — scoped out of M7's "small and safe" inline-fix bucket.
 - **Revoked-certificate OG image**: `generateMetadata` currently omits
   `openGraph.images` entirely for a revoked certificate rather than pointing
   at a static "revoked" card — a share of a revoked cert's link today shows
@@ -414,7 +570,6 @@ regressions):**
   caveat by binding mint authority into the program itself).
 - Admin add/remove UI (env-configured allowlist + day-1 auto-registration
   stands in).
-- PDF export (PNG only).
 - Automated LGPD-erasure tooling (the manual runbook — null 2 columns,
   delete 2-3 storage objects, optionally revoke+burn — works today; no
   one-click admin action for it yet).
